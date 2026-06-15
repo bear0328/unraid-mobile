@@ -1,0 +1,60 @@
+# Dependencies
+node_modules
+dist
+
+# Build artifacts
+*.tar
+*.tar.gz
+*.tsbuildinfo
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Test
+test-*
+coverage
+
+# Docker
+.cache
+
+# Local config overrides
+config/settings.json
+config/secrets.json
+
+# 【D4 2026-06-14】WebDAV 鉴权密码文件（bcrypt 加密）
+# 必须 **不** 进 git！只本地 + unRAID 端保留
+# 重新生成：docker run --rm httpd:alpine htpasswd -nbB davuser '<password>' > nginx/.davpasswd
+nginx/.davpasswd
+# 【5.1.b 2026-06-14】/var/log 鉴权密码文件（bcrypt 加密）
+# 同样不入 git！只本地 + unRAID 端保留
+# 重新生成：docker run --rm httpd:alpine htpasswd -nbB loguser '<password>' > nginx/.logpasswd
+nginx/.logpasswd
+
+# 【续 49.4】内部开发文档,不进公开仓库(本地继续维护)
+DEV_PROGRESS.md
+SESSION_RECOVERY.md
+COMPOSE_PLAN.md
+DEVELOPMENT_PLAN.md
+POWER_LOGS_CONSOLE_PLAN.md
+WORKFLOW.md
+TROUBLESHOOTING.md
+.claude/
+.tmp/
+INTERNAL.md
+
+# license 私钥(永不进仓库/镜像)
+.license-private-key.pem
+.license-public-key.txt

@@ -1,0 +1,19 @@
+# 【续 55】全部文本源文件锁 LF:core.autocrlf=true 的 Windows 上 git archive/clone
+# 会把无 eol 属性的文件转成 CRLF,导致 Docker 构建产物与本地不一致(实锤:模板字符串
+# 里的换行被打进 bundle class 字符串)
+*.sh text eol=lf
+*.php text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.js text eol=lf
+*.mjs text eol=lf
+*.cjs text eol=lf
+*.json text eol=lf
+*.css text eol=lf
+*.html text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.md text eol=lf
+*.conf text eol=lf
+*.template text eol=lf
+Dockerfile text eol=lf

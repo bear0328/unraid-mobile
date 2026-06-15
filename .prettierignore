@@ -1,0 +1,7 @@
+node_modules
+dist
+nginx/.davpasswd
+nginx/.logpasswd
+config/settings.json
+*.tsbuildinfo
+*.tar

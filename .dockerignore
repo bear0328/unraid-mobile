@@ -1,0 +1,9 @@
+# 排除不需要拷进镜像的文件
+node_modules
+.git
+*.log
+.cache
+test-*
+*.tar
+.license-*.pem
+.license-*.txt

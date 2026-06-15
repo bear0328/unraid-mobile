@@ -1,0 +1,193 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-gray-50 text-gray-900;
+  }
+  .dark body {
+    @apply bg-gray-900 text-gray-100;
+  }
+}
+
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* 【阶段 P1-暗色 - 2026-06-17 续 32-2】暗色模式细节适配
+   1. 滚动条样式(light + dark 双套,避免暗色下滚动条白条刺眼)
+   2. 文本选区(Selection)颜色,暗色下不用死蓝
+   3. 日志行 hover 暗色加深,避免和正文对比度不够
+   4. code/pre 暗色背景
+   5. 数字字体 tabular-nums 默认开启(等宽数字,日志时间不抖)
+*/
+
+/* 滚动条(webkit) */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1; /* gray-300 */
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8; /* gray-400 */
+  background-clip: padding-box;
+  border: 2px solid transparent;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: #374151; /* gray-700 */
+  background-clip: padding-box;
+  border: 2px solid transparent;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #4b5563; /* gray-600 */
+  background-clip: padding-box;
+  border: 2px solid transparent;
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* 文本选区(全站) */
+::selection {
+  background: #bfdbfe; /* blue-200 light */
+  color: #1e3a8a; /* blue-900 */
+}
+.dark ::selection {
+  background: #1e40af; /* blue-800 */
+  color: #dbeafe; /* blue-100 */
+}
+
+/* 占位符颜色统一 */
+input::placeholder,
+textarea::placeholder {
+  color: #9ca3af; /* gray-400 */
+  opacity: 1;
+}
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #6b7280; /* gray-500 */
+}
+
+/* code/pre 暗色背景 */
+code,
+pre,
+kbd,
+samp {
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Monaco, Consolas, monospace;
+}
+.dark code:not(pre code) {
+  background: rgba(55, 65, 81, 0.6); /* gray-700 半透明 */
+  color: #f3f4f6;
+  padding: 0.1em 0.3em;
+  border-radius: 0.25rem;
+  font-size: 0.9em;
+}
+
+/* 链接(暗色下颜色提亮) */
+.dark a {
+  color: #60a5fa; /* blue-400 */
+}
+.dark a:hover {
+  color: #93c5fd; /* blue-300 */
+}
+
+/* focus 环(键盘用户友好,鼠标点击不显示) */
+:focus-visible {
+  outline: 2px solid #3b82f6; /* blue-500 */
+  outline-offset: 2px;
+  border-radius: 0.25rem;
+}
+.dark :focus-visible {
+  outline-color: #60a5fa; /* blue-400 */
+}
+
+/* 数字默认 tabular-nums(日志时间戳对齐) */
+.font-mono,
+code,
+pre,
+kbd {
+  font-variant-numeric: tabular-nums;
+}
+
+/* 【阶段 P2-高对比度 - 2026-06-17 续 33-7】无障碍高对比度模式
+   增强:加深文字/背景对比、链接下划线、focus 环加粗
+   同时支持亮色(.hc-light)和暗色(.hc-dark + .dark)
+   用 !important 覆盖 Tailwind 的灰度色阶
+*/
+.hc {
+  --hc-fg: #000000;
+  --hc-bg: #ffffff;
+  --hc-border: #000000;
+  --hc-link: #0000ee;
+  --hc-focus: #ff0000;
+}
+.dark.hc {
+  --hc-fg: #ffffff;
+  --hc-bg: #000000;
+  --hc-border: #ffffff;
+  --hc-link: #ffff00;
+  --hc-focus: #ffff00;
+}
+.hc body,
+.hc .bg-white,
+.hc .bg-gray-50,
+.hc .bg-gray-100 {
+  background-color: var(--hc-bg) !important;
+  color: var(--hc-fg) !important;
+}
+.dark.hc .dark\:bg-gray-800,
+.dark.hc .dark\:bg-gray-900,
+.dark.hc .dark\:bg-gray-700 {
+  background-color: var(--hc-bg) !important;
+  color: var(--hc-fg) !important;
+}
+.hc,
+.hc *:not(svg):not(svg *) {
+  border-color: var(--hc-border) !important;
+}
+.hc a,
+.dark.hc a {
+  color: var(--hc-link) !important;
+  text-decoration: underline !important;
+}
+.hc :focus-visible,
+.dark.hc :focus-visible {
+  outline: 3px solid var(--hc-focus) !important;
+  outline-offset: 3px !important;
+}
+.hc .text-gray-400,
+.hc .text-gray-500,
+.hc .text-gray-600,
+.hc .text-gray-700,
+.hc .text-gray-800,
+.hc .text-gray-900 {
+  color: var(--hc-fg) !important;
+}
+.dark.hc .dark\:text-gray-100,
+.dark.hc .dark\:text-gray-200,
+.dark.hc .dark\:text-gray-300,
+.dark.hc .dark\:text-gray-400,
+.dark.hc .dark\:text-gray-500 {
+  color: var(--hc-fg) !important;
+}
+.hc button,
+.hc input,
+.hc select,
+.hc textarea {
+  border: 2px solid var(--hc-border) !important;
+}
