@@ -8,6 +8,7 @@
 //   cpuTemp=0 表示温度不可用(未装 compose-api/无 CPU 传感器),显示占位
 import { useState, memo } from 'react';
 import { UnraidSystemInfo } from '../../services';
+import { usePro } from '../../hooks/usePro';
 import ProgressBar from '../ProgressBar';
 import { getCpuColor } from '../../utils/formatters';
 import MiniSparkline from './MiniSparkline';
@@ -23,6 +24,7 @@ interface CpuCardProps {
 
 function CpuCard({ systemInfo, history, cacheAgeMs }: CpuCardProps) {
   const [coresCollapsed, setCoresCollapsed] = useState(true);
+  const pro = usePro();
   const cpu = systemInfo?.cpu || 0;
   const cpuColor = getCpuColor(cpu);
   const colorClass =
@@ -54,7 +56,16 @@ function CpuCard({ systemInfo, history, cacheAgeMs }: CpuCardProps) {
             {systemInfo?.cpuInfo && (
               <p className="text-xs text-gray-500 dark:text-gray-400">
                 {systemInfo.cpuInfo.cores} 核心 / {systemInfo.cpuInfo.threads} 线程
-                {systemInfo?.cpuTemp && systemInfo.cpuTemp > 0 ? (
+                {!pro ? (
+                  // 【续 57 2026-07-22】CPU 温度归 Pro:免费版显示 🔒 占位,
+                  // systemApi 侧也不会调 compose-api 取温度(免费零宿主改动)。
+                  <span
+                    className="ml-2 text-gray-400 dark:text-gray-500"
+                    title="CPU 温度为 Pro 功能,激活 License 并安装宿主后端(compose-api)后显示"
+                  >
+                    🔒 温度 Pro
+                  </span>
+                ) : systemInfo?.cpuTemp && systemInfo.cpuTemp > 0 ? (
                   <span
                     className={`ml-2 ${
                       systemInfo.cpuTemp > 80

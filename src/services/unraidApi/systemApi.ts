@@ -5,6 +5,7 @@ import { graphqlRequest, buildGraphqlEndpoint } from './graphql';
 import { SYSTEM_INFO_QUERY, ONLINE_QUERY } from './queries';
 import { formatUptimeFromDate } from './normalizers';
 import { getCpuTemp } from '../composeApi';
+import { isPro } from '../license';
 
 // 【续 39-1 候选 - 2026-06-18】轻量探活:启动期健康自检 + 周期心跳
 // 比 getSystemInfo 小一个数量级(query { online }),3s 内能回
@@ -67,14 +68,18 @@ export async function getSystemInfo(
     // 【续 51 2026-07-19】温度改由 compose-api 提供(后端直读 /sys/class/hwmon CPU 传感器,
     // 纯 sysfs 不唤盘)。任何失败(未装 compose-api/无传感器/超时)静默回退 0,
     // CpuCard 显示"温度不可用"占位,绝不影响系统信息主流程。
+    // 【续 57 2026-07-22】CPU 温度归 Pro:非 Pro 直接回退 0,不调 compose-api
+    // (免费版零宿主改动,也避免自装 agent 绕过门控),CpuCard 显示 🔒 占位。
     let cpuTemp = 0;
-    try {
-      const temp = await getCpuTemp();
-      if (typeof temp.celsius === 'number' && temp.celsius > 0) {
-        cpuTemp = temp.celsius;
+    if (isPro()) {
+      try {
+        const temp = await getCpuTemp();
+        if (typeof temp.celsius === 'number' && temp.celsius > 0) {
+          cpuTemp = temp.celsius;
+        }
+      } catch {
+        // 回退 cpuTemp=0
       }
-    } catch {
-      // 回退 cpuTemp=0
     }
     const mem = data.metrics?.memory;
 

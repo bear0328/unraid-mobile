@@ -7,6 +7,8 @@ import { getNetworkInfo } from './networkApi';
 import { getShares } from './shareApi';
 import { clearAllGraphqlCache } from './cache';
 import { getCpuTemp } from '../composeApi';
+// 【续 57 2026-07-22】CPU 温度归 Pro:测试直接置 license 状态(pro 态才调 compose-api)
+import { __setLicenseStateForTest, __resetLicenseForTest } from '../license';
 
 // 【续 51】CPU 温度改由 compose-api 提供(systemApi 内部调用),mock 掉以便独立控制
 vi.mock('../composeApi', () => ({ getCpuTemp: vi.fn() }));
@@ -29,12 +31,18 @@ describe('systemApi / diskApi / networkApi / shareApi', () => {
   beforeEach(() => {
     clearAllGraphqlCache();
     fetchSpy = vi.spyOn(global, 'fetch');
+    // 【续 57】默认 pro 态(温度已解锁,续 51 温度用例不受影响);门控用例内置回 none
+    __setLicenseStateForTest({
+      status: 'active',
+      info: { email: 't@t', tier: 'pro', iat: 1, exp: null },
+    });
     // 默认:compose-api 无 CPU 传感器 → cpuTemp 回退 0
     mockGetCpuTemp.mockReset().mockResolvedValue({ celsius: null, sensor: null });
   });
 
   afterEach(() => {
     fetchSpy.mockRestore();
+    __resetLicenseForTest();
   });
 
   describe('getSystemInfo', () => {
@@ -143,6 +151,26 @@ describe('systemApi / diskApi / networkApi / shareApi', () => {
       );
       const info = await getSystemInfo(BASE, KEY, PROXY);
       expect(info).toMatchObject({ name: 'tower', cpu: 35, cpuTemp: 0, memory: 50 });
+    });
+
+    it('【续 57】非 Pro → 不调 compose-api 取温度,cpuTemp=0(免费版零宿主依赖)', async () => {
+      __setLicenseStateForTest({ status: 'none' });
+      mockGetCpuTemp.mockResolvedValue({ celsius: 47.0, sensor: 'coretemp/package id 0' });
+      fetchSpy.mockResolvedValueOnce(
+        mockFetchOnce({
+          data: {
+            info: { os: { hostname: 'tower' }, cpu: { cores: 8, threads: 16, brand: 'AMD' } },
+            metrics: {
+              cpu: { percentTotal: 35, cpus: [] },
+              memory: { used: 8e9, total: 16e9, free: 8e9, percentTotal: 50, swapTotal: 0, swapUsed: 0, swapFree: 0, percentSwapTotal: 0 },
+            },
+            array: { state: 'STARTED' },
+          },
+        })
+      );
+      const info = await getSystemInfo(BASE, KEY, PROXY);
+      expect(info?.cpuTemp).toBe(0);
+      expect(mockGetCpuTemp).not.toHaveBeenCalled();
     });
 
     it('【续 46.5】SYSTEM_INFO_QUERY 不含 temperature 字段(防回归:任何人加回都会唤醒休眠硬盘)', async () => {

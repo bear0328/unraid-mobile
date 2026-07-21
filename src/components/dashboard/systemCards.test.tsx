@@ -1,13 +1,15 @@
 // 【阶段 P2-7 - 2026-06-16 续 19】CpuCard / MemoryCard / DashboardSkeleton 组件测试
 // 覆盖:CpuCard 进度/温度染色/cpuInfo 渲染/核心展开/MemoryCard 进度/展开详情/Swap 染色/
 //       DashboardSkeleton 骨架屏 + 加载文案
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent, { type UserEvent } from '@testing-library/user-event';
 import CpuCard from './CpuCard';
 import MemoryCard from './MemoryCard';
 import DashboardSkeleton from './DashboardSkeleton';
 import type { UnraidSystemInfo } from '../../services';
+// 【续 57 2026-07-22】CPU 温度归 Pro:测试直接置 license 状态(pro 态恢复原温度断言)
+import { __setLicenseStateForTest, __resetLicenseForTest } from '../../services/license';
 
 function makeSystem(overrides: Partial<UnraidSystemInfo> = {}): UnraidSystemInfo {
   return {
@@ -23,6 +25,18 @@ function makeSystem(overrides: Partial<UnraidSystemInfo> = {}): UnraidSystemInfo
 }
 
 describe('CpuCard', () => {
+  beforeEach(() => {
+    // 【续 57】默认 pro 态(温度已解锁),非 pro 门控用例内置回 none
+    __setLicenseStateForTest({
+      status: 'active',
+      info: { email: 't@t', tier: 'pro', iat: 1, exp: null },
+    });
+  });
+
+  afterEach(() => {
+    __resetLicenseForTest();
+  });
+
   it('systemInfo=null → 显示 "CPU" 标题 + "0.0%"', () => {
     render(<CpuCard systemInfo={null} />);
     expect(screen.getByText('CPU')).toBeInTheDocument();
@@ -78,6 +92,15 @@ describe('CpuCard', () => {
 
   it('cpuTemp = 0 → 不渲染温度(条件 cpuTemp > 0)', () => {
     render(<CpuCard systemInfo={makeSystem({ cpuTemp: 0 })} />);
+    expect(screen.queryByText(/°C/)).not.toBeInTheDocument();
+  });
+
+  it('【续 57】非 Pro → 渲染 🔒 占位,不渲染温度数值', () => {
+    __setLicenseStateForTest({ status: 'none' });
+    render(
+      <CpuCard systemInfo={makeSystem({ cpuTemp: 45, cpuInfo: { cores: 4, threads: 8 } })} />
+    );
+    expect(screen.getByText(/🔒 温度 Pro/)).toBeInTheDocument();
     expect(screen.queryByText(/°C/)).not.toBeInTheDocument();
   });
 

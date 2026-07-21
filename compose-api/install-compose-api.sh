@@ -5,6 +5,13 @@
 #
 #   bash install-compose-api.sh <unRAID-apiKey>     # 直接给 key
 #   bash install-compose-api.sh                     # 交互式输入 key(不回显)
+#   bash install-compose-api.sh -y [apiKey]         # 跳过风险确认(自动化用)
+#
+# ⚠️ 风险说明(续 57,运行前必读):
+#   本脚本会修改 unRAID 开机脚本 /boot/config/go —— 它是系统启动时执行的核心
+#   脚本,改错可能导致开机异常。保障措施:修改前自动备份为 go.unraid-mobile-bak,
+#   追加内容仅 3 行(带【unraid-mobile】标记),卸载时按标记删除即可恢复。
+#   脚本执行时会要求输入 YES 确认知悉此风险(-y 跳过)。
 #
 # 它做什么:
 #   1. 校验 compose.manager 插件已安装(Compose 功能的载体)
@@ -20,7 +27,7 @@
 set -euo pipefail
 
 # 【续 49.4】公开版默认从 GitHub raw 拉 api.php(tag 固定版本)
-RAW_URL="https://raw.githubusercontent.com/bear0328/unraid-mobile/v1.0.0/compose-api/api.php"
+RAW_URL="https://raw.githubusercontent.com/bear0328/unraid-mobile/v1.0.1/compose-api/api.php"
 # 【续 50 D4-1】下载的 api.php 做 sha256 校验(防下载源被篡改);改动 api.php 后必须同步更新此值
 EXPECTED_API_SHA256="b83f50b8fa2992bd82e6c3530f1e1c1da89535e34e5be12ffed3772ad88261f8"
 
@@ -37,6 +44,26 @@ die()  { echo "[install] ERROR: $*" >&2; exit 1; }
 [ -d "$EXEC_DIR" ] || die "未检测到 compose.manager 插件($EXEC_DIR 不存在)。
 请先在 unRAID 应用市场(Community Applications)安装 compose.manager,再运行本脚本。"
 [ -S /var/run/php-fpm.sock ] || echo "[install] 警告: /var/run/php-fpm.sock 不存在,php-fpm 未运行?装完后 compose-api 会 502"
+
+# ---------- 0.5 风险确认(续 57:改 /boot/config/go 前必须显式确认) ----------
+ASSUME_YES=0
+if [ "${1:-}" = "-y" ] || [ "${1:-}" = "--yes" ]; then
+    ASSUME_YES=1
+    shift
+fi
+if [ "$ASSUME_YES" != "1" ]; then
+    cat << 'EOF'
+
+⚠️  风险说明 —— 运行前请阅读
+本脚本会修改 unRAID 开机脚本 /boot/config/go(系统启动核心脚本),
+用于重启后恢复 compose-api。保障措施:
+  · 修改前自动备份为 /boot/config/go.unraid-mobile-bak
+  · 仅追加 3 行(带【unraid-mobile】标记),不改动你已有的任何行
+  · 卸载: 删除 /boot/config/plugins/unraid-mobile/ 及 go 里标记的 3 行即可完全还原
+EOF
+    read -r -p "已知晓上述风险,确认继续? 输入 YES 继续,其他任意输入中止: " CONFIRM
+    [ "$CONFIRM" = "YES" ] || die "用户未确认,已中止(未做任何修改)"
+fi
 
 # ---------- 1. 拿 apiKey ----------
 APIKEY="${1:-${UNRAID_API_KEY:-}}"
@@ -93,6 +120,7 @@ cat << 'EOF'
   -v /var/run/php-fpm.sock:/hostrun/php-fpm.sock
 加完重建容器,App 的 容器/VM → Compose tab 即可看到栈列表。
 
+go 文件备份: /boot/config/go.unraid-mobile-bak(如需还原直接覆盖回去)
 卸载: 删掉 /boot/config/plugins/unraid-mobile/、
       /usr/local/emhttp/plugins/compose.manager/api.php、
       以及 /boot/config/go 里【unraid-mobile】标记的三行。
