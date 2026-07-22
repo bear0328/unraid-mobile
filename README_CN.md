@@ -2,6 +2,8 @@
 
 **[English](README.md)** | 简体中文
 
+[![Telegram 交流群](https://img.shields.io/badge/Telegram-交流群-2CA5E0?logo=telegram&logoColor=white)](https://t.me/unraid_mobile)
+
 专为移动设备优化的 unRAID 服务器管理界面。React 18 + TypeScript + Vite + Tailwind CSS,
 单容器部署,数据走 unRAID GraphQL API(7.2+)。
 
@@ -140,6 +142,9 @@ docker build -t unraid-mobile .
 | 日志 / 内存 / CPU / 磁盘 | ❌ | API 无此字段 |
 
 ## 常见问题
+
+**Q: 有问题去哪讨论 / 反馈?**
+加 Telegram 交流群:<https://t.me/unraid_mobile>,或在 GitHub 提 issue。
 
 **Q: API 连接失败?**
 检查服务器地址格式(不带尾部斜杠)、API 密钥是否有效、容器到 unRAID webGui 网络是否通。

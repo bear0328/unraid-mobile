@@ -2,6 +2,8 @@
 
 **English** | [简体中文](README_CN.md)
 
+[![Telegram Group](https://img.shields.io/badge/Telegram-Group-2CA5E0?logo=telegram&logoColor=white)](https://t.me/unraid_mobile)
+
 A mobile-optimized management interface for unRAID servers. React 18 + TypeScript + Vite + Tailwind CSS,
 single-container deployment, data via the unRAID GraphQL API (7.2+).
 
@@ -149,6 +151,9 @@ docker build -t unraid-mobile .
 | Logs / memory / CPU / disks | ❌ | No such fields in the API |
 
 ## FAQ
+
+**Q: Where can I ask questions or give feedback?**
+Join the Telegram group: <https://t.me/unraid_mobile>, or open a GitHub issue.
 
 **Q: API connection failed?**
 Check the server URL format (no trailing slash), that the API key is valid, and that the container
