@@ -15,7 +15,7 @@
 #
 # 它做什么:
 #   1. 校验 compose.manager 插件已安装(Compose 功能的载体)
-#   2. 写 /boot/config/plugins/unraid-mobile/apikey (flash 盘,chmod 600)
+#   2. 写 /boot/config/plugins/unraid-mobile/apikey (flash 盘,chmod 600,存 sha256 哈希)
 #   3. 装 api.php 正本到 /boot/config/plugins/unraid-mobile/
 #      并 cp 到执行位置 /usr/local/emhttp/plugins/compose.manager/api.php
 #   4. 往 /boot/config/go 加恢复钩子(tmpfs 重启后重建执行位置)
@@ -27,9 +27,9 @@
 set -euo pipefail
 
 # 【续 49.4】公开版默认从 GitHub raw 拉 api.php(tag 固定版本)
-RAW_URL="https://raw.githubusercontent.com/bear0328/unraid-mobile/v1.0.1/compose-api/api.php"
+RAW_URL="https://raw.githubusercontent.com/bear0328/unraid-mobile/v1.0.2/compose-api/api.php"
 # 【续 50 D4-1】下载的 api.php 做 sha256 校验(防下载源被篡改);改动 api.php 后必须同步更新此值
-EXPECTED_API_SHA256="b83f50b8fa2992bd82e6c3530f1e1c1da89535e34e5be12ffed3772ad88261f8"
+EXPECTED_API_SHA256="c7e14c5a1a6d00c21eb8bfafa82fe20437439e0ffb7828621cd79d160c99e01e"
 
 PLUGIN_DIR="/boot/config/plugins/unraid-mobile"
 EXEC_DIR="/usr/local/emhttp/plugins/compose.manager"
@@ -74,11 +74,13 @@ fi
 [ -n "$APIKEY" ] || die "apiKey 为空"
 
 # ---------- 2. 写 key 文件 ----------
+# 【续 60】存 `sha256:<hex>` 前缀格式而非明文 —— flash 备份/诊断包外泄不泄 key 本身;
+# api.php 按前缀识别哈希(无前缀的旧明文格式也兼容)
 mkdir -p "$PLUGIN_DIR"
 # 【续 50 D4-1】umask 077 再创建,消除文件先 0644 后 chmod 600 的窗口期
-(umask 077; printf '%s' "$APIKEY" > "$PLUGIN_DIR/apikey")
+(umask 077; printf 'sha256:%s' "$(printf '%s' "$APIKEY" | sha256sum | cut -d' ' -f1)" > "$PLUGIN_DIR/apikey")
 chmod 600 "$PLUGIN_DIR/apikey"
-info "key 文件: $PLUGIN_DIR/apikey (600)"
+info "key 文件: $PLUGIN_DIR/apikey (600,sha256 哈希)"
 
 # ---------- 3. 装 api.php ----------
 if [ -f "$SCRIPT_DIR/api.php" ]; then

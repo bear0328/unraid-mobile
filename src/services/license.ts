@@ -12,6 +12,8 @@
 // 安全共识(README 已写明):离线 key 防君子不防高手(bundle 可扒、公钥可换),
 // 商用滥用由 BSL LICENSE 兜底,这里不做对抗性加固。
 
+import { verifyP256 } from './ecdsaPure';
+
 const PUBLIC_KEY_B64U = 'BBz7qrzF-TaE-alABvbNyn4bVGEmpLZtW7B-_V0yslZ8wglJqV4zhEB3sXgp6kOe8f4E_zfm8rFJU1AvkA2X3K8';
 const LS_KEY = 'unraid-mobile-license';
 const KEY_PREFIX = 'UMPRO1.';
@@ -22,13 +24,19 @@ export interface LicenseInfo {
   iat: number;
   /** null = 永久 */
   exp: number | null;
+  /** 【续 59】绑定的 unRAID flashGuid;null/缺省 = 不绑机(向后兼容旧 key) */
+  guid?: string | null;
+  /** 【续 59】设备数上限(默认 3) */
+  maxDev?: number;
 }
 
 export type LicenseState =
   | { status: 'none' }
   | { status: 'active'; info: LicenseInfo }
   | { status: 'expired'; info: LicenseInfo }
-  | { status: 'invalid' };
+  | { status: 'invalid' }
+  /** 【续 59】key 有效但绑定的是另一台 unRAID(flashGuid 不匹配) */
+  | { status: 'mismatch'; info: LicenseInfo };
 
 // ---------- base64url / crypto ----------
 
@@ -73,12 +81,20 @@ async function verifyKey(key: string): Promise<LicenseState> {
     return { status: 'invalid' };
   }
   try {
-    const ok = await crypto.subtle.verify(
-      { name: 'ECDSA', hash: 'SHA-256' },
-      await getPublicKey(),
-      b64urlToBytes(sigB64) as BufferSource,
-      new TextEncoder().encode(payloadB64) as BufferSource
-    );
+    const msgBytes = new TextEncoder().encode(payloadB64);
+    const sigBytes = b64urlToBytes(sigB64);
+    let ok: boolean;
+    if (typeof crypto !== 'undefined' && crypto.subtle) {
+      ok = await crypto.subtle.verify(
+        { name: 'ECDSA', hash: 'SHA-256' },
+        await getPublicKey(),
+        sigBytes as BufferSource,
+        msgBytes as BufferSource
+      );
+    } else {
+      // 【续 62】HTTP 内网源(非安全上下文)无 crypto.subtle → 纯 JS 验签回退
+      ok = verifyP256(b64urlToBytes(publicKeyOverride ?? PUBLIC_KEY_B64U), sigBytes, msgBytes);
+    }
     if (!ok) return { status: 'invalid' };
   } catch {
     return { status: 'invalid' };
@@ -154,6 +170,18 @@ export function clearLicense(): void {
     /* ignore */
   }
   setState({ status: 'none' });
+}
+
+/**
+ * 【续 59】绑定模块(licenseBinding)写状态:验签已通过,但 flashGuid 不匹配 → mismatch;
+ * 传入 null 表示绑定通过/无需绑定,回到 active(仅当当前是 mismatch 时翻转,info 沿用)。
+ */
+export function setServerMismatch(mismatched: boolean): void {
+  if (mismatched) {
+    if (cached.status === 'active') setState({ status: 'mismatch', info: cached.info });
+  } else if (cached.status === 'mismatch') {
+    setState({ status: 'active', info: cached.info });
+  }
 }
 
 // ---------- 测试专用 ----------

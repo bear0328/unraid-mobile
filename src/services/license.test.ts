@@ -1,6 +1,6 @@
 // 【续 55 商业化】license.ts 验签/激活/过期/存储测试
 // 测试内自签 key:node crypto 生成临时 P-256 密钥对,__setPublicKeyForTest 注入公钥
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { generateKeyPairSync, createSign } from 'node:crypto';
 import {
   activateLicense,
@@ -9,6 +9,7 @@ import {
   isPro,
   initLicense,
   subscribeLicense,
+  setServerMismatch,
   __setPublicKeyForTest,
   __resetLicenseForTest,
 } from './license';
@@ -107,5 +108,66 @@ describe('license 验签', () => {
     expect(localStorage.getItem('unraid-mobile-license')).toBeNull();
     expect(notified).toBe(1);
     unsub();
+  });
+});
+
+describe('【续 59】绑定字段 + mismatch 状态', () => {
+  const boundPayload = {
+    ...validPayload,
+    guid: '346D-5678-4681-113486419445',
+    maxDev: 3,
+  };
+
+  it('带 guid/maxDev 的 key → 激活后 info 保留绑定字段', async () => {
+    const r = await activateLicense(signKey(boundPayload));
+    expect(r.ok).toBe(true);
+    expect(getLicenseState()).toEqual({ status: 'active', info: boundPayload });
+  });
+
+  it('旧格式 key(无 guid/maxDev)→ 兼容激活,guid/maxDev 为 undefined', async () => {
+    const r = await activateLicense(signKey(validPayload));
+    expect(r.ok).toBe(true);
+    const st = getLicenseState();
+    expect(st.status).toBe('active');
+    if (st.status === 'active') {
+      expect(st.info.guid).toBeUndefined();
+      expect(st.info.maxDev).toBeUndefined();
+    }
+  });
+
+  it('setServerMismatch(true):active → mismatch,isPro()=false;再 false 翻回 active', async () => {
+    await activateLicense(signKey(boundPayload));
+    expect(isPro()).toBe(true);
+    setServerMismatch(true);
+    expect(getLicenseState().status).toBe('mismatch');
+    expect(isPro()).toBe(false);
+    setServerMismatch(false);
+    expect(getLicenseState().status).toBe('active');
+    expect(isPro()).toBe(true);
+  });
+
+  it('非 active 状态 setServerMismatch(true) 不动状态', async () => {
+    setServerMismatch(true); // none 态
+    expect(getLicenseState().status).toBe('none');
+  });
+
+  it('mismatch 态 clearLicense → none', async () => {
+    await activateLicense(signKey(boundPayload));
+    setServerMismatch(true);
+    expect(getLicenseState().status).toBe('mismatch');
+    clearLicense();
+    expect(getLicenseState().status).toBe('none');
+  });
+
+  it('【续 62】crypto.subtle 不可用(HTTP 内网源)→ 纯 JS 回退验签,激活正常', async () => {
+    const original = globalThis.crypto;
+    vi.stubGlobal('crypto', { subtle: undefined });
+    try {
+      const r = await activateLicense(signKey(validPayload));
+      expect(r.ok).toBe(true);
+      expect(isPro()).toBe(true);
+    } finally {
+      vi.stubGlobal('crypto', original);
+    }
   });
 });

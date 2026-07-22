@@ -11,6 +11,7 @@ import RemoteReporter from './components/RemoteReporter';
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { ThemeProvider } from './context/ThemeContext';
 import { getApiConfig, loadConfigFromFile, saveApiConfig, subscribeApiConfigChange } from './services/unraidApi';
+import { checkServerBinding } from './services/licenseBinding';
 import { useApiHealth } from './hooks/useApiHealth';
 
 // Code splitting: 5 个 tab 拆 chunk(续 27 删 /vms,容器和 VM 合并到 /containers)
@@ -83,9 +84,13 @@ function App() {
   // 【续 46.3 2026-07-18】配置保存后解除 needsSetup — 旧代码 needsSetup 只在启动时算一次,
   // 首配/LS 被清的用户在 Settings 保存成功后点仪表盘仍被 index 路由弹回 /settings 困死,
   // 只能手动刷新页面(用户实测踩到)。订阅配置变化,有配置即放行
+  // 【续 59 2026-07-22】同一订阅点:服务器配置变化(含切换服务器/首配完成)后
+  // 重跑 license 绑机检查 —— 切到未绑定的服务器时 Pro 门即锁(mismatch)
   useEffect(() => {
+    checkServerBinding(); // 启动一次(initLicense 已在 main.tsx 完成首验)
     return subscribeApiConfigChange(() => {
       if (getApiConfig()) setNeedsSetup(false);
+      checkServerBinding();
     });
   }, []);
 

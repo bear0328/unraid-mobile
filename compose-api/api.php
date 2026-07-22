@@ -16,8 +16,10 @@ declare(strict_types=1);
  *           注意 nginx 必须同时传匹配的 SCRIPT_NAME(doc_root 相对路径),否则 php-fpm
  *           按 doc_root+SCRIPT_NAME 解析,无视 SCRIPT_FILENAME,报 ENOENT。
  *
- * 鉴权: X-Api-Key header 必须等于 /boot/config/plugins/unraid-mobile/apikey 文件内容
+ * 鉴权: X-Api-Key header 与 /boot/config/plugins/unraid-mobile/apikey 比对
  *       (与 GraphQL 同一个密钥,app 端零额外配置;flash 盘 root 600,不在 web 服务路径)。
+ *       【续 60】文件格式 `sha256:<hex>` = 存 key 的哈希,不明文存 key —— flash 备份/诊断包
+ *       外泄不泄 key 本身;无前缀的旧明文格式自动兼容(重跑安装脚本即升级为哈希)。
  *
  * 端点:
  *   GET  ?action=cputemp                    CPU 温度(续 51:直读 /sys/class/hwmon CPU 传感器,
@@ -62,12 +64,23 @@ function fail(int $code, string $msg): void
 }
 
 // ---------- 鉴权 ----------
-$expected = trim((string) @file_get_contents(KEY_FILE));
-if ($expected === '') {
+$stored = trim((string) @file_get_contents(KEY_FILE));
+if ($stored === '') {
     fail(503, 'compose API 未配置: key 文件缺失,请运行 install-compose-api.sh');
 }
 $provided = $_SERVER['HTTP_X_API_KEY'] ?? '';
-if (!is_string($provided) || $provided === '' || !hash_equals($expected, $provided)) {
+if (!is_string($provided) || $provided === '') {
+    fail(401, '未授权: X-Api-Key 无效');
+}
+// 【续 60】文件格式自描述前缀: `sha256:<64hex>` = 哈希存储(新装),否则 = 旧明文(兼容)。
+// 不能用内容嗅探(unRAID key 本身就是 64 hex,会误判);比对必须是 stored vs hash(provided)。
+// unRAID API key 本身是高熵随机串,无盐快哈希即可(无彩虹表/爆破场景)。
+if (str_starts_with($stored, 'sha256:')) {
+    $ok = hash_equals(substr($stored, 7), hash('sha256', $provided));
+} else {
+    $ok = hash_equals($stored, $provided);
+}
+if (!$ok) {
     fail(401, '未授权: X-Api-Key 无效');
 }
 

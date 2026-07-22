@@ -7,6 +7,19 @@
 专为移动设备优化的 unRAID 服务器管理界面。React 18 + TypeScript + Vite + Tailwind CSS,
 单容器部署,数据走 unRAID GraphQL API(7.2+)。
 
+## 界面截图
+
+<p>
+  <img src="docs/screenshots/01-dashboard.png" width="250" alt="仪表盘" />
+  <img src="docs/screenshots/02-containers.png" width="250" alt="容器管理" />
+  <img src="docs/screenshots/03-compose.png" width="250" alt="Compose 栈(Pro)" />
+</p>
+<p>
+  <img src="docs/screenshots/04-shares.png" width="250" alt="文件管理" />
+  <img src="docs/screenshots/05-logs.png" width="250" alt="系统日志" />
+  <img src="docs/screenshots/06-settings-license.png" width="250" alt="设置与 License" />
+</p>
+
 ## 功能(免费版 / Pro)
 
 | 免费版(开箱即用) | Pro(License key 解锁) |
@@ -100,15 +113,15 @@ Compose tab 和 CPU 温度(均为 Pro 功能)依赖一个宿主端小组件(`api
 # 在 unRAID 宿主上以 root 执行
 mkdir -p /tmp/um-install && cd /tmp/um-install
 curl -fsSL -o install-compose-api.sh \
-  https://raw.githubusercontent.com/bear0328/unraid-mobile/v1.0.1/compose-api/install-compose-api.sh
+  https://raw.githubusercontent.com/bear0328/unraid-mobile/v1.0.2/compose-api/install-compose-api.sh
 curl -fsSL -o api.php \
-  https://raw.githubusercontent.com/bear0328/unraid-mobile/v1.0.1/compose-api/api.php
+  https://raw.githubusercontent.com/bear0328/unraid-mobile/v1.0.2/compose-api/api.php
 bash install-compose-api.sh
 ```
 
 脚本会:风险确认(输 YES)→ 校验 compose.manager → 交互式收 apiKey 写入
-`/boot/config/plugins/unraid-mobile/apikey`(600)→ 装 api.php 到 compose.manager 插件目录
-→ 备份并加 `/boot/config/go` 恢复钩子。幂等,可重复跑。
+`/boot/config/plugins/unraid-mobile/apikey`(600,存 `sha256:` 哈希,明文不落 flash 盘)
+→ 装 api.php 到 compose.manager 插件目录 → 备份并加 `/boot/config/go` 恢复钩子。幂等,可重复跑。
 
 装完给容器加上 php-fpm.sock 挂载并重建,Compose tab 与 CPU 温度(Pro 激活后)即可用。
 
@@ -164,5 +177,7 @@ docker build -t unraid-mobile .
 - ❌ 禁止转售、禁止把本软件做成收费/托管服务提供给第三方
 
 商业化形式:代码全部公开,**Pro 功能通过离线 license key 解锁**(设置页输入即可,
-买断制,不联网验证)。离线 key 的技术性质是"防君子不防高手"——真正的商用保护
+买断制,不联网验证)。**1 枚 key 绑定 1 台 unRAID 服务器**(按 U 盘 flashGuid 校验,
+重装系统不影响;更换 U 盘后联系重签),**最多可在 3 台设备**(手机/浏览器)上激活,
+旧设备「解除绑定」即释放名额。离线 key 的技术性质是"防君子不防高手"——真正的商用保护
 由 BSL 许可证兜底。如果你喜欢这个项目,购买 Pro 是对开发最直接的支持。

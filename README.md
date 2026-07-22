@@ -7,6 +7,19 @@
 A mobile-optimized management interface for unRAID servers. React 18 + TypeScript + Vite + Tailwind CSS,
 single-container deployment, data via the unRAID GraphQL API (7.2+).
 
+## Screenshots
+
+<p>
+  <img src="docs/screenshots/01-dashboard.png" width="250" alt="Dashboard" />
+  <img src="docs/screenshots/02-containers.png" width="250" alt="Containers" />
+  <img src="docs/screenshots/03-compose.png" width="250" alt="Compose stacks (Pro)" />
+</p>
+<p>
+  <img src="docs/screenshots/04-shares.png" width="250" alt="Shares file manager" />
+  <img src="docs/screenshots/05-logs.png" width="250" alt="System logs" />
+  <img src="docs/screenshots/06-settings-license.png" width="250" alt="Settings &amp; License" />
+</p>
+
 ## Features (Free / Pro)
 
 | Free (works out of the box) | Pro (unlocked with a license key) |
@@ -107,14 +120,15 @@ Prerequisite: the **compose.manager** plugin installed from Community Applicatio
 # Run as root on the unRAID host
 mkdir -p /tmp/um-install && cd /tmp/um-install
 curl -fsSL -o install-compose-api.sh \
-  https://raw.githubusercontent.com/bear0328/unraid-mobile/v1.0.1/compose-api/install-compose-api.sh
+  https://raw.githubusercontent.com/bear0328/unraid-mobile/v1.0.2/compose-api/install-compose-api.sh
 curl -fsSL -o api.php \
-  https://raw.githubusercontent.com/bear0328/unraid-mobile/v1.0.1/compose-api/api.php
+  https://raw.githubusercontent.com/bear0328/unraid-mobile/v1.0.2/compose-api/api.php
 bash install-compose-api.sh
 ```
 
 The script: risk confirmation (type YES) → checks compose.manager → interactively asks for the API
-key and writes it to `/boot/config/plugins/unraid-mobile/apikey` (mode 600) → installs api.php into
+key and writes it to `/boot/config/plugins/unraid-mobile/apikey` (mode 600, stored as a
+`sha256:` hash — the plaintext key never touches the flash drive) → installs api.php into
 the compose.manager plugin directory → backs up and appends the `/boot/config/go` restore hook.
 Idempotent, safe to re-run.
 
@@ -177,6 +191,9 @@ This repository is licensed under the **Business Source License 1.1 (BSL)** (see
 - ❌ No resale; no offering this software as a paid/hosted service to third parties
 
 Commercial model: all code is public, **Pro features are unlocked with an offline license key**
-(enter it in Settings; one-time purchase, no online verification). Offline keys are "honesty-based"
+(enter it in Settings; one-time purchase, no online verification). **One key is bound to one
+unRAID server** (verified against the USB flash GUID — OS reinstalls don't affect it; if you
+replace the USB drive, contact us for a reissue) **and can be activated on up to 3 devices**
+(phones/browsers); "Unbind" on an old device releases its slot. Offline keys are "honesty-based"
 by nature — real commercial protection comes from the BSL license. If you like this project,
 buying Pro is the most direct way to support its development.
