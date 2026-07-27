@@ -57,7 +57,22 @@ docker run -d \
 
 > apiKey 只存在你自己浏览器的 localStorage,**不会**写到服务器任何文件。
 
-镜像 tag:`latest`(最新稳定) / `1.0.0`(固定版本)。仅 linux/amd64(unRAID 平台)。
+镜像 tag:`latest`(最新稳定) / `1.0.2`(固定版本)。仅 linux/amd64(unRAID 平台)。
+
+### 方式二:unRAID Docker UI 模板
+
+不习惯命令行的话,可以用模板 [`templates/unraid-mobile.xml`](templates/unraid-mobile.xml)
+在 Docker 标签页里填表部署:
+
+```bash
+# 在 unRAID 宿主上以 root 执行
+curl -fsSL -o /boot/config/plugins/dockerMan/templates-user/my-unraid-mobile.xml \
+  https://raw.githubusercontent.com/bear0328/unraid-mobile/master/templates/unraid-mobile.xml
+```
+
+然后:Docker 标签页 → **Add Container** → 模板下拉选 **unraid-mobile** →
+填 `UNRAID_UPSTREAM` → Apply。文件管理/日志/Compose 等可选挂载在高级区,
+不需要的行删掉即可。
 
 ### 功能 ↔ 挂载对照表
 

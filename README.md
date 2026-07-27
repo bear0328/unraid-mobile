@@ -60,7 +60,22 @@ Open `http://<unraid-IP>:3999`, go to "Settings" and fill in:
 > The API key lives only in your own browser's localStorage and is **never** written to any file on
 > the server.
 
-Image tags: `latest` (newest stable) / `1.0.1` (pinned version). linux/amd64 only (unRAID platform).
+Image tags: `latest` (newest stable) / `1.0.2` (pinned version). linux/amd64 only (unRAID platform).
+
+### Alternative: unRAID Docker UI template
+
+If you prefer the Docker tab UI over the CLI, use the template
+[`templates/unraid-mobile.xml`](templates/unraid-mobile.xml):
+
+```bash
+# run as root on the unRAID host
+curl -fsSL -o /boot/config/plugins/dockerMan/templates-user/my-unraid-mobile.xml \
+  https://raw.githubusercontent.com/bear0328/unraid-mobile/master/templates/unraid-mobile.xml
+```
+
+Then: Docker tab → **Add Container** → pick **unraid-mobile** in the Template dropdown →
+fill in `UNRAID_UPSTREAM` → Apply. Optional mounts (file manager / logs / Compose) are in the
+advanced section; delete the rows you don't need.
 
 ### Feature ↔ mount matrix
 
