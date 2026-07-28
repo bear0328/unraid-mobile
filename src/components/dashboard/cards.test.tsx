@@ -141,6 +141,38 @@ describe('DiskCard', () => {
     );
     expect(container.innerHTML).toMatch(/text-gray-500/);
   });
+
+  it('【续 66】spinMap false → 显示休眠徽章,温度位显示 —(不再是误导的 0°C)', () => {
+    const disks = [makeDisk({ name: 'disk1', temperature: 0 })];
+    render(<DiskCard disks={disks} spinMap={new Map([['disk1', false]])} />);
+    expect(screen.getByText('休眠')).toBeInTheDocument();
+    expect(screen.queryByText(/0°C/)).not.toBeInTheDocument();
+  });
+
+  it('【续 66】spinMap true → 无休眠徽章,温度正常显示', () => {
+    const disks = [makeDisk({ name: 'disk1', temperature: 35 })];
+    render(<DiskCard disks={disks} spinMap={new Map([['disk1', true]])} />);
+    expect(screen.queryByText('休眠')).not.toBeInTheDocument();
+    expect(screen.getByText(/35°C/)).toBeInTheDocument();
+  });
+
+  it('【续 66】空态卡 + spinMap → 列出各盘休眠/转动状态(未加载温度也能看)', () => {
+    render(
+      <DiskCard
+        disks={[]}
+        spinMap={
+          new Map([
+            ['disk1', false],
+            ['cache', true],
+          ])
+        }
+      />
+    );
+    expect(screen.getByText('DISK1')).toBeInTheDocument();
+    expect(screen.getByText('休眠')).toBeInTheDocument();
+    expect(screen.getByText('CACHE')).toBeInTheDocument();
+    expect(screen.getByText('转动中')).toBeInTheDocument();
+  });
 });
 
 describe('NetworkCard', () => {

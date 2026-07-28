@@ -4,9 +4,11 @@
 // 【续 39-1】改用通用 <Modal> 组件,删除 30+ 行 backdrop/focus-trap/body-scroll 样板
 // 【续 39-5】formatState 改用 formatters.vmStateLabel
 import { useId } from 'react';
+import { Lightbulb, Link as LinkIcon, ExternalLink } from 'lucide-react';
 import { UnraidVM } from '../../services';
 import { useApiConfig } from '../../hooks/useUnraidApi';
 import { Modal, ModalFooter, ModalHeader } from '../Modal';
+import Icon from '../ui/Icon';
 import { vmStateLabel } from '../../utils/formatters';
 
 interface VmDetailsModalProps {
@@ -55,9 +57,12 @@ export default function VmDetailsModal({ vm, onClose }: VmDetailsModalProps) {
       </div>
 
       <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-lg p-3 text-xs text-blue-700 dark:text-blue-300 space-y-1.5">
-        <div>
-          💡 VM 日志、CPU/MEM 实时监控、虚拟磁盘配置等信息需通过 unRAID WebGUI 查看(unRAID GraphQL
-          API 不暴露这些字段)。
+        <div className="flex items-start gap-1.5">
+          <Icon icon={Lightbulb} size={14} className="mt-0.5 shrink-0" />
+          <span>
+            VM 日志、CPU/MEM 实时监控、虚拟磁盘配置等信息需通过 unRAID WebGUI 查看(unRAID GraphQL
+            API 不暴露这些字段)。
+          </span>
         </div>
         {/* 【续 36-4】跳 WebGUI VM 页 */}
         {config?.baseUrl && (
@@ -67,7 +72,9 @@ export default function VmDetailsModal({ vm, onClose }: VmDetailsModalProps) {
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1 text-primary-600 dark:text-primary-400 hover:underline font-medium"
           >
-            🔗 在 unRAID WebGUI 中打开 ↗
+            <Icon icon={LinkIcon} size={12} />
+            在 unRAID WebGUI 中打开
+            <Icon icon={ExternalLink} size={12} />
           </a>
         )}
       </div>

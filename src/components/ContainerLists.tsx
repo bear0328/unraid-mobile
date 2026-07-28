@@ -1,9 +1,53 @@
 import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+  Lock,
+  LayoutDashboard,
+  ScrollText,
+  RefreshCw,
+  Square,
+  Play,
+  Pause,
+  ChevronRight,
+} from 'lucide-react';
 import { UnraidDockerContainer, UnraidVM } from '../services';
 import { ContainerAction, VmAction } from '../services/actionTypes';
 import ActionMenu, { type MenuItem } from './ActionMenu';
 import { usePro } from '../hooks/usePro';
+import { rowCardClass } from './ui/Card';
+
+// 【续 68 GUI 焕新】状态 pill:文字 + 色点,替代裸圆点(状态不用猜颜色)
+type PillTone = 'green' | 'yellow' | 'blue' | 'gray';
+const PILL_TONE_CLASS: Record<PillTone, string> = {
+  green: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+  yellow: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
+  blue: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+  gray: 'bg-gray-100 text-gray-500 dark:bg-gray-700/50 dark:text-gray-400',
+};
+
+function StatePill({ text, tone }: { text: string; tone: PillTone }) {
+  return (
+    <span
+      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium shrink-0 ${PILL_TONE_CLASS[tone]}`}
+    >
+      <span className="w-1.5 h-1.5 rounded-full bg-current" />
+      {text}
+    </span>
+  );
+}
+
+function getContainerStateMeta(state: string): { text: string; tone: PillTone } {
+  switch (state) {
+    case 'running':
+      return { text: '运行中', tone: 'green' };
+    case 'paused':
+      return { text: '已暂停', tone: 'yellow' };
+    case 'restarting':
+      return { text: '重启中', tone: 'blue' };
+    default:
+      return { text: '已停止', tone: 'gray' };
+  }
+}
 
 // 【阶段 P2-批量 - 2026-06-17 续 32-4】批量选择模式 + checkbox
 // 【阶段 P1-详情 - 2026-06-17 续 32-5】onViewDetails 打开 ContainerDetailsModal
@@ -119,30 +163,34 @@ function ContainerItem({
     if (highlighted) cardRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
   }, [highlighted]);
 
-  const stateColor = getContainerStateColor(container.state);
-  // 【续 55 商业化】容器详情/日志 → Pro;未解锁时菜单项带 🔒,点击跳设置页 License 区
+  const stateMeta = getContainerStateMeta(container.state);
+  // 【续 55 商业化】容器详情/日志 → Pro;未解锁时菜单项带锁图标,点击跳设置页 License 区
   // (单个启停/重启/暂停动作保持免费)
   const pro = usePro();
   const navigate = useNavigate();
   const goUnlock = () => navigate('/settings', { state: { focusLicense: true } });
   const menuItems: MenuItem[] = pro
     ? [
-        ...(onViewDetails ? [{ label: '📊 详情', onClick: () => onViewDetails(container) }] : []),
-        { label: '📋 日志', onClick: () => onViewLogs(container) },
+        ...(onViewDetails
+          ? [{ label: '详情', icon: LayoutDashboard, onClick: () => onViewDetails(container) }]
+          : []),
+        { label: '日志', icon: ScrollText, onClick: () => onViewLogs(container) },
       ]
     : [
-        ...(onViewDetails ? [{ label: '🔒 详情', onClick: goUnlock }] : []),
-        { label: '🔒 日志', onClick: goUnlock },
+        ...(onViewDetails ? [{ label: '详情', icon: Lock, onClick: goUnlock }] : []),
+        { label: '日志', icon: Lock, onClick: goUnlock },
       ];
   if (container.state === 'running') {
     menuItems.push(
       {
-        label: '🔄 重启',
+        label: '重启',
+        icon: RefreshCw,
         onClick: () => onAction(container.containerId, 'restart'),
         disabled: loading,
       },
       {
-        label: '⏹ 停止',
+        label: '停止',
+        icon: Square,
         onClick: () => onAction(container.containerId, 'stop'),
         disabled: loading,
         danger: true,
@@ -150,7 +198,8 @@ function ContainerItem({
     );
   } else {
     menuItems.push({
-      label: '▶ 启动',
+      label: '启动',
+      icon: Play,
       onClick: () => onAction(container.containerId, 'start'),
       disabled: loading,
     });
@@ -160,7 +209,7 @@ function ContainerItem({
     <div
       ref={cardRef}
       data-container-name={container.name}
-      className={`bg-white dark:bg-gray-800 rounded-xl p-3 shadow-sm transition-colors ${
+      className={`${rowCardClass} ${
         isSelected ? 'ring-2 ring-primary-500 bg-primary-50/40 dark:bg-primary-900/20' : ''
       } ${highlighted ? 'ring-2 ring-blue-500' : ''}`}
     >
@@ -177,8 +226,18 @@ function ContainerItem({
         )}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className={`w-2 h-2 rounded-full ${stateColor}`} />
             <span className="font-medium truncate">{container.name}</span>
+            {/* 【续 68】状态 pill(文字+色点),替代裸圆点 */}
+            <StatePill text={stateMeta.text} tone={stateMeta.tone} />
+            {/* 【续 68】有可用更新 → 橙色徽章(isUpdateAvailable 为 null/false 不显示) */}
+            {container.isUpdateAvailable === true && (
+              <span
+                className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium shrink-0 bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400"
+                title="该容器有可用镜像更新"
+              >
+                更新
+              </span>
+            )}
             {restarting && <span className="text-xs text-blue-500">重启中...</span>}
           </div>
           <p className="text-xs text-gray-500 truncate">{container.image}</p>
@@ -208,7 +267,7 @@ function VmItem({
 }) {
   const isRunning = vm.state.toUpperCase().includes('RUN');
   const isPaused = vm.state.toUpperCase().includes('PAUSE');
-  const stateColor = getVMStateColor(vm.state);
+  const vmPillTone = getVMStateTone(vm.state);
   const stateText = getVMStateText(vm.state);
   // 【续 55 商业化】VM 详情(点卡片) → Pro;未解锁时点击不弹详情,跳设置页 License 区
   // (VM 启停/重启/暂停/恢复动作保持免费)
@@ -225,16 +284,18 @@ function VmItem({
   const menuItems: MenuItem[] = [];
   if (isPaused) {
     menuItems.push({
-      label: '▶ 恢复',
+      label: '恢复',
+      icon: Play,
       onClick: () => onAction(vm.vmUuid, 'resume'),
       disabled: loading,
     });
   } else if (isRunning) {
     menuItems.push(
-      { label: '🔄 重启', onClick: () => onAction(vm.vmUuid, 'reboot'), disabled: loading },
-      { label: '⏸ 暂停', onClick: () => onAction(vm.vmUuid, 'pause'), disabled: loading },
+      { label: '重启', icon: RefreshCw, onClick: () => onAction(vm.vmUuid, 'reboot'), disabled: loading },
+      { label: '暂停', icon: Pause, onClick: () => onAction(vm.vmUuid, 'pause'), disabled: loading },
       {
-        label: '⏹ 停止',
+        label: '停止',
+        icon: Square,
         onClick: () => onAction(vm.vmUuid, 'stop'),
         disabled: loading,
         danger: true,
@@ -242,7 +303,8 @@ function VmItem({
     );
   } else {
     menuItems.push({
-      label: '▶ 启动',
+      label: '启动',
+      icon: Play,
       onClick: () => onAction(vm.vmUuid, 'start'),
       disabled: loading,
     });
@@ -250,7 +312,7 @@ function VmItem({
 
   return (
     <div
-      className={`bg-white dark:bg-gray-800 rounded-xl p-3 shadow-sm transition-colors ${
+      className={`${rowCardClass} ${
         onClick ? 'cursor-pointer active:bg-gray-50 dark:active:bg-gray-700' : ''
       } ${isSelected ? 'ring-2 ring-primary-500 bg-primary-50/40 dark:bg-primary-900/20' : ''}`}
       onClick={handleCardClick}
@@ -269,12 +331,16 @@ function VmItem({
         )}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className={`w-2 h-2 rounded-full ${stateColor}`} />
             <span className="font-medium truncate">{vm.name}</span>
+            {/* 【续 68】状态 pill(文字+色点),替代裸圆点 + 下行文字 */}
+            <StatePill text={stateText} tone={vmPillTone} />
             {rebooting && <span className="text-xs text-blue-500">重启中...</span>}
           </div>
-          <p className="text-xs text-gray-500">{stateText}</p>
         </div>
+        {/* 【续 68】Chevron 暗示整卡可点(详情) */}
+        {onClick && (
+          <ChevronRight size={16} className="text-gray-300 dark:text-gray-600 shrink-0" />
+        )}
         <div onClick={(e) => e.stopPropagation()}>
           <ActionMenu items={menuItems} />
         </div>
@@ -283,25 +349,12 @@ function VmItem({
   );
 }
 
-function getContainerStateColor(state: string) {
-  switch (state) {
-    case 'running':
-      return 'bg-green-500';
-    case 'paused':
-      return 'bg-yellow-500';
-    case 'restarting':
-      return 'bg-blue-500';
-    default:
-      return 'bg-gray-500';
-  }
-}
-
-function getVMStateColor(state: string) {
+function getVMStateTone(state: string): PillTone {
   const normalized = state.toLowerCase();
-  if (normalized.includes('running') || normalized.includes('started')) return 'bg-green-500';
-  if (normalized.includes('shut') || normalized.includes('stopped')) return 'bg-gray-500';
-  if (normalized.includes('paused')) return 'bg-yellow-500';
-  return 'bg-blue-500';
+  if (normalized.includes('running') || normalized.includes('started')) return 'green';
+  if (normalized.includes('shut') || normalized.includes('stopped')) return 'gray';
+  if (normalized.includes('paused')) return 'yellow';
+  return 'blue';
 }
 
 function getVMStateText(state: string) {

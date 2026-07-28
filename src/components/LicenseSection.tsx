@@ -4,6 +4,7 @@
 //   状态区显示绑定 GUID/设备数;解绑时从服务器设备文件删除本机(释放名额)
 import { useState } from 'react';
 import { useSyncExternalStore } from 'react';
+import { KeyRound, CheckCircle2, AlertTriangle } from 'lucide-react';
 import {
   activateLicense,
   clearLicense,
@@ -12,6 +13,7 @@ import {
 } from '../services/license';
 import { checkServerBinding, registerDevice, unregisterDevice } from '../services/licenseBinding';
 import { useToast } from '../hooks/useToast';
+import Icon from './ui/Icon';
 
 export default function LicenseSection() {
   const state = useSyncExternalStore(subscribeLicense, getLicenseState);
@@ -63,13 +65,15 @@ export default function LicenseSection() {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm" id="license-section">
       <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
-        🔑 License
+        <Icon icon={KeyRound} />
+        License
       </h3>
 
       {state.status === 'active' ? (
         <div className="space-y-2">
-          <p className="text-sm text-green-600 dark:text-green-400">
-            ✓ Pro 已激活:{state.info.email}
+          <p className="text-sm text-green-600 dark:text-green-400 flex items-center gap-1">
+            <Icon icon={CheckCircle2} size={16} className="shrink-0" />
+            Pro 已激活:{state.info.email}
             {state.info.exp
               ? `(有效期至 ${new Date(state.info.exp * 1000).toISOString().slice(0, 10)})`
               : '(永久)'}
@@ -97,16 +101,21 @@ export default function LicenseSection() {
             当前为免费版。输入 License key 解锁 Pro 功能(容器详情/日志、Compose 管理、
             文件写操作、批量操作、多服务器、告警通知等)。
             {state.status === 'expired' && (
-              <span className="block mt-1 text-red-500">
-                ⚠️ 已绑定的 key 过期({state.info.email}),请续期或重新输入。
+              <span className="mt-1 text-red-500 flex items-center gap-1">
+                <Icon icon={AlertTriangle} size={14} className="shrink-0" />
+                已绑定的 key 过期({state.info.email}),请续期或重新输入。
               </span>
             )}
             {state.status === 'invalid' && (
-              <span className="block mt-1 text-red-500">⚠️ 已存的 key 无效,请重新输入。</span>
+              <span className="mt-1 text-red-500 flex items-center gap-1">
+                <Icon icon={AlertTriangle} size={14} className="shrink-0" />
+                已存的 key 无效,请重新输入。
+              </span>
             )}
             {state.status === 'mismatch' && (
-              <span className="block mt-1 text-red-500">
-                ⚠️ 已存的 key 绑定另一台 unRAID 服务器({state.info.email}),本机 Pro 不可用。
+              <span className="mt-1 text-red-500 flex items-center gap-1">
+                <Icon icon={AlertTriangle} size={14} className="shrink-0" />
+                已存的 key 绑定另一台 unRAID 服务器({state.info.email}),本机 Pro 不可用。
               </span>
             )}
           </p>

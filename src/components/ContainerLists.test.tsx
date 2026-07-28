@@ -1,8 +1,8 @@
 // 【阶段 P2-5 - 2026-06-16 续 17 + 续 43 2026-06-20】ContainerLists 组件测试
 // 覆盖:DockerList / VmList 渲染 / 状态驱动的按钮显示(running/stopped/paused)/ 日志点击 / onClick
 //
-// 【续 43 2026-06-20 修复】组件把按钮放进 ActionMenu 折叠菜单,文案加了 emoji 前缀:
-//   '重启' → '🔄 重启' / '停止' → '⏹ 停止' / '启动' → '▶ 启动' 等
+// 【续 43 2026-06-20 修复】组件把按钮放进 ActionMenu 折叠菜单,文案带图标前缀:
+//   '重启' / '停止' / '启动' 等菜单项 label + lucide 图标
 //   + 点击触发按钮 '更多操作' 才展开菜单
 // 测试改用正则 /重启/ /停止/ /启动/ 匹配,点击 case 先展开菜单。
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -14,7 +14,7 @@ import { DockerList, VmList } from './ContainerLists';
 import type { UnraidDockerContainer, UnraidVM } from '../services';
 import { __setLicenseStateForTest, __resetLicenseForTest } from '../services/license';
 
-// 【续 55 商业化】组件用了 useNavigate(🔒 菜单项/VM 卡片跳设置),必须包 Router
+// 【续 55 商业化】组件用了 useNavigate(锁占位菜单项/VM 卡片跳设置),必须包 Router
 const renderWithRouter = (ui: ReactElement) => rtlRender(<MemoryRouter>{ui}</MemoryRouter>);
 
 // 【续 55 商业化】默认置 pro 态(原断言都是已解锁行为);门控用例内再手动置回 none
@@ -90,6 +90,42 @@ describe('DockerList', () => {
     expect(screen.getByText('redis')).toBeInTheDocument();
     expect(screen.getByText('nginx:1.25')).toBeInTheDocument();
     expect(screen.getByText('redis:7')).toBeInTheDocument();
+  });
+
+  it('【续 68】状态 pill:running → 「运行中」,stopped → 「已停止」', () => {
+    const containers = [
+      makeContainer({ name: 'nginx', state: 'running' }),
+      makeContainer({ name: 'redis', containerId: 'redis', state: 'stopped' }),
+    ];
+    renderWithRouter(
+      <DockerList
+        containers={containers}
+        actionLoading={null}
+        restartingContainers={new Set()}
+        onAction={() => {}}
+        onViewLogs={() => {}}
+      />
+    );
+    expect(screen.getByText('运行中')).toBeInTheDocument();
+    expect(screen.getByText('已停止')).toBeInTheDocument();
+  });
+
+  it('【续 68】isUpdateAvailable=true → 橙色「更新」徽章;null/false 不显示', () => {
+    const containers = [
+      makeContainer({ name: 'nginx', isUpdateAvailable: true }),
+      makeContainer({ name: 'redis', containerId: 'redis', isUpdateAvailable: null }),
+    ];
+    renderWithRouter(
+      <DockerList
+        containers={containers}
+        actionLoading={null}
+        restartingContainers={new Set()}
+        onAction={() => {}}
+        onViewLogs={() => {}}
+      />
+    );
+    expect(screen.getByText('更新')).toBeInTheDocument();
+    expect(screen.getAllByText('更新')).toHaveLength(1); // redis(null) 不显示
   });
 
   it('running 状态展开菜单后显示 重启 + 停止', async () => {
@@ -240,7 +276,7 @@ describe('DockerList', () => {
   });
 
   // ==== 续 55 商业化:容器详情/日志 → Pro(单个动作保持免费) ====
-  it('未解锁 → 详情/日志菜单项带 🔒,点击不调 onViewLogs/onViewDetails', async () => {
+  it('未解锁 → 详情/日志菜单项带锁图标,点击不调 onViewLogs/onViewDetails', async () => {
     __setLicenseStateForTest({ status: 'none' });
     const user = userEvent.setup();
     const onViewLogs = vi.fn();
@@ -257,9 +293,9 @@ describe('DockerList', () => {
     );
     await openActionMenu(user);
     // 锁占位项在,原动作项(重启/停止)保持免费不受影响
-    expect(screen.getByRole('menuitem', { name: /🔒 详情/ })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: /详情/ })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: /重启/ })).toBeInTheDocument();
-    await user.click(screen.getByRole('menuitem', { name: /🔒 日志/ }));
+    await user.click(screen.getByRole('menuitem', { name: /日志/ }));
     expect(onViewLogs).not.toHaveBeenCalled();
     expect(onViewDetails).not.toHaveBeenCalled();
   });

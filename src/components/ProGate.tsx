@@ -1,9 +1,11 @@
 // 【续 55 商业化】Pro 功能门
-// <ProGate feature="容器详情">{...}</ProGate>:未解锁时渲染 🔒 引导卡(点击跳设置页 License 区)
+// <ProGate feature="容器详情">{...}</ProGate>:未解锁时渲染锁图标引导卡(点击跳设置页 License 区)
 // <ProGateButton>:行内小锁按钮(替代原操作按钮,Shares 工具条/容器卡片按钮等用)
 import { type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Lock } from 'lucide-react';
 import { usePro } from '../hooks/usePro';
+import Icon from './ui/Icon';
 
 interface ProGateProps {
   /** 功能名(显示在引导文案里) */
@@ -21,7 +23,7 @@ export default function ProGate({ feature, children }: ProGateProps) {
       onClick={() => navigate('/settings', { state: { focusLicense: true } })}
       className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-dashed border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 text-sm hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors"
     >
-      <span>🔒</span>
+      <Icon icon={Lock} />
       <span>
         {feature} · Pro 功能,点击前往解锁
       </span>
@@ -36,7 +38,7 @@ interface ProGateButtonProps {
   title?: string;
 }
 
-/** 行内 🔒 占位按钮(未解锁时替代原操作按钮;已解锁时调用方应渲染原按钮) */
+/** 行内锁占位按钮(未解锁时替代原操作按钮;已解锁时调用方应渲染原按钮) */
 export function ProGateButton({ label, className = '', title }: ProGateButtonProps) {
   const navigate = useNavigate();
   return (
@@ -46,7 +48,10 @@ export function ProGateButton({ label, className = '', title }: ProGateButtonPro
       className={className}
       title={title ?? `${label} · Pro 功能,点击前往解锁`}
     >
-      🔒 {label}
+      <span className="inline-flex items-center gap-1">
+        <Icon icon={Lock} size={14} />
+        {label}
+      </span>
     </button>
   );
 }

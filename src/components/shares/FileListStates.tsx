@@ -1,5 +1,7 @@
 // 【阶段 1 P0 - 2026-06-15】Shares 加载/错误/空状态
 // 从 Shares.tsx 拆出
+import { FolderOpen } from 'lucide-react';
+import Icon from '../ui/Icon';
 export function FileListSkeleton() {
   return (
     <div className="animate-pulse">
@@ -27,7 +29,9 @@ export function FileListError({ message, onRetry }: { message: string; onRetry: 
 export function EmptyFolder() {
   return (
     <div className="text-center py-8 text-gray-500">
-      <p className="text-4xl mb-2">📂</p>
+      <p className="mb-2 inline-flex justify-center text-gray-300 dark:text-gray-600">
+        <Icon icon={FolderOpen} size={36} />
+      </p>
       <p>空目录</p>
     </div>
   );

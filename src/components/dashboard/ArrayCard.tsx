@@ -2,10 +2,13 @@
 // 从 Dashboard.tsx 拆出：arrayStatus 标签 + data 磁盘平均使用率
 // 【阶段 P1-2 - 2026-06-15 续 8】React.memo 包装(配合 Dashboard 数据刷新时减少不必要 re-render)
 import { memo } from 'react';
+import { HardDrive } from 'lucide-react';
 import { UnraidSystemInfo, UnraidDisk } from '../../services';
 import ProgressBar from '../ProgressBar';
 import { getDiskUsage } from '../../utils/formatters';
 import StaleBadge from '../ui/StaleBadge';
+import Icon from '../ui/Icon';
+import { cardClass, iconChipClass } from '../ui/Card';
 
 interface ArrayCardProps {
   systemInfo: UnraidSystemInfo | null;
@@ -27,9 +30,12 @@ function ArrayCard({ systemInfo, disks, cacheAgeMs }: ArrayCardProps) {
     : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400';
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+    <div className={cardClass}>
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-1.5">
+          <span className={`${iconChipClass} mr-1`}>
+            <Icon icon={HardDrive} size={18} />
+          </span>
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">存储阵列状态</h3>
           <StaleBadge
             cacheAgeMs={cacheAgeMs}
@@ -47,7 +53,7 @@ function ArrayCard({ systemInfo, disks, cacheAgeMs }: ArrayCardProps) {
         <ProgressBar label="阵列使用率" value={avgUsage} color="blue" />
       ) : (
         <p className="text-xs text-gray-400 dark:text-gray-500">
-          磁盘数据未加载 — 点磁盘卡片上的「🌡️ 刷新磁盘」加载后显示使用率
+          磁盘数据未加载 — 点磁盘卡片上的「刷新磁盘」加载后显示使用率
         </p>
       )}
     </div>

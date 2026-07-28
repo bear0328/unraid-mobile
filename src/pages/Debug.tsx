@@ -1,4 +1,32 @@
 import { useState } from 'react';
+import {
+  AppWindow,
+  Atom,
+  Ban,
+  BarChart3,
+  Bell,
+  Bug,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  CircleHelp,
+  FlaskConical,
+  Flame,
+  Hand,
+  Hourglass,
+  KeyRound,
+  Plug,
+  RefreshCw,
+  ScrollText,
+  Snail,
+  Brain,
+  Thermometer,
+  Timer,
+  Trash2,
+  Undo2,
+  XCircle,
+  type LucideIcon,
+} from 'lucide-react';
 import { useApiConfig } from '../hooks/useUnraidApi';
 import { usePolling } from '../hooks/usePolling';
 import { usePollInterval } from '../hooks/usePollInterval';
@@ -13,12 +41,13 @@ import { useAllDiskHistory, clearDiskHistory } from '../utils/diskHistory';
 import { useApiHealth } from '../hooks/useApiHealth';
 import type { EndpointResult } from '../services/unraidApi/healthCheck';
 import { __injectTestError, type ErrorRecord } from '../utils/errorReporter';
+import Icon from '../components/ui/Icon';
 
-const SOURCE_LABEL: Record<ErrorRecord['source'], string> = {
-  react: '⚛️ React',
-  window: '🪟 window',
-  unhandledrejection: '⏳ Promise',
-  manual: '✋ 手动',
+const SOURCE_LABEL: Record<ErrorRecord['source'], { icon: LucideIcon; label: string }> = {
+  react: { icon: Atom, label: 'React' },
+  window: { icon: AppWindow, label: 'window' },
+  unhandledrejection: { icon: Hourglass, label: 'Promise' },
+  manual: { icon: Hand, label: '手动' },
 };
 
 type EndpointName = 'healthz' | 'graphql' | 'config' | 'files';
@@ -29,14 +58,14 @@ const ENDPOINT_META: Record<EndpointName, { label: string; hint: string }> = {
   files: { label: '文件系统', hint: '/mnt/user 共享目录挂载异常' },
 };
 
-function endpointStatusHint(r: EndpointResult): string {
-  if (r.ok) return '✅ 正常';
-  if (!r.status) return `⏱️ 超时/不可达 — ${r.error || '未知'}`;
-  if (r.status === 401) return '🔑 鉴权失败 — API Key 错';
-  if (r.status === 403) return '🚫 403 — 权限/路径错';
-  if (r.status === 404) return '❓ 404 — 端点不存在';
-  if (r.status >= 500) return `🔥 ${r.status} — 后端异常`;
-  return `❌ HTTP ${r.status}`;
+function endpointStatusHint(r: EndpointResult): { icon: LucideIcon; text: string } {
+  if (r.ok) return { icon: CheckCircle2, text: '正常' };
+  if (!r.status) return { icon: Timer, text: `超时/不可达 — ${r.error || '未知'}` };
+  if (r.status === 401) return { icon: KeyRound, text: '鉴权失败 — API Key 错' };
+  if (r.status === 403) return { icon: Ban, text: '403 — 权限/路径错' };
+  if (r.status === 404) return { icon: CircleHelp, text: '404 — 端点不存在' };
+  if (r.status >= 500) return { icon: Flame, text: `${r.status} — 后端异常` };
+  return { icon: XCircle, text: `HTTP ${r.status}` };
 }
 
 function formatTime(ts: number): string {
@@ -200,9 +229,9 @@ export default function Debug() {
       >
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-            🐛 前端错误日志
-            {count > 0 && (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 font-medium">
+            <Icon icon={Bug} size={20} />
+            前端错误日志
+            {count > 0 && (              <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 font-medium">
                 {count}
               </span>
             )}
@@ -213,11 +242,17 @@ export default function Debug() {
               className="text-xs px-2 py-1 text-gray-600 dark:text-gray-300 hover:text-blue-600"
               title="注入一条测试错误（用于验证上报链路）"
             >
-              🧪 注入测试
+            <span className="inline-flex items-center gap-1">
+              <Icon icon={FlaskConical} size={13} />
+              注入测试
+            </span>
             </button>
             {count > 0 && (
               <button onClick={clear} className="text-xs px-2 py-1 text-red-600 hover:text-red-700">
-                🗑 清空
+                <span className="inline-flex items-center gap-1">
+                  <Icon icon={Trash2} size={13} />
+                  清空
+                </span>
               </button>
             )}
           </div>
@@ -243,7 +278,10 @@ export default function Debug() {
                   >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                        <span>{SOURCE_LABEL[e.source]}</span>
+                        <span className="inline-flex items-center gap-1">
+                          <Icon icon={SOURCE_LABEL[e.source].icon} size={13} />
+                          {SOURCE_LABEL[e.source].label}
+                        </span>
                         <span>·</span>
                         <span>{formatTime(e.timestamp)}</span>
                       </div>
@@ -251,7 +289,9 @@ export default function Debug() {
                         {e.message}
                       </div>
                     </div>
-                    <span className="text-gray-400 text-sm shrink-0">{isOpen ? '▲' : '▼'}</span>
+                    <span className="text-gray-400 text-sm shrink-0 inline-flex">
+                      <Icon icon={isOpen ? ChevronUp : ChevronDown} size={15} />
+                    </span>
                   </button>
                   {isOpen && (
                     <div className="px-3 py-2 bg-gray-50 dark:bg-gray-900/50 space-y-2">
@@ -299,7 +339,8 @@ export default function Debug() {
       >
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-            🔌 端点健康(4 端点)
+            <Icon icon={Plug} size={20} />
+            端点健康(4 端点)
             <span
               className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                 health.status === 'healthy'
@@ -324,7 +365,10 @@ export default function Debug() {
             disabled={health.status === 'checking' || !health.isConfigured}
             className="text-xs px-2 py-1 text-primary-600 dark:text-primary-400 hover:text-primary-700 disabled:opacity-50"
           >
-            🔄 重检
+            <span className="inline-flex items-center gap-1">
+              <Icon icon={RefreshCw} size={13} />
+              重检
+            </span>
           </button>
         </div>
         {!health.isConfigured ? (
@@ -342,7 +386,10 @@ export default function Debug() {
                 <span className="font-mono font-medium text-gray-700 dark:text-gray-200">
                   {ENDPOINT_META[name].label}
                 </span>
-                <span className="text-[11px] text-gray-400">⏳ 检查中…</span>
+                <span className="text-[11px] text-gray-400 inline-flex items-center gap-1">
+                  <Icon icon={Hourglass} size={11} />
+                  检查中…
+                </span>
               </li>
             ))}
           </ul>
@@ -367,7 +414,10 @@ export default function Debug() {
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <span className="text-[10px] text-gray-400 font-mono">{r.latencyMs}ms</span>
-                    <span className="text-[11px]">{hint}</span>
+                    <span className="text-[11px] inline-flex items-center gap-1">
+                      <Icon icon={hint.icon} size={12} />
+                      {hint.text}
+                    </span>
                   </div>
                 </li>
               );
@@ -382,7 +432,8 @@ export default function Debug() {
         className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm"
       >
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-          📊 性能指标 (Web Vitals)
+          <Icon icon={BarChart3} size={20} />
+          性能指标 (Web Vitals)
         </h3>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
           <VitalCell label="LCP" value={vitals.lcp} unit="ms" goodAt={2500} />
@@ -396,8 +447,9 @@ export default function Debug() {
           <VitalCell label="INP" value={vitals.inp} unit="ms" goodAt={200} />
         </div>
         {vitals.memory && (
-          <div className="mt-2 text-xs text-gray-500 dark:text-gray-400 font-mono">
-            🧠 JS Heap: {Math.round(vitals.memory.usedJSHeapSize / 1024 / 1024)} MB /{' '}
+          <div className="mt-2 text-xs text-gray-500 dark:text-gray-400 font-mono flex items-center gap-1">
+            <Icon icon={Brain} size={13} />
+            JS Heap: {Math.round(vitals.memory.usedJSHeapSize / 1024 / 1024)} MB /{' '}
             {Math.round(vitals.memory.totalJSHeapSize / 1024 / 1024)} MB
           </div>
         )}
@@ -413,7 +465,10 @@ export default function Debug() {
             onChange={(e) => setPerfAlertEnabled(e.target.checked)}
             className="w-3.5 h-3.5 accent-primary-600"
           />
-          <span>🐌 性能预算告警 (LCP&gt;4s / CLS&gt;0.25 / INP&gt;500ms 时弹 toast)</span>
+          <span className="inline-flex items-center gap-1">
+            <Icon icon={Snail} size={13} />
+            性能预算告警 (LCP&gt;4s / CLS&gt;0.25 / INP&gt;500ms 时弹 toast)
+          </span>
         </label>
 
         {/* 【续 35-5】历史趋势(5min 一次,保留最近 200 条 ≈ 16.6h) */}
@@ -422,15 +477,19 @@ export default function Debug() {
 
       {/* 【续 39-1 候选 - 2026-06-18】磁盘温度历史 */}
       <section className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-          🌡️ 磁盘温度历史
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
+          <Icon icon={Thermometer} size={20} />
+          磁盘温度历史
         </h3>
         <DiskTempTrends />
       </section>
 
       {/* 【续 34-9】通知测试 */}
       <section className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">🔔 推送通知</h3>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
+          <Icon icon={Bell} size={20} />
+          推送通知
+        </h3>
         <DebugNotifications />
       </section>
 
@@ -441,7 +500,8 @@ export default function Debug() {
       >
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-            📋 WebDAV 审计日志
+            <Icon icon={ScrollText} size={20} />
+            WebDAV 审计日志
             {auditCount > 0 && (
               <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium">
                 {auditCount}
@@ -453,7 +513,10 @@ export default function Debug() {
               onClick={clearAudit}
               className="text-xs px-2 py-1 text-red-600 hover:text-red-700"
             >
-              🗑 清空
+              <span className="inline-flex items-center gap-1">
+                <Icon icon={Trash2} size={13} />
+                清空
+              </span>
             </button>
           )}
         </div>
@@ -470,13 +533,15 @@ export default function Debug() {
                   : e.status === 'rolled-back'
                     ? 'text-blue-600'
                     : 'text-red-600';
-              const icon = e.status === 'success' ? '✅' : e.status === 'rolled-back' ? '↩️' : '❌';
+              const icon = e.status === 'success' ? CheckCircle2 : e.status === 'rolled-back' ? Undo2 : XCircle;
               return (
                 <div
                   key={e.id}
                   className="flex items-center gap-2 text-xs font-mono py-1 border-b border-gray-100 dark:border-gray-700 last:border-0"
                 >
-                  <span className="shrink-0">{icon}</span>
+                  <span className={`shrink-0 inline-flex ${color}`}>
+                    <Icon icon={icon} size={13} />
+                  </span>
                   <span className="text-gray-500 dark:text-gray-400 shrink-0">
                     {formatTime(e.timestamp)}
                   </span>
@@ -571,7 +636,10 @@ function DebugNotifications() {
           disabled={status === 'denied' || status === 'unsupported'}
           className="px-3 py-1.5 text-xs bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 rounded disabled:opacity-50"
         >
-          🧪 发送测试通知
+          <span className="inline-flex items-center gap-1">
+            <Icon icon={FlaskConical} size={13} />
+            发送测试通知
+          </span>
         </button>
       </div>
       <p className="text-[10px] text-gray-400">

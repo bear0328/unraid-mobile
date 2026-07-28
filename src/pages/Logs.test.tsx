@@ -93,8 +93,7 @@ describe('Logs 页面', () => {
     });
     render(<Logs />);
     await waitFor(() => {
-      // 源码渲染 `❌ 加载失败: {error}`,文本拆分 + 嵌套父元素也 textContent includes,
-      // 用 children.length===0 限定叶子 error div
+      // 源码渲染 XCircle 图标 + <span>加载失败: {error}</span>,匹配叶子 span
       expect(
         screen.getByText(
           (_, node) =>
@@ -111,7 +110,7 @@ describe('Logs 页面', () => {
     await waitFor(() => {
       expect(screen.queryByText(/加载中/)).not.toBeInTheDocument();
     });
-    const filterInput = screen.getByPlaceholderText('🔍 过滤');
+    const filterInput = screen.getByPlaceholderText('过滤');
     await user.type(filterInput, 'sshd');
     // 匹配数应该 >= 1
     await waitFor(() => {
@@ -161,7 +160,7 @@ describe('Logs 页面', () => {
     });
     render(<Logs />);
     await waitFor(() => {
-      // 源码渲染 `📭 {filter ? '无匹配行' : '日志为空或未选择'}`,emoji 与文本拆分 + 嵌套父元素,
+      // 源码渲染 Inbox 图标 + <span>{filter ? '无匹配行' : '日志为空或未选择'}</span>,匹配叶子 span
       // 用 children.length===0 限定叶子提示 div
       expect(
         screen.getByText(

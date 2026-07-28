@@ -7,11 +7,14 @@
 // 只是单纯不采样,会让 Top5 sparkline 冻结 30 分钟
 import { memo, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import { Package } from 'lucide-react';
 import { UnraidDockerContainer, UnraidApiService } from '../../services';
 import { useApiConfig, useUnraidApi } from '../../hooks/useUnraidApi';
 import { useMultiContainerStats } from '../../hooks/useMultiContainerStats';
 import MiniSparkline from './MiniSparkline';
 import StaleBadge from '../ui/StaleBadge';
+import Icon from '../ui/Icon';
+import { cardClass, iconChipClass } from '../ui/Card';
 
 interface ContainerSummaryCardProps {
   containers: UnraidDockerContainer[];
@@ -93,17 +96,20 @@ function ContainerSummaryCard({ containers, loading, api: apiProp, cacheAgeMs }:
 
   if (loading) {
     return (
-      <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+      <div className={cardClass}>
         <div className="animate-pulse h-20 bg-gray-100 dark:bg-gray-700 rounded" />
       </div>
     );
   }
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+    <div className={cardClass}>
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
-          <span>📦</span> 容器状态
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-1.5">
+          <span className={iconChipClass}>
+            <Icon icon={Package} size={18} />
+          </span>
+          容器状态
           {total > 0 && (
             <span className="text-xs text-gray-400 font-normal">
               {runningCount}/{total} 运行中

@@ -7,7 +7,9 @@
 // 【2026-07-19】z-50 → z-[80]:底部 Tab 导航也是 z-50 且 DOM 序更靠后,
 //   同级 z-index 下导航盖住 bottom sheet 下半截 → 确认/取消按钮被导航栏挡死
 import { useEffect, useId, useRef, type ReactNode } from 'react';
+import { X } from 'lucide-react';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
+import Icon from '../ui/Icon';
 
 // 通用底部 sheet 模态框
 export function SheetModal({
@@ -26,7 +28,7 @@ export function SheetModal({
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 flex items-end z-[80]"
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end z-overlay anim-fade"
       onClick={() => !disabled && onClose()}
     >
       <div
@@ -34,7 +36,7 @@ export function SheetModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="bg-white dark:bg-gray-800 w-full rounded-t-2xl p-5"
+        className="bg-white dark:bg-gray-800 w-full rounded-t-2xl p-5 anim-sheet"
         style={{ paddingBottom: 'calc(1.25rem + env(safe-area-inset-bottom))' }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -46,9 +48,9 @@ export function SheetModal({
             onClick={onClose}
             disabled={disabled}
             aria-label="关闭"
-            className="text-gray-400 hover:text-gray-600 text-2xl disabled:opacity-50"
+            className="text-gray-400 hover:text-gray-600 disabled:opacity-50"
           >
-            &times;
+            <Icon icon={X} size={22} />
           </button>
         </div>
         {children}

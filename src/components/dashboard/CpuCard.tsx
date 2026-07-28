@@ -7,12 +7,16 @@
 // 【续 51 2026-07-19】温度改由 compose-api 提供(后端直读 /sys/class/hwmon,不唤盘);
 //   cpuTemp=0 表示温度不可用(未装 compose-api/无 CPU 传感器),显示占位
 import { useState, memo } from 'react';
+import { Cpu, Lock, Thermometer, ChevronRight, ChevronDown } from 'lucide-react';
 import { UnraidSystemInfo } from '../../services';
 import { usePro } from '../../hooks/usePro';
 import ProgressBar from '../ProgressBar';
+import Icon from '../ui/Icon';
 import { getCpuColor } from '../../utils/formatters';
 import MiniSparkline from './MiniSparkline';
 import StaleBadge from '../ui/StaleBadge';
+import { cardClass, iconChipClass } from '../ui/Card';
+import { useCountUp } from '../../hooks/useCountUp';
 
 interface CpuCardProps {
   systemInfo: UnraidSystemInfo | null;
@@ -26,6 +30,8 @@ function CpuCard({ systemInfo, history, cacheAgeMs }: CpuCardProps) {
   const [coresCollapsed, setCoresCollapsed] = useState(true);
   const pro = usePro();
   const cpu = systemInfo?.cpu || 0;
+  // 【续 68】大数字变化时 300ms 平滑过渡(首帧直接终值,reduced-motion 关闭)
+  const cpuDisplay = useCountUp(cpu);
   const cpuColor = getCpuColor(cpu);
   const colorClass =
     cpuColor === 'red'
@@ -35,17 +41,19 @@ function CpuCard({ systemInfo, history, cacheAgeMs }: CpuCardProps) {
         : 'text-blue-600 dark:text-blue-400';
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+    <div className={cardClass}>
       <div className="flex items-center justify-between mb-1">
         <div className="flex items-center">
-          <span className="text-2xl mr-2">💻</span>
+          <span className={`${iconChipClass} mr-2.5`}>
+            <Icon icon={Cpu} size={18} />
+          </span>
           <div>
             <div className="flex items-center gap-1.5">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">CPU</h3>
               <StaleBadge
                 cacheAgeMs={cacheAgeMs}
                 thresholdMs={60 * 1000}
-                title="Dashboard 缓存数据,点 🔄 刷新拉最新"
+                title="Dashboard 缓存数据,点「刷新」拉最新"
               />
             </div>
             {systemInfo?.cpuInfo?.brand && (
@@ -60,14 +68,15 @@ function CpuCard({ systemInfo, history, cacheAgeMs }: CpuCardProps) {
                   // 【续 57 2026-07-22】CPU 温度归 Pro:免费版显示 🔒 占位,
                   // systemApi 侧也不会调 compose-api 取温度(免费零宿主改动)。
                   <span
-                    className="ml-2 text-gray-400 dark:text-gray-500"
+                    className="ml-2 inline-flex items-center gap-1 text-gray-400 dark:text-gray-500"
                     title="CPU 温度为 Pro 功能,激活 License 并安装宿主后端(compose-api)后显示"
                   >
-                    🔒 温度 Pro
+                    <Icon icon={Lock} size={12} />
+                    温度 Pro
                   </span>
                 ) : systemInfo?.cpuTemp && systemInfo.cpuTemp > 0 ? (
                   <span
-                    className={`ml-2 ${
+                    className={`ml-2 inline-flex items-center gap-1 ${
                       systemInfo.cpuTemp > 80
                         ? 'text-red-600 dark:text-red-400'
                         : systemInfo.cpuTemp > 60
@@ -75,26 +84,26 @@ function CpuCard({ systemInfo, history, cacheAgeMs }: CpuCardProps) {
                           : 'text-green-600 dark:text-green-400'
                     }`}
                   >
-                    🌡️ {systemInfo.cpuTemp.toFixed(1)}°C
+                    <Icon icon={Thermometer} size={12} />
+                    {systemInfo.cpuTemp.toFixed(1)}°C
                   </span>
                 ) : (
                   // 【续 51 2026-07-19】cpuTemp=0 表示温度不可用:温度改由 compose-api 提供
                   // (后端直读 /sys/class/hwmon,不唤盘),未安装/无 CPU 传感器时落到此占位。
                   // GraphQL temperature 依旧永禁(续 46.5 唤盘红线),勿恢复。
                   <span
-                    className="ml-2 text-gray-400 dark:text-gray-500"
+                    className="ml-2 inline-flex items-center gap-1 text-gray-400 dark:text-gray-500"
                     title="CPU 温度由 compose-api 提供(直读内核传感器,不会唤醒硬盘);未安装 compose-api 或机器无 CPU 温度传感器时不显示"
                   >
-                    🌡️ 温度不可用
+                    <Icon icon={Thermometer} size={12} />
+                    温度不可用
                   </span>
                 )}
               </p>
             )}
           </div>
         </div>
-        <div className={`text-2xl font-bold ${colorClass}`}>
-          {systemInfo?.cpu?.toFixed(1) || '0'}%
-        </div>
+        <div className={`text-2xl font-bold ${colorClass}`}>{cpuDisplay.toFixed(1)}%</div>
       </div>
 
       <ProgressBar label="" value={cpu} color={cpuColor} />
@@ -120,7 +129,7 @@ function CpuCard({ systemInfo, history, cacheAgeMs }: CpuCardProps) {
             onClick={() => setCoresCollapsed(!coresCollapsed)}
             className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 mb-2 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
           >
-            <span>{coresCollapsed ? '▶' : '▼'}</span>
+            <Icon icon={coresCollapsed ? ChevronRight : ChevronDown} size={12} />
             <span>{coresCollapsed ? '展开' : '收起'}</span>
             <span className="text-gray-400">({systemInfo.cpus.length} 核心)</span>
           </button>

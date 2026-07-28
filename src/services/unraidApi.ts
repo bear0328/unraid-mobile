@@ -52,6 +52,11 @@ export class UnraidApiService {
     return diskApi.getDisks(this.baseUrl, this.apiKey, this.useProxy);
   }
 
+  /** 【续 66】磁盘休眠状态(轻量,不唤盘) */
+  getSpinStatus() {
+    return diskApi.getSpinStatus(this.baseUrl, this.apiKey, this.useProxy);
+  }
+
   getNetworkInfo() {
     return networkApi.getNetworkInfo(this.baseUrl, this.apiKey, this.useProxy);
   }

@@ -2,8 +2,10 @@
 // 按钮:刷新 / 上传 / 新建文件夹 / 选择(或退出选择) / 清理
 // 【续 37-3】加 onCleanup 入口
 // 【续 55 商业化】上传/新建文件夹/清理(磁盘清理) → Pro,未解锁时换 🔒 占位按钮
+import { Brush, ListChecks, Plus, Upload, X } from 'lucide-react';
 import { ProGateButton } from '../ProGate';
 import { usePro } from '../../hooks/usePro';
+import Icon from '../ui/Icon';
 interface FileToolbarProps {
   inRoot: boolean;
   selectMode: boolean;
@@ -43,7 +45,10 @@ export default function FileToolbar({
                 onClick={onUpload}
                 className="px-3 py-1.5 text-sm bg-green-600 hover:bg-green-700 text-white rounded-md"
               >
-                ↑ 上传
+                <span className="inline-flex items-center gap-1">
+                  <Icon icon={Upload} size={14} />
+                  上传
+                </span>
               </button>
             ) : (
               <ProGateButton
@@ -56,7 +61,10 @@ export default function FileToolbar({
                 onClick={onNewFolder}
                 className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md"
               >
-                + 新建文件夹
+                <span className="inline-flex items-center gap-1">
+                  <Icon icon={Plus} size={14} />
+                  新建文件夹
+                </span>
               </button>
             ) : (
               <ProGateButton
@@ -75,7 +83,17 @@ export default function FileToolbar({
                 : 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100'
             }`}
           >
-            {selectMode ? `✕ 退出选择${selectedCount > 0 ? ` (${selectedCount})` : ''}` : '☑ 选择'}
+            {selectMode ? (
+              <span className="inline-flex items-center gap-1">
+                <Icon icon={X} size={14} />
+                {`退出选择${selectedCount > 0 ? ` (${selectedCount})` : ''}`}
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1">
+                <Icon icon={ListChecks} size={14} />
+                选择
+              </span>
+            )}
           </button>
         )}
         {pro ? (
@@ -84,7 +102,10 @@ export default function FileToolbar({
             className="px-3 py-1.5 text-sm bg-orange-100 dark:bg-orange-900/30 hover:bg-orange-200 dark:hover:bg-orange-900/50 text-orange-700 dark:text-orange-300 rounded-md"
             title="扫描大文件 / 长期未动文件"
           >
-            🧹 清理
+            <span className="inline-flex items-center gap-1">
+              <Icon icon={Brush} size={14} />
+              清理
+            </span>
           </button>
         ) : (
           <ProGateButton

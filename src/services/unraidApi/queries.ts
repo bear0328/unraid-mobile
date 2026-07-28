@@ -63,6 +63,56 @@ export const DISKS_QUERY = `
         fsFree
         numReads
         numWrites
+        isSpinning
+      }
+      caches {
+        name
+        device
+        status
+        size
+        temp
+        fsSize
+        fsUsed
+        fsFree
+        numReads
+        numWrites
+        isSpinning
+      }
+      boot {
+        name
+        device
+        status
+        size
+        temp
+        fsSize
+        fsUsed
+        fsFree
+        numReads
+        numWrites
+      }
+    }
+  }
+`;
+
+// 【续 67 2026-07-27】兼容 unraid-api < 4.20(unRAID 7.2 及更早):isSpinning 字段
+// 由 unraid-api v4.20.0(2025-09-08,#1527)引入,老版本 schema 没有它,DISKS_QUERY
+// 会整查校验失败(errors: Cannot query field "isSpinning")。diskApi 检测到该校验
+// 错误时降级用本查询重试 — 仅丢失休眠徽章数据,磁盘列表/容量/读写照常。
+export const DISKS_QUERY_NO_SPIN = `
+  query {
+    array {
+      disks {
+        name
+        device
+        type
+        status
+        size
+        temp
+        fsSize
+        fsUsed
+        fsFree
+        numReads
+        numWrites
       }
       caches {
         name
@@ -103,6 +153,7 @@ export const DOCKER_CONTAINERS_QUERY = `
         status
         autoStart
         created
+        isUpdateAvailable
       }
     }
   }
@@ -210,6 +261,45 @@ export const NETWORK_INFO_QUERY = `
       networkInterfaces {
         name
         status
+      }
+    }
+    metrics {
+      network {
+        name
+        bytesReceived
+        bytesSent
+      }
+    }
+  }
+`;
+
+// 【续 67】同上:metrics.network 在老版本 unraid-api 上可能不存在,
+// 校验失败时降级为只查 info.networkInterfaces — 网卡列表/状态照常,
+// 无累积字节 → 速率恒 0,前端显示「速率不可用」。
+export const NETWORK_INFO_QUERY_NO_METRICS = `
+  query {
+    info {
+      networkInterfaces {
+        name
+        status
+      }
+    }
+  }
+`;
+
+// 【续 66】磁盘休眠状态轻量查询 — 只取 name + isSpinning(emhttp 内存状态,
+// 不触发 SMART/不唤盘,实测查询前后 spundown 不变),可随 dashboard 常规刷新常拉。
+// DISKS_QUERY(含 temp)仍会唤盘,保持「刷新磁盘」按钮显式触发。
+export const SPIN_STATUS_QUERY = `
+  query {
+    array {
+      disks {
+        name
+        isSpinning
+      }
+      caches {
+        name
+        isSpinning
       }
     }
   }

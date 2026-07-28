@@ -5,6 +5,8 @@
 //     <CpuCard ... />
 //   </DraggableCard>
 import { useState, type ReactNode } from 'react';
+import { GripVertical } from 'lucide-react';
+import Icon from '../ui/Icon';
 
 interface DraggableCardProps {
   id: string;
@@ -61,7 +63,7 @@ export default function DraggableCard({
           title="拖动重排"
           aria-label={`拖动重排 ${id} (位置 ${index + 1}/${totalCount})`}
         >
-          ⠿
+          <Icon icon={GripVertical} size={14} />
         </div>
         {children}
       </div>

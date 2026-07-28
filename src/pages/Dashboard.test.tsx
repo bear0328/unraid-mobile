@@ -44,11 +44,13 @@ vi.mock('../hooks/usePolling', () => ({
 const mockGetSystemInfo = vi.fn();
 const mockGetDisks = vi.fn();
 const mockGetNetworkInfo = vi.fn();
+const mockGetSpinStatus = vi.fn();
 vi.mock('../hooks/useUnraidApi', () => ({
   useUnraidApi: vi.fn(() => ({
     getSystemInfo: mockGetSystemInfo,
     getDisks: mockGetDisks,
     getNetworkInfo: mockGetNetworkInfo,
+    getSpinStatus: mockGetSpinStatus,
   })),
   useApiConfig: vi.fn(() => ({ isConfigured: true })),
 }));
@@ -119,10 +121,13 @@ beforeEach(() => {
   mockGetSystemInfo.mockReset();
   mockGetDisks.mockReset();
   mockGetNetworkInfo.mockReset();
+  mockGetSpinStatus.mockReset();
   // 默认成功路径
   mockGetSystemInfo.mockResolvedValue(makeSystem());
   mockGetDisks.mockResolvedValue([makeDisk()]);
   mockGetNetworkInfo.mockResolvedValue([makeNetwork()]);
+  // 【续 66】spin 轻查询默认空 Map(测试不感知徽章)
+  mockGetSpinStatus.mockResolvedValue(new Map());
 });
 
 afterEach(() => {
@@ -199,7 +204,7 @@ describe('Dashboard 页面', () => {
     mockGetDisks.mockResolvedValueOnce([makeDisk({ name: 'disk1', reads: 1000, writes: 500 })]);
     renderWithRouter(<Dashboard />);
     await vi.advanceTimersByTimeAsync(10);
-    // mount 不拉磁盘 → 空态卡里点「🌡️ 刷新磁盘」显式加载
+    // mount 不拉磁盘 → 空态卡里点「刷新磁盘」显式加载
     await act(async () => {
       screen.getByRole('button', { name: '刷新磁盘数据(会唤醒休眠的阵列盘)' }).click();
     });

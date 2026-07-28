@@ -3,10 +3,12 @@
 // 入口:Layout 铃铛 / 命令面板
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { AlertTriangle, Bell, Check, Package, Satellite, type LucideIcon } from 'lucide-react';
 import { useNotifications, type AppNotification } from '../utils/notifications';
 import { useDialog } from '../hooks/useDialog';
 import { useToast } from '../hooks/useToast';
 import EmptyState from '../components/ui/EmptyState';
+import Icon from '../components/ui/Icon';
 
 const LEVEL_STYLE: Record<AppNotification['level'], { dot: string; badge: string }> = {
   info: {
@@ -27,11 +29,11 @@ const LEVEL_STYLE: Record<AppNotification['level'], { dot: string; badge: string
   },
 };
 
-const KIND_ICON: Record<AppNotification['kind'], string> = {
-  container: '📦',
-  error: '⚠️',
-  remote: '📡',
-  system: '🔔',
+const KIND_ICON: Record<AppNotification['kind'], LucideIcon> = {
+  container: Package,
+  error: AlertTriangle,
+  remote: Satellite,
+  system: Bell,
 };
 
 function timeAgo(ts: number): string {
@@ -82,7 +84,8 @@ export default function Notifications() {
       <header className="mb-3 flex items-center justify-between gap-2 flex-wrap">
         <div>
           <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-            🔔 通知中心
+            <Icon icon={Bell} size={20} />
+            通知中心
             {unread > 0 && (
               <span className="text-xs px-2 py-0.5 rounded-full bg-red-500 text-white">
                 {unread}
@@ -117,7 +120,7 @@ export default function Notifications() {
 
       {visible.length === 0 ? (
         <EmptyState
-          icon={filter === 'unread' ? '✓' : '🔔'}
+          icon={filter === 'unread' ? Check : Bell}
           title={filter === 'unread' ? '没有未读通知' : '暂无通知'}
           hint={
             filter === 'unread'
@@ -135,7 +138,9 @@ export default function Notifications() {
                 className={`bg-white dark:bg-gray-800 rounded-xl p-3 shadow-sm flex items-start gap-2.5 ${n.link ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700' : ''} ${!n.read ? 'ring-1 ring-primary-200 dark:ring-primary-800' : ''}`}
                 onClick={() => handleClick(n)}
               >
-                <span className="text-lg leading-none mt-0.5">{KIND_ICON[n.kind]}</span>
+                <span className="inline-flex mt-0.5 shrink-0 text-gray-400 dark:text-gray-500">
+                  <Icon icon={KIND_ICON[n.kind]} size={18} />
+                </span>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-baseline gap-2 flex-wrap">
                     <span

@@ -3,8 +3,20 @@
 // Esc 关闭,点击结果 navigate + 关闭
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+  LayoutDashboard,
+  Boxes,
+  FolderOpen,
+  ScrollText,
+  Settings as SettingsIcon,
+  Wrench,
+  Folder,
+  Search,
+  type LucideIcon,
+} from 'lucide-react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { useFavorites } from '../hooks/useFavorites';
+import Icon from './ui/Icon';
 
 interface SearchItem {
   /** 唯一 id */
@@ -14,7 +26,7 @@ interface SearchItem {
   /** 副标题(路径/类型) */
   subtitle: string;
   /** 图标 */
-  icon: string;
+  icon: LucideIcon;
   /** 类型标签 */
   kind: 'page' | 'favorite' | 'path';
   /** 点击跳的路径(react-router path 或 share 路径) */
@@ -24,26 +36,26 @@ interface SearchItem {
 }
 
 const NAV_ITEMS: SearchItem[] = [
-  { id: 'p-dashboard', title: '仪表盘', subtitle: '/', icon: '📊', kind: 'page', to: '/' },
+  { id: 'p-dashboard', title: '仪表盘', subtitle: '/', icon: LayoutDashboard, kind: 'page', to: '/' },
   {
     id: 'p-containers',
     title: '容器/VM',
     subtitle: '/containers',
-    icon: '📦',
+    icon: Boxes,
     kind: 'page',
     to: '/containers',
   },
-  { id: 'p-shares', title: '共享', subtitle: '/shares', icon: '📁', kind: 'page', to: '/shares' },
-  { id: 'p-logs', title: '日志', subtitle: '/logs', icon: '📋', kind: 'page', to: '/logs' },
+  { id: 'p-shares', title: '共享', subtitle: '/shares', icon: FolderOpen, kind: 'page', to: '/shares' },
+  { id: 'p-logs', title: '日志', subtitle: '/logs', icon: ScrollText, kind: 'page', to: '/logs' },
   {
     id: 'p-settings',
     title: '设置',
     subtitle: '/settings',
-    icon: '⚙️',
+    icon: SettingsIcon,
     kind: 'page',
     to: '/settings',
   },
-  { id: 'p-debug', title: '诊断', subtitle: '/debug', icon: '🔧', kind: 'page', to: '/debug' },
+  { id: 'p-debug', title: '诊断', subtitle: '/debug', icon: Wrench, kind: 'page', to: '/debug' },
 ];
 
 function score(item: SearchItem, q: string): number {
@@ -74,7 +86,7 @@ export default function GlobalSearch({ open, onClose }: { open: boolean; onClose
           : f.kind === 'share'
             ? `分享 · ${f.value}`
             : f.value,
-      icon: f.kind === 'container' ? '📦' : f.kind === 'share' ? '📁' : '📂',
+      icon: f.kind === 'container' ? Boxes : f.kind === 'share' ? FolderOpen : Folder,
       kind: 'favorite',
       to:
         f.kind === 'container'
@@ -147,7 +159,7 @@ export default function GlobalSearch({ open, onClose }: { open: boolean; onClose
 
   return (
     <div
-      className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-start justify-center pt-[10dvh] px-3"
+      className="fixed inset-0 z-toast bg-black/50 backdrop-blur-sm flex items-start justify-center pt-[10dvh] px-3 anim-fade"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -155,12 +167,12 @@ export default function GlobalSearch({ open, onClose }: { open: boolean; onClose
     >
       <div
         ref={trapRef}
-        className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-200 dark:border-gray-700"
+        className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-200 dark:border-gray-700 anim-pop"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={onKeyDown}
       >
         <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-          <span className="text-gray-400">🔍</span>
+          <Icon icon={Search} className="text-gray-400" />
           <input
             ref={inputRef}
             type="text"
@@ -191,7 +203,7 @@ export default function GlobalSearch({ open, onClose }: { open: boolean; onClose
                     : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
                 }`}
               >
-                <span className="text-lg shrink-0">{it.icon}</span>
+                <Icon icon={it.icon} className="shrink-0" />
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium truncate">{it.title}</div>
                   <div className="text-xs text-gray-500 dark:text-gray-400 truncate font-mono">

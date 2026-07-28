@@ -2,7 +2,7 @@
 // 覆盖:字段映射 / 归一化 / 容量计算 / 共享过滤
 import { describe, it, expect, vi, beforeEach, afterEach, type MockInstance } from 'vitest';
 import { getSystemInfo } from './systemApi';
-import { getDisks } from './diskApi';
+import { getDisks, getSpinStatus } from './diskApi';
 import { getNetworkInfo } from './networkApi';
 import { getShares } from './shareApi';
 import { clearAllGraphqlCache } from './cache';
@@ -258,10 +258,78 @@ describe('systemApi / diskApi / networkApi / shareApi', () => {
       const list = await getDisks(BASE, KEY, PROXY);
       expect(list).toHaveLength(1);
     });
+
+    it('【续 67】isSpinning 校验失败(unraid-api<4.20)→ 降级重试不含该字段的查询', async () => {
+      // 第一次:老版本 schema 无 isSpinning → GraphQL 校验错误
+      fetchSpy.mockResolvedValueOnce(
+        mockFetchOnce({
+          errors: [{ message: 'Cannot query field "isSpinning" on type "ArrayDisk".' }],
+        })
+      );
+      // 第二次:降级查询(无 isSpinning)成功
+      fetchSpy.mockResolvedValueOnce(
+        mockFetchOnce({
+          data: {
+            array: {
+              disks: [{ name: 'disk1', type: 'Data', status: 'DISK_OK', size: 1000 }],
+            },
+          },
+        })
+      );
+      const list = await getDisks(BASE, KEY, PROXY);
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+      const retryBody = JSON.parse((fetchSpy.mock.calls[1][1] as RequestInit).body as string);
+      expect(retryBody.query).not.toMatch(/isSpinning/);
+      expect(list).toHaveLength(1);
+      expect(list[0].name).toBe('disk1');
+      expect(list[0].isSpinning).toBeUndefined(); // 降级路径无休眠数据
+    });
+
+    it('【续 67】非校验类错误(如鉴权失败)不触发降级重试', async () => {
+      fetchSpy.mockResolvedValueOnce(
+        mockFetchOnce({
+          errors: [
+            { message: 'Invalid API key', extensions: { code: 'UNAUTHENTICATED' } },
+          ],
+        })
+      );
+      const list = await getDisks(BASE, KEY, PROXY);
+      expect(fetchSpy).toHaveBeenCalledTimes(1); // 不重试
+      expect(list).toHaveLength(0);
+    });
+  });
+
+  describe('getSpinStatus', () => {
+    it('【续 66】解析 disks+caches 的 isSpinning → name Map', async () => {
+      fetchSpy.mockResolvedValueOnce(
+        mockFetchOnce({
+          data: {
+            array: {
+              disks: [
+                { name: 'disk1', isSpinning: false },
+                { name: 'disk2', isSpinning: true },
+              ],
+              caches: [{ name: 'cache', isSpinning: true }],
+            },
+          },
+        })
+      );
+      const map = await getSpinStatus(BASE, KEY, PROXY);
+      expect(map.get('disk1')).toBe(false);
+      expect(map.get('disk2')).toBe(true);
+      expect(map.get('cache')).toBe(true);
+      expect(map.size).toBe(3);
+    });
+
+    it('【续 66】失败/空响应 → 空 Map,不抛错阻塞 dashboard', async () => {
+      fetchSpy.mockResolvedValueOnce(mockFetchOnce({ data: { array: {} } }));
+      const map = await getSpinStatus(BASE, KEY, PROXY);
+      expect(map.size).toBe(0);
+    });
   });
 
   describe('getNetworkInfo', () => {
-    it('【续 50 C9】按真实 schema 形状解析 info.networkInterfaces,rxSec/txSec 暂为 0', async () => {
+    it('【续 50 C9】按真实 schema 形状解析 info.networkInterfaces + metrics.network 累积字节', async () => {
       fetchSpy.mockResolvedValueOnce(
         mockFetchOnce({
           data: {
@@ -273,7 +341,8 @@ describe('systemApi / diskApi / networkApi / shareApi', () => {
               ],
             },
             metrics: {
-              network: [{ name: 'eth0', received: 1000, sent: 500 }],
+              // BigInt 在 JSON 里是字符串
+              network: [{ name: 'eth0', bytesReceived: '1000', bytesSent: '500' }],
             },
           },
         })
@@ -285,10 +354,41 @@ describe('systemApi / diskApi / networkApi / shareApi', () => {
         status: 'up',
         bytesReceived: 1000,
         bytesSent: 500,
-        rxSec: 0,
+        rxSec: 0, // 首次采样无差分基准
         txSec: 0,
       });
       expect(list[1].bytesReceived).toBe(0); // eth1 无 metrics
+    });
+
+    it('【续 66】速率差分:两次采样的累积字节 delta/dt → rxSec/txSec', async () => {
+      const nowSpy = vi.spyOn(Date, 'now');
+      try {
+        nowSpy.mockReturnValue(10_000);
+        fetchSpy.mockResolvedValueOnce(
+          mockFetchOnce({
+            data: {
+              info: { networkInterfaces: [{ name: 'eth0', status: 'up' }] },
+              metrics: { network: [{ name: 'eth0', bytesReceived: '1000', bytesSent: '500' }] },
+            },
+          })
+        );
+        await getNetworkInfo(BASE, KEY, PROXY);
+
+        nowSpy.mockReturnValue(12_000); // +2s
+        fetchSpy.mockResolvedValueOnce(
+          mockFetchOnce({
+            data: {
+              info: { networkInterfaces: [{ name: 'eth0', status: 'up' }] },
+              metrics: { network: [{ name: 'eth0', bytesReceived: '3000', bytesSent: '700' }] },
+            },
+          })
+        );
+        const list = await getNetworkInfo(BASE, KEY, PROXY);
+        expect(list[0].rxSec).toBe(1000); // (3000-1000)/2s
+        expect(list[0].txSec).toBe(100); // (700-500)/2s
+      } finally {
+        nowSpy.mockRestore();
+      }
     });
 
     it('【续 50 C9】请求 query 必须含 networkInterfaces(防 mock 再贴合错误实现)', async () => {
@@ -305,6 +405,35 @@ describe('systemApi / diskApi / networkApi / shareApi', () => {
       expect(body.query).toMatch(/networkInterfaces/);
       // query 与解析同源:若哪天 query 改了字段名,mock 形状也必须跟着改
       expect(body.query).not.toMatch(/info\s*\{\s*network\s*\{/);
+    });
+
+    it('【续 67】metrics.network 校验失败 → 降级重试只查 networkInterfaces,速率归零', async () => {
+      fetchSpy.mockResolvedValueOnce(
+        mockFetchOnce({
+          errors: [{ message: 'Cannot query field "network" on type "Metrics".' }],
+        })
+      );
+      fetchSpy.mockResolvedValueOnce(
+        mockFetchOnce({
+          data: {
+            info: { networkInterfaces: [{ name: 'eth0', status: 'up' }] },
+          },
+        })
+      );
+      const list = await getNetworkInfo(BASE, KEY, PROXY);
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+      const retryBody = JSON.parse((fetchSpy.mock.calls[1][1] as RequestInit).body as string);
+      expect(retryBody.query).not.toMatch(/metrics/);
+      expect(retryBody.query).toMatch(/networkInterfaces/);
+      expect(list).toHaveLength(1);
+      expect(list[0]).toEqual({
+        name: 'eth0',
+        status: 'up',
+        bytesReceived: 0,
+        bytesSent: 0,
+        rxSec: 0,
+        txSec: 0,
+      });
     });
   });
 

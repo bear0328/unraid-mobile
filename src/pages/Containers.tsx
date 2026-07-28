@@ -4,6 +4,7 @@
 // 【续 48 2026-07-19】Compose 页并入为 compose tab,tab 顺序 docker/compose/vm;/compose 路由重定向到 /containers
 import { useState, useCallback, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { RefreshCw, Play, Square } from 'lucide-react';
 import { UnraidDockerContainer, UnraidVM } from '../services';
 import { ContainerAction, VmAction } from '../services/actionTypes';
 import { useUnraidApi, useApiConfig } from '../hooks/useUnraidApi';
@@ -18,6 +19,7 @@ import VmDetailsModal from '../components/vms/VmDetailsModal';
 import ContainerDetailsModal from '../components/containers/ContainerDetailsModal';
 import ComposeStacks from '../components/compose/ComposeStacks';
 import StaleBadge from '../components/ui/StaleBadge';
+import Icon from '../components/ui/Icon';
 import ProGate from '../components/ProGate';
 import { usePro } from '../hooks/usePro';
 import { cacheAgeMs, getCacheKey } from '../services/unraidApi/cache';
@@ -215,20 +217,24 @@ export default function Containers() {
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-2xl font-bold">容器管理</h1>
         {/* 【续 45.7 2026-07-01】手动刷新按钮 */}
-        <button
-          onClick={handleManualRefresh}
-          disabled={loading}
-          className="text-xs px-2.5 py-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          aria-label="手动刷新容器列表"
-          title="立即拉新容器数据(不唤醒硬盘)"
-        >
-          🔄 刷新
-        </button>
+        {/* 【续 68.2】compose tab 隐藏页级刷新:ComposeStacks 有自己的刷新钮,两个并存易混淆 */}
+        {activeTab !== 'compose' && (
+          <button
+            onClick={handleManualRefresh}
+            disabled={loading}
+            className="inline-flex items-center gap-1 text-xs px-2.5 py-1 text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            aria-label="手动刷新容器列表"
+            title="立即拉新容器数据(不唤醒硬盘)"
+          >
+            <Icon icon={RefreshCw} size={12} />
+            刷新
+          </button>
+        )}
         {/* 【续 45.7】容器 staleness 提示 (复用 30s 阈值) */}
         <StaleBadge
           cacheAgeMs={containersCacheAge}
           thresholdMs={30_000}
-          title="容器缓存数据,点 🔄 刷新拉最新"
+          title="容器缓存数据,点「刷新」拉最新"
         />
       </div>
 
@@ -288,23 +294,26 @@ export default function Containers() {
               <button
                 onClick={() => handleBatch('start')}
                 disabled={batchBusy}
-                className="text-xs px-2.5 py-1.5 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded-lg"
+                className="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded-lg"
               >
-                ▶ 启动
+                <Icon icon={Play} size={12} />
+                启动
               </button>
               <button
                 onClick={() => handleBatch('restart')}
                 disabled={batchBusy}
-                className="text-xs px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg"
+                className="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg"
               >
-                🔄 重启
+                <Icon icon={RefreshCw} size={12} />
+                重启
               </button>
               <button
                 onClick={() => handleBatch('stop')}
                 disabled={batchBusy}
-                className="text-xs px-2.5 py-1.5 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white rounded-lg"
+                className="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white rounded-lg"
               >
-                ⏹ 停止
+                <Icon icon={Square} size={12} fill="currentColor" />
+                停止
               </button>
             </>
           ) : (
@@ -312,23 +321,26 @@ export default function Containers() {
               <button
                 onClick={() => handleBatch('start')}
                 disabled={batchBusy}
-                className="text-xs px-2.5 py-1.5 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded-lg"
+                className="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded-lg"
               >
-                ▶ 启动
+                <Icon icon={Play} size={12} />
+                启动
               </button>
               <button
                 onClick={() => handleBatch('reboot')}
                 disabled={batchBusy}
-                className="text-xs px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg"
+                className="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg"
               >
-                🔄 重启
+                <Icon icon={RefreshCw} size={12} />
+                重启
               </button>
               <button
                 onClick={() => handleBatch('stop')}
                 disabled={batchBusy}
-                className="text-xs px-2.5 py-1.5 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white rounded-lg"
+                className="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white rounded-lg"
               >
-                ⏹ 停止
+                <Icon icon={Square} size={12} fill="currentColor" />
+                停止
               </button>
             </>
           )}

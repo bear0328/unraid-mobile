@@ -1,12 +1,16 @@
 // 【阶段 P2-UI - 2026-06-17 续 31-2】卡片操作下拉菜单
 // 替代平铺按钮,手机端节省横向空间
-// 行为:点击 ⋮ 展开,点击外部关闭,Esc 关闭
+// 行为:点击 ⋮ 图标展开,点击外部关闭,Esc 关闭
 // a11y:button aria-label / 菜单 role="menu" / 选项 role="menuitem"
 import { useEffect, useId, useRef, useState } from 'react';
+import { MoreVertical, type LucideIcon } from 'lucide-react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
+import Icon from './ui/Icon';
 
 export interface MenuItem {
   label: string;
+  /** 菜单项前缀图标(替代旧 emoji 前缀) */
+  icon?: LucideIcon;
   onClick: () => void;
   disabled?: boolean;
   danger?: boolean;
@@ -59,9 +63,9 @@ export default function ActionMenu({ items }: { items: MenuItem[] }) {
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
-        className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
+        className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 p-1.5 min-h-[40px] min-w-[40px] inline-flex items-center justify-center rounded hover:bg-gray-100 dark:hover:bg-gray-700"
       >
-        ⋮
+        <Icon icon={MoreVertical} size={18} />
       </button>
       {open && (
         <div
@@ -82,10 +86,11 @@ export default function ActionMenu({ items }: { items: MenuItem[] }) {
                 item.onClick();
               }}
               disabled={item.disabled}
-              className={`w-full text-left px-3 py-1.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed ${
+              className={`w-full text-left px-3 py-1.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 ${
                 item.danger ? 'text-red-600 dark:text-red-400' : 'text-gray-700 dark:text-gray-200'
               }`}
             >
+              {item.icon && <Icon icon={item.icon} size={15} className="shrink-0" />}
               {item.label}
             </button>
           ))}

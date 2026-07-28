@@ -4,6 +4,8 @@
 // 本文件只保留:共享数据 + 搜索 + 批量选择 + 拖拽 + 渲染
 import { useCallback, useEffect, useMemo, useState, type DragEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Folder, Lightbulb, Search, Upload } from 'lucide-react';
+import Icon from '../components/ui/Icon';
 import { FileItem } from '../components/shares/davAuth';
 import Breadcrumb from '../components/shares/Breadcrumb';
 import FileRow from '../components/shares/FileRow';
@@ -166,13 +168,18 @@ export default function Shares() {
       {/* 搜索框 */}
       {inRoot && (
         <div className="mb-3">
-          <input
-            type="text"
-            placeholder="🔍 搜索文件名..."
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400"
-          />
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+              <Icon icon={Search} size={15} />
+            </span>
+            <input
+              type="text"
+              placeholder="搜索文件名..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400"
+            />
+          </div>
           {searchActive && (
             <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               匹配 {filteredItems.length} / {items.length} 项
@@ -204,8 +211,9 @@ export default function Shares() {
         >
           {isDragOver && canDrop && (
             <div className="absolute inset-0 z-10 flex items-center justify-center bg-primary-500/10 border-2 border-dashed border-primary-500 rounded-lg pointer-events-none">
-              <div className="text-primary-700 dark:text-primary-300 text-lg font-medium">
-                📥 松开上传到当前目录
+              <div className="text-primary-700 dark:text-primary-300 text-lg font-medium inline-flex items-center gap-2">
+                <Icon icon={Upload} size={20} />
+                松开上传到当前目录
               </div>
             </div>
           )}
@@ -222,8 +230,9 @@ export default function Shares() {
           )}
 
           {path === '' && (
-            <div className="mb-3 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg text-xs text-blue-700 dark:text-blue-300">
-              💡 提示:操作只能在共享内部进行,点击共享进入后可创建/删除/重命名/移动/拷贝
+            <div className="mb-3 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg text-xs text-blue-700 dark:text-blue-300 flex items-center gap-1.5">
+              <Icon icon={Lightbulb} size={14} className="shrink-0" />
+              <span>提示:操作只能在共享内部进行,点击共享进入后可创建/删除/重命名/移动/拷贝</span>
             </div>
           )}
           {path !== '' && (
@@ -231,7 +240,9 @@ export default function Shares() {
               onClick={navigateUp}
               className="flex items-center gap-2 w-full p-3 mb-2 text-left text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700"
             >
-              <span className="text-lg">📁</span>
+              <span className="inline-flex text-gray-400 dark:text-gray-500">
+                <Icon icon={Folder} size={20} />
+              </span>
               <span>..</span>
             </button>
           )}

@@ -1,28 +1,41 @@
 // 网络信息 API
 import { UnraidNetworkInfo } from '../types';
 import { NetworkResponse, NetworkMetric, NetworkInterface } from '../graphqlTypes';
-import { graphqlRequest, buildGraphqlEndpoint } from './graphql';
-import { NETWORK_INFO_QUERY } from './queries';
+import { graphqlRequest, buildGraphqlEndpoint, isSchemaValidationError } from './graphql';
+import { NETWORK_INFO_QUERY, NETWORK_INFO_QUERY_NO_METRICS } from './queries';
+
+// 【续 66】速率差分采样:metrics.network 只给累积字节(bytesReceived/bytesSent),
+// 两次采样求 delta/dt 得 rxSec/txSec;模块级记忆,与 Dashboard 磁盘读写差分同套路
+let prevNetSample: { ts: number; bytes: Map<string, { rx: number; tx: number }> } | null = null;
 
 export async function getNetworkInfo(
   baseUrl: string,
   apiKey: string,
   useProxy: boolean
 ): Promise<UnraidNetworkInfo[]> {
-  // 【性能优化 2026-06-14】裁剪 metrics.network 全部字段
-  // Dashboard 只用 networks.length + networks.find(name)
-  // 实测：getNetworkInfo 稳态 4.0s → 2.4s（-40%）
-  // 保留 metrics 数据供未来的 Network 详情页使用（待拍板）
+  // 【续 66】查回 metrics.network(仅 2 个累积字段):bytesReceived/bytesSent 供差分算速率,
+  // 读 /proc/net/dev,不碰盘;首次采样速率为 0,第二轮起有值
   const endpoint = buildGraphqlEndpoint(baseUrl, useProxy);
-  const result = await graphqlRequest<NetworkResponse>(
+  // 【续 66】不传 namespace = 跳过 30min GraphQL 缓存:缓存会冻结累积字节,
+  // 速率恒 0;dashboard 层 5min skip 已做节流,每次真实刷新必须拿新计数器
+  const result0 = await graphqlRequest<NetworkResponse>(
     endpoint,
     apiKey,
     NETWORK_INFO_QUERY,
-    undefined,
-    {
-      namespace: 'networks',
-    }
+    undefined
   );
+
+  // 【续 67】老版本 unraid-api 若无 metrics.network → 整查校验失败,
+  // 降级重试只查 networkInterfaces;网卡列表照常,速率恒 0(「速率不可用」)
+  const result =
+    !result0.success && isSchemaValidationError(result0.error)
+      ? await graphqlRequest<NetworkResponse>(
+          endpoint,
+          apiKey,
+          NETWORK_INFO_QUERY_NO_METRICS,
+          undefined
+        )
+      : result0;
 
   const networks: UnraidNetworkInfo[] = [];
 
@@ -40,18 +53,38 @@ export async function getNetworkInfo(
       metricsMap.set(m.name, m);
     });
 
+    // 本轮采样(用于下一轮差分)
+    const now = Date.now();
+    const curSample = new Map<string, { rx: number; tx: number }>();
+    metricsNetwork.forEach((m) => {
+      curSample.set(m.name, { rx: Number(m.bytesReceived) || 0, tx: Number(m.bytesSent) || 0 });
+    });
+    const prev = prevNetSample;
+    const dt = prev ? (now - prev.ts) / 1000 : 0;
+
     // 合并数据
     infoInterfaces.forEach((iface) => {
       const metrics = metricsMap.get(iface.name) || ({} as NetworkMetric);
+      const cur = curSample.get(iface.name);
+      const last = prev?.bytes.get(iface.name);
+      let rxSec = 0;
+      let txSec = 0;
+      // 只算正增量(重启/计数器清零时负值归零)
+      if (cur && last && dt > 0) {
+        rxSec = Math.max(0, (cur.rx - last.rx) / dt);
+        txSec = Math.max(0, (cur.tx - last.tx) / dt);
+      }
       networks.push({
         name: iface.name || 'Unknown',
         status: iface.status || 'Unknown',
-        bytesReceived: metrics.received ? Number(metrics.received) : 0,
-        bytesSent: metrics.sent ? Number(metrics.sent) : 0,
-        rxSec: 0,
-        txSec: 0,
+        bytesReceived: metrics.bytesReceived ? Number(metrics.bytesReceived) : 0,
+        bytesSent: metrics.bytesSent ? Number(metrics.bytesSent) : 0,
+        rxSec,
+        txSec,
       });
     });
+
+    prevNetSample = { ts: now, bytes: curSample };
   }
 
   return networks;

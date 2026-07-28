@@ -2,6 +2,7 @@
 // 展示 / 添加 / 编辑 / 删除 / 激活
 // LS 存储(Server[]) + 同步旧格式 LS 兼容 getApiConfig()
 import { useEffect, useState } from 'react';
+import { Monitor, Plus, Pencil, Trash2 } from 'lucide-react';
 import {
   getServers,
   getActiveServer,
@@ -14,9 +15,11 @@ import {
 } from '../services/unraidApi/config';
 import { useToast } from '../hooks/useToast';
 import { usePro } from '../hooks/usePro';
+import { DEFAULT_COLOR } from '../hooks/usePrimaryColor';
 import { ProGateButton } from './ProGate';
+import Icon from './ui/Icon';
 
-const COLOR_OPTIONS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6'];
+const COLOR_OPTIONS = [DEFAULT_COLOR, '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6'];
 
 interface EditState {
   id: string | null; // null = 新增
@@ -39,7 +42,7 @@ export default function ServerList() {
   const [active, setActive] = useState<Server | null>(null);
   const [editing, setEditing] = useState<EditState | null>(null);
   const toast = useToast();
-  // 【续 55 商业化】多服务器 → Pro:免费版限 1 台,已有 1 台再点"添加"换 🔒 引导
+  // 【续 55 商业化】多服务器 → Pro:免费版限 1 台,已有 1 台再点"添加"换锁占位引导
   // (已有 ≥2 台的免费用户不强制删除,只是不能再加)
   const pro = usePro();
   const addLocked = !pro && servers.length >= 1;
@@ -104,7 +107,8 @@ export default function ServerList() {
     <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-          🖥️ 服务器列表
+          <Icon icon={Monitor} />
+          服务器列表
           {servers.length > 0 && (
             <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-medium">
               {servers.length}
@@ -119,9 +123,10 @@ export default function ServerList() {
         ) : (
           <button
             onClick={() => setEditing({ ...EMPTY_EDIT })}
-            className="text-xs px-2.5 py-1 bg-primary-600 hover:bg-primary-700 text-white rounded-lg"
+            className="text-xs px-2.5 py-1 bg-primary-600 hover:bg-primary-700 text-white rounded-lg inline-flex items-center gap-1"
           >
-            ➕ 添加
+            <Icon icon={Plus} size={14} />
+            添加
           </button>
         )}
       </div>
@@ -145,7 +150,7 @@ export default function ServerList() {
               >
                 <span
                   className="w-3 h-3 rounded-full shrink-0"
-                  style={{ backgroundColor: srv.color || '#3b82f6' }}
+                  style={{ backgroundColor: srv.color || DEFAULT_COLOR }}
                 />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
@@ -176,14 +181,14 @@ export default function ServerList() {
                   className="text-xs px-2 py-1 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
                   aria-label={`编辑 ${srv.name}`}
                 >
-                  ✏️
+                  <Icon icon={Pencil} size={14} />
                 </button>
                 <button
                   onClick={() => handleRemove(srv)}
                   className="text-xs px-2 py-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded"
                   aria-label={`删除 ${srv.name}`}
                 >
-                  🗑
+                  <Icon icon={Trash2} size={14} />
                 </button>
               </div>
             );
@@ -194,12 +199,12 @@ export default function ServerList() {
       {/* 编辑/新增 modal-lite */}
       {editing && (
         <div
-          className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+          className="fixed inset-0 z-sticky bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 anim-fade"
           onClick={(e) => {
             if (e.target === e.currentTarget) setEditing(null);
           }}
         >
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full p-5 space-y-3">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full p-5 space-y-3 anim-pop">
             <h4 className="text-base font-semibold text-gray-900 dark:text-white">
               {editing.id ? '编辑服务器' : '添加服务器'}
             </h4>

@@ -3,10 +3,16 @@
 // 数据源: compose.manager 插件项目目录(宿主 PHP 端点,见 compose-api/api.php)
 // 不自动轮询(操作驱动型页面),头部 🔄 手动刷新
 import { useCallback, useEffect, useState } from 'react';
-import { useApiConfig } from '../../hooks/useUnraidApi';
+import { RefreshCw, Puzzle } from 'lucide-react';
+import { useApiConfig, useUnraidApi } from '../../hooks/useUnraidApi';
 import { useToast } from '../../hooks/useToast';
 import StackDetailModal from './StackDetailModal';
+import Icon from '../ui/Icon';
 import { getStacks, ComposeApiError, type ComposeStack } from '../../services/composeApi';
+import { computeStackUpdates } from './stackUpdates';
+// 【续 68.2】手动刷新时失效 containers 缓存:compose pull 走 PHP 后端,
+// 不经 GraphQL mutation,缓存里的 isUpdateAvailable 不会自己更新
+import { invalidateNamespace } from '../../services/unraidApi/cache';
 
 /** 【续 49.3】这些状态码 = 宿主没装 compose-api 后端(优雅降级,显示安装指引而非报错) */
 const BACKEND_MISSING_STATUS = new Set([404, 502, 503]);
@@ -23,7 +29,10 @@ export default function ComposeStacks() {
   // 【续 49.3】后端不存在(404/502/503)→ 显示安装指引空态,不显示报错
   const [backendMissing, setBackendMissing] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
+  // 【续 68】有镜像更新的栈名集合(GraphQL isUpdateAvailable 按项目名匹配)
+  const [updateStacks, setUpdateStacks] = useState<Set<string>>(new Set());
   const { isConfigured } = useApiConfig();
+  const api = useUnraidApi();
   const toast = useToast();
 
   // 【续 50 C10】返回是否成功,给刷新 toast 用(原实现吞错,"已刷新"无条件弹)
@@ -33,6 +42,13 @@ export default function ComposeStacks() {
       setStacks(list);
       setError(null);
       setBackendMissing(false);
+      // 【续 68】顺带匹配更新状态;失败只丢徽章,不阻塞栈列表
+      try {
+        const containers = api ? await api.getDockerContainers() : [];
+        setUpdateStacks(computeStackUpdates(list, containers));
+      } catch {
+        setUpdateStacks(new Set());
+      }
       return true;
     } catch (err) {
       const status = err instanceof ComposeApiError ? err.status : 0;
@@ -49,7 +65,7 @@ export default function ComposeStacks() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [api]);
 
   useEffect(() => {
     if (isConfigured) {
@@ -61,6 +77,8 @@ export default function ComposeStacks() {
 
   const handleRefresh = useCallback(async () => {
     setLoading(true);
+    // 【续 68.2】刷新同时重算容器更新状态(失效 30min 缓存)
+    invalidateNamespace('containers');
     // 【续 50 C10】成功才弹"已刷新";失败弹错误,不再无条件报成功
     const ok = await load();
     if (ok) {
@@ -93,7 +111,7 @@ export default function ComposeStacks() {
           aria-label="刷新"
           title="刷新栈列表"
         >
-          🔄
+          <Icon icon={RefreshCw} className={loading ? 'animate-spin' : ''} />
         </button>
       </div>
 
@@ -121,7 +139,10 @@ export default function ComposeStacks() {
           data-testid="compose-backend-missing"
           className="bg-white dark:bg-gray-800 rounded-xl p-5 text-sm"
         >
-          <div className="text-base mb-1">🧩 Compose 后端未安装</div>
+          <div className="flex items-center gap-1.5 text-base mb-1">
+            <Icon icon={Puzzle} size={18} />
+            Compose 后端未安装
+          </div>
           <p className="text-gray-500 dark:text-gray-400 mb-3">
             Compose 栈管理需要一个小小的宿主端组件。其余功能不受影响。
           </p>
@@ -176,6 +197,15 @@ export default function ComposeStacks() {
                     title="随阵列自动启动"
                   >
                     自启
+                  </span>
+                )}
+                {/* 【续 68】栈内容器有镜像更新 → 橙色徽章(与 Docker 列表同款) */}
+                {updateStacks.has(stack.name) && (
+                  <span
+                    className="text-[10px] px-1.5 py-0.5 rounded bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 shrink-0"
+                    title="该栈内有容器存在可用镜像更新"
+                  >
+                    更新
                   </span>
                 )}
               </div>

@@ -5,7 +5,8 @@
 [![Telegram 交流群](https://img.shields.io/badge/Telegram-交流群-2CA5E0?logo=telegram&logoColor=white)](https://t.me/+l1iA02ZkOK1lNmEx)
 
 专为移动设备优化的 unRAID 服务器管理界面。React 18 + TypeScript + Vite + Tailwind CSS,
-单容器部署,数据走 unRAID GraphQL API(7.2+)。
+单容器部署,数据走 unRAID GraphQL API(7.2+;磁盘休眠图标和网络速率统计需要
+unRAID 7.3+ / unraid-api ≥ 4.20,老版本会自动降级,仅缺少这两项,其余功能正常)。
 
 ## 界面截图
 
@@ -57,7 +58,7 @@ docker run -d \
 
 > apiKey 只存在你自己浏览器的 localStorage,**不会**写到服务器任何文件。
 
-镜像 tag:`latest`(最新稳定) / `1.0.2`(固定版本)。仅 linux/amd64(unRAID 平台)。
+镜像 tag:`latest`(最新稳定) / `1.0.3`(固定版本)。仅 linux/amd64(unRAID 平台)。
 
 ### 方式二:unRAID Docker UI 模板
 
@@ -128,9 +129,9 @@ Compose tab 和 CPU 温度(均为 Pro 功能)依赖一个宿主端小组件(`api
 # 在 unRAID 宿主上以 root 执行
 mkdir -p /tmp/um-install && cd /tmp/um-install
 curl -fsSL -o install-compose-api.sh \
-  https://raw.githubusercontent.com/bear0328/unraid-mobile/v1.0.2/compose-api/install-compose-api.sh
+  https://raw.githubusercontent.com/bear0328/unraid-mobile/v1.0.3/compose-api/install-compose-api.sh
 curl -fsSL -o api.php \
-  https://raw.githubusercontent.com/bear0328/unraid-mobile/v1.0.2/compose-api/api.php
+  https://raw.githubusercontent.com/bear0328/unraid-mobile/v1.0.3/compose-api/api.php
 bash install-compose-api.sh
 ```
 

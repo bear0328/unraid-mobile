@@ -3,6 +3,8 @@
 // 替代 VmDetailsModal / ContainerDetailsModal / Notifications / DiskCleanupModal / ShareModals 的样板
 // 子组件 ModalHeader / ModalBody / ModalFooter 单纯 className,不带状态
 import { useEffect, useId, type ReactNode } from 'react';
+import { X } from 'lucide-react';
+import Icon from './ui/Icon';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 
 interface ModalProps {
@@ -45,7 +47,7 @@ export function Modal({
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-sticky anim-fade"
       style={{
         paddingTop: 'calc(1rem + env(safe-area-inset-top))',
         paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))',
@@ -63,7 +65,7 @@ export function Modal({
         //   Tailwind 扫描不到(dist CSS 无该类);且原三元只对 vertical 拼 max-h,
         //   flex 分支无限高、容器非 flex,子级 flex-1 全失效(DiskCleanupModal 小屏溢出)
         className={[
-          'bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full',
+          'bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full anim-pop',
           maxWidthClass,
           layout === 'vertical'
             ? 'p-5 space-y-4 overflow-y-auto'
@@ -108,10 +110,10 @@ export function ModalHeader({
       {children}
       <button
         onClick={onClose}
-        className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-2xl leading-none ml-2"
+        className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 leading-none ml-2 p-0.5"
         aria-label="关闭"
       >
-        ×
+        <Icon icon={X} size={22} />
       </button>
     </div>
   );

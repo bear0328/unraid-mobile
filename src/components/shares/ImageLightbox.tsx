@@ -4,9 +4,11 @@
 // 【阶段 P1-a11y - 2026-06-17 续 29-3】role="dialog" + aria-modal + focus-trap
 // 视频/音频暂不支持,只展示图片
 import { useEffect, useId, useMemo, useRef, useState, type TouchEvent } from 'react';
+import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { FileItem, davFetch } from './davAuth';
 import { isImageFile, getImageMime } from '../../utils/fileTypes';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
+import Icon from '../ui/Icon';
 
 interface ImageLightboxProps {
   item: FileItem | null;
@@ -142,7 +144,7 @@ export default function ImageLightbox({
       role="dialog"
       aria-modal="true"
       aria-labelledby={titleId}
-      className="fixed inset-0 z-[80] flex items-center justify-center bg-black/90 p-2 sm:p-4"
+      className="fixed inset-0 z-overlay flex items-center justify-center bg-black/90 p-2 sm:p-4 anim-fade"
       onClick={onClose}
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
@@ -155,7 +157,7 @@ export default function ImageLightbox({
         style={{ top: 'calc(env(safe-area-inset-top) + 0.5rem)' }}
         aria-label="关闭"
       >
-        ✕
+        <Icon icon={X} size={22} />
       </button>
 
       {/* 上一张 */}
@@ -168,7 +170,7 @@ export default function ImageLightbox({
           className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center text-white text-2xl bg-black/50 hover:bg-black/80 rounded-full z-10"
           aria-label="上一张"
         >
-          ‹
+          <Icon icon={ChevronLeft} size={26} />
         </button>
       )}
 
@@ -182,7 +184,7 @@ export default function ImageLightbox({
           className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center text-white text-2xl bg-black/50 hover:bg-black/80 rounded-full z-10"
           aria-label="下一张"
         >
-          ›
+          <Icon icon={ChevronRight} size={26} />
         </button>
       )}
 

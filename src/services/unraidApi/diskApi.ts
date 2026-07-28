@@ -1,8 +1,8 @@
 // 磁盘 API
 import { UnraidDisk } from '../types';
-import { DisksResponse, DiskInfo } from '../graphqlTypes';
-import { graphqlRequest, buildGraphqlEndpoint } from './graphql';
-import { DISKS_QUERY } from './queries';
+import { DisksResponse, DiskInfo, SpinStatusResponse } from '../graphqlTypes';
+import { graphqlRequest, buildGraphqlEndpoint, isSchemaValidationError } from './graphql';
+import { DISKS_QUERY, DISKS_QUERY_NO_SPIN, SPIN_STATUS_QUERY } from './queries';
 import { normalizeDiskType, normalizeDiskStatus } from './normalizers';
 
 export async function getDisks(
@@ -11,9 +11,17 @@ export async function getDisks(
   useProxy: boolean
 ): Promise<UnraidDisk[]> {
   const endpoint = buildGraphqlEndpoint(baseUrl, useProxy);
-  const result = await graphqlRequest<DisksResponse>(endpoint, apiKey, DISKS_QUERY, undefined, {
+  let result = await graphqlRequest<DisksResponse>(endpoint, apiKey, DISKS_QUERY, undefined, {
     namespace: 'disks',
   });
+
+  // 【续 67】unraid-api < 4.20(unRAID 7.2-)无 isSpinning 字段 → 整查校验失败,
+  // 降级重试不含该字段的查询;代价仅是 DiskCard 无休眠徽章,主数据不断
+  if (!result.success && isSchemaValidationError(result.error)) {
+    result = await graphqlRequest<DisksResponse>(endpoint, apiKey, DISKS_QUERY_NO_SPIN, undefined, {
+      namespace: 'disks',
+    });
+  }
 
   const allDisks: UnraidDisk[] = [];
   const addedNames = new Set<string>();
@@ -52,6 +60,7 @@ export async function getDisks(
         disk.numWrites !== undefined && disk.numWrites !== null
           ? Number(disk.numWrites)
           : undefined,
+      isSpinning: typeof disk.isSpinning === 'boolean' ? disk.isSpinning : undefined,
     });
   };
 
@@ -84,4 +93,34 @@ export async function getDisks(
   }
 
   return allDisks;
+}
+
+/**
+ * 【续 66】磁盘休眠状态(name → isSpinning)。SPIN_STATUS_QUERY 只读 emhttp 内存状态,
+ * 实测不唤盘,可随 dashboard 常规刷新常拉;失败返回空 Map,不阻塞主数据流。
+ */
+export async function getSpinStatus(
+  baseUrl: string,
+  apiKey: string,
+  useProxy: boolean
+): Promise<Map<string, boolean>> {
+  const spinMap = new Map<string, boolean>();
+  const endpoint = buildGraphqlEndpoint(baseUrl, useProxy);
+  // 不传 namespace:休眠状态必须实时,30min 缓存会让徽章长期过期
+  const result = await graphqlRequest<SpinStatusResponse>(
+    endpoint,
+    apiKey,
+    SPIN_STATUS_QUERY,
+    undefined
+  );
+
+  if (result.success && result.data?.array) {
+    const { disks = [], caches = [] } = result.data.array;
+    for (const d of [...disks, ...caches]) {
+      if (d?.name && typeof d.isSpinning === 'boolean') {
+        spinMap.set(d.name, d.isSpinning);
+      }
+    }
+  }
+  return spinMap;
 }

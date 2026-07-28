@@ -2,9 +2,11 @@
 // 共享页 / 设置页唤起,展示 Top 大文件 / 长期未动,可跳路径
 // 【续 39-1】改用通用 <Modal layout="flex">,删除 20+ 行 backdrop/focus-trap/body-scroll 样板
 import { useEffect, useState } from 'react';
+import { Brush, Search, Hourglass, AlertTriangle, PartyPopper, Package, Calendar } from 'lucide-react';
 import { useToast } from '../hooks/useToast';
 import { formatBytes, formatMtime, scanDisk, type ScanResult } from '../utils/diskScanner';
 import { Modal } from './Modal';
+import Icon from './ui/Icon';
 
 type Tab = 'largest' | 'oldest';
 
@@ -63,7 +65,8 @@ export default function DiskCleanupModal({ open, onClose, filesUrl, onPick }: Pr
       <header className="shrink-0 flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
         <div>
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-            🧹 磁盘清理建议
+            <Icon icon={Brush} />
+            磁盘清理建议
           </h3>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
             {scanning
@@ -85,7 +88,9 @@ export default function DiskCleanupModal({ open, onClose, filesUrl, onPick }: Pr
       {!result ? (
         <div className="flex-1 flex items-center justify-center py-12">
           <div className="text-center">
-            <div className="text-4xl mb-2 animate-pulse">{scanning ? '🔍' : '⏳'}</div>
+            <div className="mb-2 animate-pulse inline-flex text-gray-400">
+              <Icon icon={scanning ? Search : Hourglass} size={36} />
+            </div>
             <p className="text-sm text-gray-500 dark:text-gray-400">
               {scanning ? '递归扫描 /files/user/ 树…' : '初始化…'}
             </p>
@@ -112,8 +117,9 @@ export default function DiskCleanupModal({ open, onClose, filesUrl, onPick }: Pr
           </div>
 
           {result.stats.truncated && (
-            <div className="px-4 py-2 text-xs text-yellow-700 dark:text-yellow-300 bg-yellow-50 dark:bg-yellow-900/20">
-              ⚠️ 扫描达到上限,只显示前 {result.stats.dirsScanned + result.stats.filesScanned} 条
+            <div className="px-4 py-2 text-xs text-yellow-700 dark:text-yellow-300 bg-yellow-50 dark:bg-yellow-900/20 flex items-center gap-1">
+              <Icon icon={AlertTriangle} size={14} className="shrink-0" />
+              扫描达到上限,只显示前 {result.stats.dirsScanned + result.stats.filesScanned} 条
             </div>
           )}
 
@@ -121,7 +127,10 @@ export default function DiskCleanupModal({ open, onClose, filesUrl, onPick }: Pr
           <ul className="flex-1 min-h-0 overflow-y-auto p-2 space-y-1">
             {list.length === 0 ? (
               <li className="text-center py-8 text-sm text-gray-500">
-                {tab === 'largest' ? '没有 >10MB 的文件 🎉' : '没有超过 365 天没动的文件 🎉'}
+                <span className="inline-flex items-center gap-1">
+                  {tab === 'largest' ? '没有 >10MB 的文件' : '没有超过 365 天没动的文件'}
+                  <Icon icon={PartyPopper} size={16} />
+                </span>
               </li>
             ) : (
               list.map((f, idx) => (
@@ -129,7 +138,9 @@ export default function DiskCleanupModal({ open, onClose, filesUrl, onPick }: Pr
                   key={`${f.path}-${idx}`}
                   className="flex items-center gap-2 px-2.5 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg"
                 >
-                  <span className="text-base shrink-0">{tab === 'largest' ? '📦' : '📅'}</span>
+                  <span className="text-gray-400 shrink-0">
+                    <Icon icon={tab === 'largest' ? Package : Calendar} size={16} />
+                  </span>
                   <div className="flex-1 min-w-0">
                     <div
                       className="text-sm font-mono truncate text-gray-900 dark:text-gray-100"

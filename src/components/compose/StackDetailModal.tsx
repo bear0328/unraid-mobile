@@ -2,7 +2,9 @@
 // 功能: 状态展示 / up·down·restart(同步) / pull·rebuild(异步,轮询日志)
 //       autostart 开关 / compose.yaml 查看 + 编辑保存(后端校验失败自动回滚)
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { RefreshCw, Repeat, AlertTriangle, Check, X, Pencil, Save, ChevronRight, ChevronDown } from 'lucide-react';
 import { Modal, ModalHeader } from '../Modal';
+import Icon from '../ui/Icon';
 import { useToast } from '../../hooks/useToast';
 import {
   getStack,
@@ -14,6 +16,9 @@ import {
   type ComposeOp,
   type ComposeStackDetail,
 } from '../../services/composeApi';
+// 【续 68.2】compose pull/up 走 PHP 后端,绕过 GraphQL mutation 的缓存失效;
+// 操作完成后手动失效 containers 30min 缓存,否则「更新」徽章最长残留 30 分钟
+import { invalidateNamespace } from '../../services/unraidApi/cache';
 
 const OP_LABEL: Record<ComposeOp, string> = {
   up: '启动',
@@ -55,6 +60,8 @@ export default function StackDetailModal({ stackName, onClose, onChanged }: Prop
   const [busyOp, setBusyOp] = useState<ComposeOp | null>(null);
   const [editing, setEditing] = useState(false);
   const [editYaml, setEditYaml] = useState('');
+  // 【续 68.1】compose.yaml 默认折叠(日志对用户更有用,挪到上面;yaml 按需展开)
+  const [yamlOpen, setYamlOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [autostartBusy, setAutostartBusy] = useState(false);
   // 【续 47.2 2026-07-19】持久确认条:点破坏性操作 → 弹确认横幅,不自动消失,
@@ -91,6 +98,7 @@ export default function StackDetailModal({ stackName, onClose, onChanged }: Prop
       setDetail(null);
       setLoadError(null);
       setEditing(false);
+      setYamlOpen(false);
       setBusyOp(null);
       clearConfirm();
       void load(stackName);
@@ -127,6 +135,8 @@ export default function StackDetailModal({ stackName, onClose, onChanged }: Prop
             if (!running) {
               stopPolling();
               setBusyOp(null);
+              // 【续 68.2】异步 op(pull/rebuild)结束 → 失效容器缓存,重算「更新」徽章
+              invalidateNamespace('containers');
               // 【续 50 C7】?action=log 只回 {log, running},成败要看 stack.lastResult:
               // 后端异步命令先写 last_result.json 再删 .op-running,故此时读到的必是本次结果。
               // 不再无条件报成功 — pull 失败也弹"完成"的 bug 修这里
@@ -187,6 +197,8 @@ export default function StackDetailModal({ stackName, onClose, onChanged }: Prop
         } else if (result.exitCode === 0) {
           toast.success(`${OP_LABEL[op]}成功`);
           setBusyOp(null);
+          // 【续 68.2】同步 op(up/down/restart)成功 → 失效容器缓存,重算「更新」徽章
+          invalidateNamespace('containers');
           void load(stackName);
           onChanged();
         } else {
@@ -280,14 +292,15 @@ export default function StackDetailModal({ stackName, onClose, onChanged }: Prop
             <button
               onClick={() => void handleAutostart()}
               disabled={autostartBusy}
-              className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+              className={`inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border transition-colors ${
                 stack.autostart
                   ? 'border-blue-500 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
                   : 'border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400'
               }`}
               aria-label="切换自动启动"
             >
-              {stack.autostart ? '🔁 自动启动: 开' : '🔁 自动启动: 关'}
+              <Icon icon={Repeat} size={12} />
+              {stack.autostart ? '自动启动: 开' : '自动启动: 关'}
             </button>
           </div>
 
@@ -298,7 +311,7 @@ export default function StackDetailModal({ stackName, onClose, onChanged }: Prop
                 key={op}
                 onClick={() => void handleOp(op)}
                 disabled={busyOp !== null || opRunning}
-                className={`px-2 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 ${
+                className={`inline-flex items-center justify-center gap-1 px-2 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 ${
                   confirmOp === op
                     ? 'bg-orange-500 hover:bg-orange-600 text-white'
                     : op === 'up'
@@ -308,15 +321,16 @@ export default function StackDetailModal({ stackName, onClose, onChanged }: Prop
                         : 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200'
                 }`}
               >
-                {busyOp === op ? '⏳ ' : ''}
+                {busyOp === op && <Icon icon={RefreshCw} size={14} className="animate-spin" />}
                 {confirmOp === op ? `确认${OP_LABEL[op]}?` : OP_LABEL[op]}
               </button>
             ))}
             <button
               onClick={() => stackName && void load(stackName)}
-              className="px-2 py-2 rounded-lg text-sm font-medium bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200"
+              className="inline-flex items-center justify-center gap-1 px-2 py-2 rounded-lg text-sm font-medium bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200"
             >
-              🔄 刷新
+              <Icon icon={RefreshCw} size={14} />
+              刷新
             </button>
           </div>
 
@@ -326,8 +340,9 @@ export default function StackDetailModal({ stackName, onClose, onChanged }: Prop
               className="flex items-center gap-2 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-2.5"
               data-testid="op-confirm-banner"
             >
-              <span className="flex-1 min-w-0 text-xs text-orange-700 dark:text-orange-300">
-                ⚠️ {CONFIRM_TEXT[confirmOp]},确定要{OP_LABEL[confirmOp]}「{stack.name}」吗?
+              <span className="flex-1 min-w-0 inline-flex items-center gap-1 text-xs text-orange-700 dark:text-orange-300">
+                <Icon icon={AlertTriangle} size={14} className="shrink-0" />
+                {CONFIRM_TEXT[confirmOp]},确定要{OP_LABEL[confirmOp]}「{stack.name}」吗?
               </span>
               <button
                 onClick={() => void handleOp(confirmOp)}
@@ -348,60 +363,94 @@ export default function StackDetailModal({ stackName, onClose, onChanged }: Prop
           {stack.lastResult && (
             <div className="text-xs text-gray-500 dark:text-gray-400">
               上次操作: {stack.lastResult.operation}{' '}
-              <span className={stack.lastResult.result === 'success' ? 'text-green-600' : 'text-red-600'}>
-                {stack.lastResult.result === 'success' ? '✓ 成功' : `✗ 失败(${stack.lastResult.exit_code})`}
+              <span
+                className={`inline-flex items-center gap-0.5 ${
+                  stack.lastResult.result === 'success' ? 'text-green-600' : 'text-red-600'
+                }`}
+              >
+                <Icon icon={stack.lastResult.result === 'success' ? Check : X} size={12} />
+                {stack.lastResult.result === 'success'
+                  ? '成功'
+                  : `失败(${stack.lastResult.exit_code})`}
               </span>{' '}
               · {formatTime(stack.lastResult.timestamp)}
             </div>
           )}
 
-          {/* compose.yaml 查看 / 编辑 */}
+          {/* 【续 68.1】操作日志挪到 yaml 上面(用户看日志远多于改 yaml) */}
+          <div>
+            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5">
+              操作日志{opRunning ? '(执行中…)' : ''}
+            </h4>
+            <pre className="max-h-40 overflow-auto font-mono text-[11px] p-2.5 rounded-lg bg-gray-900 text-gray-200 whitespace-pre-wrap break-all">
+              {detail.lastCmdLog || '(暂无日志)'}
+            </pre>
+          </div>
+
+          {/* compose.yaml 查看 / 编辑 — 【续 68.1】默认折叠,点标题展开 */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-200">compose.yaml</h4>
-              {!editing ? (
-                <button
-                  onClick={() => {
-                    setEditYaml(detail.composeYaml);
-                    setEditing(true);
-                  }}
-                  className="text-xs px-2 py-1 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-                >
-                  ✏️ 编辑
-                </button>
-              ) : (
-                <div className="flex gap-1.5">
+              <button
+                onClick={() => setYamlOpen(!yamlOpen)}
+                className="inline-flex items-center gap-1 text-sm font-medium text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white"
+                aria-expanded={yamlOpen}
+              >
+                <Icon icon={yamlOpen ? ChevronDown : ChevronRight} size={14} />
+                compose.yaml
+              </button>
+              {yamlOpen &&
+                (!editing ? (
                   <button
-                    onClick={() => setEditing(false)}
-                    disabled={saving}
-                    className="text-xs px-2 py-1 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300"
+                    onClick={() => {
+                      setEditYaml(detail.composeYaml);
+                      setEditing(true);
+                    }}
+                    className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
                   >
-                    取消
+                    <Icon icon={Pencil} size={12} />
+                    编辑
                   </button>
-                  <button
-                    onClick={() => void handleSave()}
-                    disabled={saving}
-                    className="text-xs px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
-                  >
-                    {saving ? '保存中…' : '💾 保存'}
-                  </button>
-                </div>
-              )}
+                ) : (
+                  <div className="flex gap-1.5">
+                    <button
+                      onClick={() => setEditing(false)}
+                      disabled={saving}
+                      className="text-xs px-2 py-1 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300"
+                    >
+                      取消
+                    </button>
+                    <button
+                      onClick={() => void handleSave()}
+                      disabled={saving}
+                      className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      {saving ? (
+                        '保存中…'
+                      ) : (
+                        <>
+                          <Icon icon={Save} size={12} />
+                          保存
+                        </>
+                      )}
+                    </button>
+                  </div>
+                ))}
             </div>
-            {editing ? (
-              <textarea
-                value={editYaml}
-                onChange={(e) => setEditYaml(e.target.value)}
-                spellCheck={false}
-                className="w-full h-56 font-mono text-xs p-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                aria-label="编辑 compose.yaml"
-              />
-            ) : (
-              <pre className="max-h-48 overflow-auto font-mono text-xs p-2.5 rounded-lg bg-gray-50 dark:bg-gray-900 text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-all">
-                {detail.composeYaml || '(空)'}
-              </pre>
-            )}
-            {detail.overrideYaml && !editing && (
+            {yamlOpen &&
+              (editing ? (
+                <textarea
+                  value={editYaml}
+                  onChange={(e) => setEditYaml(e.target.value)}
+                  spellCheck={false}
+                  className="w-full h-56 font-mono text-xs p-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  aria-label="编辑 compose.yaml"
+                />
+              ) : (
+                <pre className="max-h-48 overflow-auto font-mono text-xs p-2.5 rounded-lg bg-gray-50 dark:bg-gray-900 text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-all">
+                  {detail.composeYaml || '(空)'}
+                </pre>
+              ))}
+            {yamlOpen && detail.overrideYaml && !editing && (
               <details className="mt-1.5">
                 <summary className="text-xs text-gray-500 dark:text-gray-400 cursor-pointer">
                   override 文件
@@ -411,16 +460,6 @@ export default function StackDetailModal({ stackName, onClose, onChanged }: Prop
                 </pre>
               </details>
             )}
-          </div>
-
-          {/* 操作日志 */}
-          <div>
-            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5">
-              操作日志{opRunning ? '(执行中…)' : ''}
-            </h4>
-            <pre className="max-h-40 overflow-auto font-mono text-[11px] p-2.5 rounded-lg bg-gray-900 text-gray-200 whitespace-pre-wrap break-all">
-              {detail.lastCmdLog || '(暂无日志)'}
-            </pre>
           </div>
         </>
       )}

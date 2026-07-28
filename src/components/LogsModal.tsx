@@ -34,13 +34,13 @@ export function LogsModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-sticky flex items-center justify-center p-4 anim-fade">
       <div
         ref={containerRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-2xl max-h-[80dvh] flex flex-col"
+        className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-2xl max-h-[80dvh] flex flex-col anim-pop"
       >
         <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
           <h2 id={titleId} className="font-bold">

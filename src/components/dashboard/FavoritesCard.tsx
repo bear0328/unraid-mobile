@@ -9,26 +9,28 @@
 // 【阶段 P2-导入导出 - 2026-06-17 续 33-3】导出 JSON 备份 + 导入(防换手机/清缓存)
 import { useRef } from 'react';
 import { Link } from 'react-router-dom';
+import { Package, Folder, FolderOpen, Star, Download, Upload, type LucideIcon } from 'lucide-react';
 import { useFavorites, type Favorite, type FavoriteKind } from '../../hooks/useFavorites';
 import { useToast } from '../../hooks/useToast';
+import Icon from '../ui/Icon';
 
-function kindMeta(kind: FavoriteKind): { icon: string; label: string; color: string } {
+function kindMeta(kind: FavoriteKind): { icon: LucideIcon; label: string; color: string } {
   switch (kind) {
     case 'container':
       return {
-        icon: '📦',
+        icon: Package,
         label: '容器',
         color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
       };
     case 'share':
       return {
-        icon: '📁',
+        icon: Folder,
         label: '分享',
         color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
       };
     case 'path':
       return {
-        icon: '📂',
+        icon: FolderOpen,
         label: '路径',
         color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300',
       };
@@ -58,7 +60,7 @@ export default function FavoritesCard() {
       <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
-            <span>⭐</span> 快捷收藏
+            <Icon icon={Star} size={14} fill="currentColor" className="text-yellow-500" /> 快捷收藏
           </h3>
           <input
             ref={fileInputRef}
@@ -81,9 +83,10 @@ export default function FavoritesCard() {
           />
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="text-xs px-2 py-1 text-gray-500 dark:text-gray-400 hover:text-primary-600"
+            className="inline-flex items-center gap-1 text-xs px-2 py-1 text-gray-500 dark:text-gray-400 hover:text-primary-600"
           >
-            📥 导入
+            <Icon icon={Download} size={12} />
+            导入
           </button>
         </div>
         <p className="text-xs text-gray-400">
@@ -119,7 +122,7 @@ export default function FavoritesCard() {
     <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
-          <span>⭐</span> 快捷收藏
+          <Icon icon={Star} size={14} fill="currentColor" className="text-yellow-500" /> 快捷收藏
           <span className="text-xs text-gray-400 font-normal">({favorites.length})</span>
         </h3>
         <div className="flex items-center gap-1">
@@ -144,17 +147,19 @@ export default function FavoritesCard() {
           />
           <button
             onClick={handleExport}
-            className="text-xs px-2 py-1 text-gray-500 dark:text-gray-400 hover:text-primary-600"
+            className="inline-flex items-center gap-1 text-xs px-2 py-1 text-gray-500 dark:text-gray-400 hover:text-primary-600"
             title="下载 JSON 备份"
           >
-            📤 导出
+            <Icon icon={Upload} size={12} />
+            导出
           </button>
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="text-xs px-2 py-1 text-gray-500 dark:text-gray-400 hover:text-primary-600"
+            className="inline-flex items-center gap-1 text-xs px-2 py-1 text-gray-500 dark:text-gray-400 hover:text-primary-600"
             title="从 JSON 文件恢复"
           >
-            📥 导入
+            <Icon icon={Download} size={12} />
+            导入
           </button>
         </div>
       </div>
@@ -171,7 +176,7 @@ export default function FavoritesCard() {
                 className="flex items-center gap-1.5 min-w-0"
                 title={fav.value}
               >
-                <span>{m.icon}</span>
+                <Icon icon={m.icon} size={12} />
                 <span className="font-medium text-gray-700 dark:text-gray-200 truncate max-w-[120px]">
                   {fav.label}
                 </span>

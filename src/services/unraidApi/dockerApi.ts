@@ -62,6 +62,8 @@ export async function getDockerContainers(
         status: container.status || container.state || 'Unknown',
         created: '',
         ports: [],
+        // 【续 68】「更新」徽章(列表形态可查;null=更新缓存未计算,不显示)
+        isUpdateAvailable: container.isUpdateAvailable ?? null,
       };
     });
     // 【续 46.4】刷新 stats 订阅的 hash→name 索引(供 containerStatsStream 按名查找)

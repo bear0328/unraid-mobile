@@ -1,8 +1,10 @@
 // 【阶段 1 P0 - 2026-06-15 续 3】多文件上传队列 UI
 // 替代原 UploadModal：每行独立进度/状态/操作（取消/重试/移除）
 import { useRef, type ChangeEvent } from 'react';
+import { Ban, Check, File, Folder, Hourglass, Plus, RotateCcw, Square, Trash2, Upload, X, type LucideIcon } from 'lucide-react';
 import { SheetModal } from './SheetModal';
 import type { UploadItem, UploadStatus } from '../../hooks/useFileUpload';
+import Icon from '../ui/Icon';
 
 interface UploadQueueProps {
   open: boolean;
@@ -15,12 +17,12 @@ interface UploadQueueProps {
   onClearCompleted: () => void;
 }
 
-const STATUS_ICON: Record<UploadStatus, string> = {
-  queued: '⏳',
-  uploading: '⏵',
-  done: '✓',
-  failed: '✗',
-  cancelled: '⊘',
+const STATUS_ICON: Record<UploadStatus, LucideIcon> = {
+  queued: Hourglass,
+  uploading: Upload,
+  done: Check,
+  failed: X,
+  cancelled: Ban,
 };
 
 const STATUS_TEXT: Record<UploadStatus, string> = {
@@ -96,7 +98,9 @@ export default function UploadQueue({
           onClick={handleAddClick}
           className="w-full py-8 mb-2 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20"
         >
-          <div className="text-2xl mb-1">📁</div>
+          <div className="mb-1 inline-flex text-gray-400 dark:text-gray-500">
+            <Icon icon={Folder} size={26} />
+          </div>
           <div className="text-gray-600 dark:text-gray-300">点击选择文件（可多选）</div>
         </button>
       ) : (
@@ -107,7 +111,9 @@ export default function UploadQueue({
                 key={item.id}
                 className="flex items-start gap-2 p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
               >
-                <span className="text-xl shrink-0 mt-0.5">📄</span>
+                <span className="shrink-0 mt-0.5 inline-flex text-gray-400 dark:text-gray-500">
+                  <Icon icon={File} size={18} />
+                </span>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2">
                     <span
@@ -116,8 +122,11 @@ export default function UploadQueue({
                     >
                       {item.file.name}
                     </span>
-                    <span className={`text-xs shrink-0 ${STATUS_COLOR[item.status]}`}>
-                      {STATUS_ICON[item.status]} {STATUS_TEXT[item.status]}
+                    <span
+                      className={`text-xs shrink-0 inline-flex items-center gap-1 ${STATUS_COLOR[item.status]}`}
+                    >
+                      <Icon icon={STATUS_ICON[item.status]} size={12} />
+                      {STATUS_TEXT[item.status]}
                     </span>
                   </div>
                   <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
@@ -139,31 +148,31 @@ export default function UploadQueue({
                   {item.status === 'uploading' && (
                     <button
                       onClick={() => onCancel(item.id)}
-                      className="w-8 h-8 flex items-center justify-center text-orange-600 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-900/30 rounded text-lg"
+                      className="w-8 h-8 flex items-center justify-center text-orange-600 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-900/30 rounded"
                       title="取消"
                       aria-label="取消上传"
                     >
-                      ⏹
+                      <Icon icon={Square} size={16} />
                     </button>
                   )}
                   {(item.status === 'failed' || item.status === 'cancelled') && (
                     <button
                       onClick={() => onRetry(item.id)}
-                      className="w-8 h-8 flex items-center justify-center text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded text-lg"
+                      className="w-8 h-8 flex items-center justify-center text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded"
                       title="重试"
                       aria-label="重试上传"
                     >
-                      ↻
+                      <Icon icon={RotateCcw} size={16} />
                     </button>
                   )}
                   {item.status !== 'uploading' && (
                     <button
                       onClick={() => onRemove(item.id)}
-                      className="w-8 h-8 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 rounded text-lg"
+                      className="w-8 h-8 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
                       title="移除"
                       aria-label="从队列移除"
                     >
-                      ×
+                      <Icon icon={X} size={16} />
                     </button>
                   )}
                 </div>
@@ -176,14 +185,20 @@ export default function UploadQueue({
               onClick={handleAddClick}
               className="flex-1 py-2 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-md"
             >
-              + 添加更多
+              <span className="inline-flex items-center gap-1">
+                <Icon icon={Plus} size={14} />
+                添加更多
+              </span>
             </button>
             {hasCompleted && (
               <button
                 onClick={onClearCompleted}
                 className="flex-1 py-2 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-md"
               >
-                🗑 清空已完成
+                <span className="inline-flex items-center gap-1">
+                  <Icon icon={Trash2} size={14} />
+                  清空已完成
+                </span>
               </button>
             )}
           </div>

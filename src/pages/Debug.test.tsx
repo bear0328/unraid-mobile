@@ -174,7 +174,7 @@ describe('Debug 页面', () => {
     expect(mockRemove).toHaveBeenCalledWith(err.id);
   });
 
-  it('SOURCE_LABEL 映射:react/window/unhandledrejection/manual 显示对应 emoji label', async () => {
+  it('SOURCE_LABEL 映射:react/window/unhandledrejection/manual 显示对应 label', async () => {
     mockErrors = [
       makeError({ source: 'react', message: 'r' }),
       makeError({ source: 'window', message: 'w' }),
@@ -182,10 +182,10 @@ describe('Debug 页面', () => {
       makeError({ source: 'manual', message: 'm' }),
     ];
     render(<Debug />);
-    expect(await screen.findByText(/⚛️ React/)).toBeInTheDocument();
-    expect(screen.getByText(/🪟 window/)).toBeInTheDocument();
-    expect(screen.getByText(/⏳ Promise/)).toBeInTheDocument();
-    expect(screen.getByText(/✋ 手动/)).toBeInTheDocument();
+    expect(await screen.findByText('React')).toBeInTheDocument();
+    expect(screen.getByText('window')).toBeInTheDocument();
+    expect(screen.getByText('Promise')).toBeInTheDocument();
+    expect(screen.getByText('手动')).toBeInTheDocument();
   });
 
   it('点击"注入测试"按钮 → 触发 __injectTestError()(不报错)', async () => {

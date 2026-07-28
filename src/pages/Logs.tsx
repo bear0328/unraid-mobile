@@ -10,8 +10,10 @@
 //   - 保留 LogFile.loadOptions? 字段定义(配置 schema,未来扩展用) + 保留 !active.loadOptions 分支
 import { memo, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { FixedSizeList, type ListChildComponentProps } from 'react-window';
+import { Bell, Hourglass, Inbox, Monitor, RefreshCw, Save, Search, XCircle, type LucideIcon } from 'lucide-react';
 import { parseSyslogLine, colorizeLine, renderHighlightedWithAnsi } from '../utils/logParser';
 import { useToast } from '../hooks/useToast';
+import Icon from '../components/ui/Icon';
 
 // 【续 33-2】告警关键字(大小写不敏感),正则字面量
 const ALERT_KEYWORDS = [
@@ -42,7 +44,7 @@ interface LogFile {
   key: string;
   label: string;
   labelFull?: string;
-  icon: string;
+  icon: LucideIcon;
   description: string;
   /** URL 路径 模板，如 /var/log/{file} */
   buildUrl: (selection: string) => string;
@@ -65,7 +67,7 @@ const LOG_FILES: LogFile[] = [
     key: 'syslog',
     label: '系统',
     labelFull: '系统日志',
-    icon: '🖥️',
+    icon: Monitor,
     description: 'rsyslog / emhttp / 内核',
     buildUrl: () => '/var/log/syslog',
     defaultSelection: 'syslog',
@@ -374,7 +376,9 @@ export default function Logs() {
                   : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700'
               }`}
             >
-              <span className="mr-0.5 sm:mr-1">{f.icon}</span>
+              <span className="mr-0.5 sm:mr-1 inline-flex align-middle">
+                <Icon icon={f.icon} size={14} />
+              </span>
               <span className="sm:hidden">{f.label}</span>
               <span className="hidden sm:inline">{f.labelFull}</span>
             </button>
@@ -400,7 +404,8 @@ export default function Logs() {
           disabled={loading}
           className="px-2.5 sm:px-3 py-1.5 sm:py-2 bg-primary-600 hover:bg-primary-700 disabled:bg-gray-400 text-white rounded-lg text-xs sm:text-sm font-medium flex items-center gap-1"
         >
-          {loading ? '⏳' : '🔄'} <span className="hidden sm:inline">刷新</span>
+          {loading ? <Icon icon={Hourglass} size={14} /> : <Icon icon={RefreshCw} size={14} />}{' '}
+          <span className="hidden sm:inline">刷新</span>
         </button>
 
         <label className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-xs sm:text-sm cursor-pointer">
@@ -438,17 +443,25 @@ export default function Logs() {
             onChange={(e) => setAlertEnabled(e.target.checked)}
             className="w-4 h-4"
           />
-          <span>🔔 告警</span>
+          <span className="inline-flex items-center gap-1">
+            <Icon icon={Bell} size={14} />
+            告警
+          </span>
         </label>
 
-        <input
-          type="text"
-          placeholder="🔍 过滤"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          className="flex-1 min-w-24 sm:min-w-32 px-2.5 sm:px-3 py-1.5 sm:py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-xs sm:text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400"
-          style={{ WebkitTextFillColor: 'currentColor' }}
-        />
+        <div className="relative flex-1 min-w-24 sm:min-w-32">
+          <span className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+            <Icon icon={Search} size={14} />
+          </span>
+          <input
+            type="text"
+            placeholder="过滤"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            className="w-full pl-8 pr-2.5 sm:pr-3 py-1.5 sm:py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-xs sm:text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400"
+            style={{ WebkitTextFillColor: 'currentColor' }}
+          />
+        </div>
 
         {filter && (
           <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
@@ -468,8 +481,9 @@ export default function Logs() {
 
       {/* Error */}
       {error && (
-        <div className="mb-3 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-700 dark:text-red-300">
-          ❌ 加载失败: {error}
+        <div className="mb-3 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-700 dark:text-red-300 flex items-center gap-1.5">
+          <Icon icon={XCircle} size={16} className="shrink-0" />
+          <span>加载失败: {error}</span>
         </div>
       )}
 
@@ -479,10 +493,14 @@ export default function Logs() {
         className="flex-1 min-h-0 bg-gray-900 dark:bg-black rounded-lg p-1 sm:p-2 font-mono text-[11px] sm:text-xs leading-snug"
       >
         {loading && !content ? (
-          <div className="text-gray-400 text-center py-8">⏳ 加载中...</div>
+          <div className="text-gray-400 text-center py-8 inline-flex items-center gap-1.5 w-full justify-center">
+            <Icon icon={Hourglass} size={15} />
+            加载中...
+          </div>
         ) : !filteredLines.some((l) => l.trim()) ? (
-          <div className="text-gray-400 text-center py-8">
-            📭 {filter ? '无匹配行' : '日志为空或未选择'}
+          <div className="text-gray-400 text-center py-8 inline-flex items-center gap-1.5 w-full justify-center">
+            <Icon icon={Inbox} size={15} />
+            <span>{filter ? '无匹配行' : '日志为空或未选择'}</span>
           </div>
         ) : (
           <FixedSizeList
@@ -543,7 +561,10 @@ export default function Logs() {
             className="px-2 py-0.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded text-xs text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
             title="导出当前显示/过滤的行(纯文本)"
           >
-            💾 导出
+            <span className="inline-flex items-center gap-1">
+              <Icon icon={Save} size={13} />
+              导出
+            </span>
           </button>
         )}
       </div>

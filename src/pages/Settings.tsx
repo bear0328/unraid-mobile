@@ -8,6 +8,27 @@
 import { useTheme } from '../context/useTheme';
 import { useRef, useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
+import {
+  AlertTriangle,
+  Bell,
+  Check,
+  Download,
+  Eye,
+  EyeOff,
+  FlaskConical,
+  MoonStar,
+  Plug,
+  RefreshCw,
+  RotateCcw,
+  Satellite,
+  Save,
+  Smartphone,
+  Upload,
+  Wrench,
+  X,
+  Zap,
+} from 'lucide-react';
+import Icon from '../components/ui/Icon';
 import { getPollInterval, setPollInterval } from '../utils/pollInterval';
 import { saveApiConfig, loadConfigFromFile } from '../services';
 import { useApiConfig } from '../hooks/useUnraidApi';
@@ -291,9 +312,10 @@ export default function Settings() {
               <button
                 type="button"
                 onClick={() => setShowApiKey(!showApiKey)}
+                aria-label={showApiKey ? '隐藏密钥' : '显示密钥'}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 p-1"
               >
-                {showApiKey ? '👁️' : '👁️‍🗨️'}
+                <Icon icon={showApiKey ? Eye : EyeOff} size={18} />
               </button>
             </div>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -306,7 +328,14 @@ export default function Settings() {
             className="w-full py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-lg
                      font-medium transition-colors"
           >
-            {saved ? '✓ 已保存' : '保存设置'}
+            {saved ? (
+              <span className="inline-flex items-center gap-1">
+                <Icon icon={Check} size={16} />
+                已保存
+              </span>
+            ) : (
+              '保存设置'
+            )}
           </button>
 
           {/* 【续 39-1 候选 - 2026-06-18】轻量探活测试(不阻塞保存) */}
@@ -317,7 +346,17 @@ export default function Settings() {
                      disabled:opacity-50 disabled:cursor-not-allowed
                      text-gray-700 dark:text-gray-200 rounded-lg text-sm font-medium transition-colors"
           >
-            {testing ? '🔌 测试中…' : '🔌 测试连接(轻量)'}
+            {testing ? (
+              <span className="inline-flex items-center gap-1">
+                <Icon icon={Plug} size={15} />
+                测试中…
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1">
+                <Icon icon={Plug} size={15} />
+                测试连接(轻量)
+              </span>
+            )}
           </button>
           {/* 【QA-2 2026-06-18】inline 状态显示 — toast 太快看不到,按钮下方兜底 */}
           {/* 【续 42 2026-06-18】4 端点列表(每行绿勾/红叉 + 延迟),整体 summary 在第一行 */}
@@ -341,13 +380,13 @@ export default function Settings() {
                       className="flex items-center gap-2"
                     >
                       <span
-                        className={
+                        className={`inline-flex ${
                           e.ok
                             ? 'text-green-600 dark:text-green-400'
                             : 'text-red-600 dark:text-red-400'
-                        }
+                        }`}
                       >
-                        {e.ok ? '✓' : '✗'}
+                        <Icon icon={e.ok ? Check : X} size={13} />
                       </span>
                       <span className="text-gray-700 dark:text-gray-300 flex-1">
                         {ENDPOINT_LABEL[e.name]}
@@ -385,9 +424,10 @@ export default function Settings() {
             <button
               type="button"
               onClick={() => setShowDavPassword(!showDavPassword)}
+              aria-label={showDavPassword ? '隐藏密码' : '显示密码'}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 p-1"
             >
-              {showDavPassword ? '👁️' : '👁️‍🗨️'}
+              <Icon icon={showDavPassword ? Eye : EyeOff} size={18} />
             </button>
           </div>
           <button
@@ -395,7 +435,14 @@ export default function Settings() {
             className="w-full py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-lg
                      font-medium transition-colors"
           >
-            {davSaved ? '✓ 已保存' : '保存 WebDAV 密码'}
+            {davSaved ? (
+              <span className="inline-flex items-center gap-1">
+                <Icon icon={Check} size={16} />
+                已保存
+              </span>
+            ) : (
+              '保存 WebDAV 密码'
+            )}
           </button>
         </div>
       </div>
@@ -421,9 +468,10 @@ export default function Settings() {
             <button
               type="button"
               onClick={() => setShowLogPassword(!showLogPassword)}
+              aria-label={showLogPassword ? '隐藏密码' : '显示密码'}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 p-1"
             >
-              {showLogPassword ? '👁️' : '👁️‍🗨️'}
+              <Icon icon={showLogPassword ? Eye : EyeOff} size={18} />
             </button>
           </div>
           <button
@@ -431,7 +479,14 @@ export default function Settings() {
             className="w-full py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-lg
                      font-medium transition-colors"
           >
-            {logSaved ? '✓ 已保存' : '保存日志密码'}
+            {logSaved ? (
+              <span className="inline-flex items-center gap-1">
+                <Icon icon={Check} size={16} />
+                已保存
+              </span>
+            ) : (
+              '保存日志密码'
+            )}
           </button>
         </div>
       </div>
@@ -477,7 +532,10 @@ export default function Settings() {
             onChange={(e) => setAuto(e.target.checked)}
             className="w-3.5 h-3.5 accent-primary-600"
           />
-          <span>🌓 跟随系统主题(系统切深色/浅色时自动同步)</span>
+          <span className="inline-flex items-center gap-1">
+            <Icon icon={MoonStar} size={13} />
+            跟随系统主题(系统切深色/浅色时自动同步)
+          </span>
         </label>
       </div>
 
@@ -497,7 +555,10 @@ export default function Settings() {
           }}
           className="inline-block px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-sm font-medium rounded-lg transition-colors"
         >
-          🔧 打开诊断工具
+          <span className="inline-flex items-center gap-1">
+            <Icon icon={Wrench} size={14} />
+            打开诊断工具
+          </span>
         </button>
       </div>
 
@@ -578,14 +639,16 @@ function BackupSection() {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
       <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
-        💾 备份与恢复
+        <Icon icon={Save} size={20} />
+        备份与恢复
       </h3>
       <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
         {/* 【续 50 D6a】导出内容补 Webhook 设置;敏感清单补 Webhook token(导出已剔除,导入保留本地) */}
         导出收藏/主题/Dashboard 顺序/Webhook 设置/服务器列表到 JSON 文件。换设备或清缓存后可一键恢复。
         <br />
-        <span className="text-yellow-600 dark:text-yellow-400">
-          ⚠️ 不含 API 密钥、密码、Webhook token 等敏感数据(请重新配置)。
+        <span className="text-yellow-600 dark:text-yellow-400 inline-flex items-center gap-1">
+          <Icon icon={AlertTriangle} size={13} className="shrink-0" />
+          不含 API 密钥、密码、Webhook token 等敏感数据(请重新配置)。
         </span>
       </p>
       <div className="flex flex-wrap gap-2">
@@ -593,7 +656,8 @@ function BackupSection() {
           onClick={handleExport}
           className="px-3 py-2 text-sm bg-primary-600 hover:bg-primary-700 text-white rounded-lg flex items-center gap-1.5"
         >
-          📤 导出备份
+          <Icon icon={Download} size={15} />
+          导出备份
         </button>
         <input
           ref={fileInputRef}
@@ -606,7 +670,8 @@ function BackupSection() {
           onClick={() => fileInputRef.current?.click()}
           className="px-3 py-2 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-lg flex items-center gap-1.5"
         >
-          📥 导入备份
+          <Icon icon={Upload} size={15} />
+          导入备份
         </button>
       </div>
     </div>
@@ -672,7 +737,8 @@ function WebhookSection() {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
       <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
-        🔔 容器事件 Webhook
+        <Icon icon={Bell} size={20} />
+        容器事件 Webhook
       </h3>
       <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
         容器状态从 运行中 变为 停止/退出 时,推送消息到 Bark / Telegram / Discord / 自定义 HTTP。
@@ -854,7 +920,14 @@ function WebhookSection() {
         disabled={testing}
         className="w-full py-2 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg disabled:opacity-50"
       >
-        {testing ? '发送中…' : '🧪 发送测试消息'}
+        {testing ? (
+          '发送中…'
+        ) : (
+          <span className="inline-flex items-center gap-1">
+            <Icon icon={FlaskConical} size={14} />
+            发送测试消息
+          </span>
+        )}
       </button>
     </div>
   );
@@ -869,10 +942,12 @@ function PwaInstallSection() {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
-          📱 安装到主屏幕
+          <Icon icon={Smartphone} size={20} />
+          安装到主屏幕
         </h3>
-        <p className="text-sm text-green-600 dark:text-green-400">
-          ✓ 已作为 PWA 安装(以独立窗口运行)
+        <p className="text-sm text-green-600 dark:text-green-400 flex items-center gap-1">
+          <Icon icon={Check} size={15} />
+          已作为 PWA 安装(以独立窗口运行)
         </p>
       </div>
     );
@@ -923,7 +998,8 @@ function PwaInstallSection() {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
       <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
-        📱 安装到主屏幕
+        <Icon icon={Smartphone} size={20} />
+        安装到主屏幕
       </h3>
       <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
         像 App 一样使用,全屏、桌面图标、离线也能打开已访问过的页面。 当前设备:{' '}
@@ -935,7 +1011,10 @@ function PwaInstallSection() {
           onClick={handleInstall}
           className="w-full mb-3 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm rounded-lg"
         >
-          ⚡ 立即安装
+          <span className="inline-flex items-center gap-1">
+            <Icon icon={Zap} size={14} />
+            立即安装
+          </span>
         </button>
       ) : null}
 
@@ -953,7 +1032,10 @@ function PwaInstallSection() {
         }}
         className="mt-3 text-[10px] text-gray-400 hover:text-primary-600"
       >
-        ↺ 重置顶部提示关闭记忆
+        <span className="inline-flex items-center gap-1">
+          <Icon icon={RotateCcw} size={11} />
+          重置顶部提示关闭记忆
+        </span>
       </button>
     </div>
   );
@@ -988,7 +1070,8 @@ function RemoteReporterSection() {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
       <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1 flex items-center gap-2">
-        📡 远程上报
+        <Icon icon={Satellite} size={20} />
+        远程上报
       </h3>
       <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
         越界时复用上方 Webhook 通道推送(可关)。不开 Webhook 本功能不工作。 Webhook 状态:{' '}
@@ -1115,7 +1198,14 @@ function RemoteReporterSection() {
           disabled={testing}
           className="flex-1 py-2 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg disabled:opacity-50"
         >
-          {testing ? '检查中…' : '🧪 立即跑一次检查'}
+          {testing ? (
+            '检查中…'
+          ) : (
+            <span className="inline-flex items-center gap-1">
+              <Icon icon={FlaskConical} size={14} />
+              立即跑一次检查
+            </span>
+          )}
         </button>
         <button
           onClick={() => {
@@ -1125,7 +1215,10 @@ function RemoteReporterSection() {
           }}
           className="px-3 py-2 text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-200"
         >
-          ↺ 默认
+          <span className="inline-flex items-center gap-1">
+            <Icon icon={RotateCcw} size={11} />
+            默认
+          </span>
         </button>
       </div>
     </div>
@@ -1143,7 +1236,8 @@ function PollIntervalSection() {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
       <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
-        🔄 数据刷新间隔
+        <Icon icon={RefreshCw} size={20} />
+        数据刷新间隔
       </h3>
       <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
         Dashboard / 容器数据的自动刷新周期。越长越省(更不易唤醒磁盘),越短数据越新。
@@ -1169,7 +1263,10 @@ function PollIntervalSection() {
         onClick={() => update(30)}
         className="mt-3 text-[10px] text-gray-400 hover:text-primary-600"
       >
-        ↺ 重置默认(30s)
+        <span className="inline-flex items-center gap-1">
+          <Icon icon={RotateCcw} size={11} />
+          重置默认(30s)
+        </span>
       </button>
     </div>
   );

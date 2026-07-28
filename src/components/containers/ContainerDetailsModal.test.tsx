@@ -33,7 +33,7 @@ describe('ContainerDetailsModal', () => {
 
   it('显示 autoStart 启用/禁用', () => {
     render(<ContainerDetailsModal container={container} api={null} onClose={() => {}} />);
-    expect(screen.getByText('✓ 启用')).toBeInTheDocument();
+    expect(screen.getByText('启用')).toBeInTheDocument();
   });
 
   it('api=null 时显示 stats 加载中', () => {
@@ -68,18 +68,21 @@ describe('ContainerDetailsModal', () => {
     };
     render(<ContainerDetailsModal container={container} api={api as unknown as UnraidApiService} onClose={() => {}} />);
     await waitFor(() => {
-      // 源码渲染 `❌ {statsError}`,文本节点带 emoji 前缀,用 RegExp 匹配包含
+      // 源码渲染 AlertTriangle 图标 + {statsError} 文本,用 RegExp 匹配包含
       expect(screen.getByText(/连接失败/)).toBeInTheDocument();
     });
   });
 
-  it('点 ⭐ 切换收藏状态', async () => {
+  it('点收藏按钮切换收藏状态(Star 图标 fill 切换)', async () => {
     const { default: userEvent } = await import('@testing-library/user-event');
     render(<ContainerDetailsModal container={container} api={null} onClose={() => {}} />);
     const favBtn = screen.getByLabelText('添加到收藏');
-    expect(favBtn).toHaveTextContent('☆');
+    // 未收藏:Star 无填充
+    expect(favBtn.querySelector('svg')).toHaveAttribute('fill', 'none');
     await userEvent.click(favBtn);
-    expect(screen.getByLabelText('取消收藏')).toHaveTextContent('★');
+    // 已收藏:aria-label 翻转 + Star 实心
+    const unfavBtn = screen.getByLabelText('取消收藏');
+    expect(unfavBtn.querySelector('svg')).toHaveAttribute('fill', 'currentColor');
   });
 
   it('paused 状态显示对应文案', () => {
@@ -147,7 +150,7 @@ describe('ContainerDetailsModal', () => {
     // 自启顺序/等待
     expect(screen.getByText(/顺序 10/)).toBeInTheDocument();
     // 更新徽标 + WebUI 按钮
-    expect(screen.getByText('🔔 有更新')).toBeInTheDocument();
+    expect(screen.getByText('有更新')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /打开 Web UI/ })).toHaveAttribute(
       'href',
       'http://192.168.6.140:3998'

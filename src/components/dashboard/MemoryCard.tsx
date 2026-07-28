@@ -3,11 +3,15 @@
 // 【阶段 P1-2 - 2026-06-15 续 8】React.memo 包装
 // 【阶段 P2-监控图 - 2026-06-17 续 32-7】接收 history 显示折线图
 import { useState, memo } from 'react';
+import { MemoryStick, ChevronRight, ChevronDown } from 'lucide-react';
 import { UnraidSystemInfo } from '../../services';
 import ProgressBar from '../ProgressBar';
+import Icon from '../ui/Icon';
 import { formatBytes, getMemoryColor } from '../../utils/formatters';
 import MiniSparkline from './MiniSparkline';
 import StaleBadge from '../ui/StaleBadge';
+import { cardClass, iconChipClass } from '../ui/Card';
+import { useCountUp } from '../../hooks/useCountUp';
 
 interface MemoryCardProps {
   systemInfo: UnraidSystemInfo | null;
@@ -20,6 +24,8 @@ interface MemoryCardProps {
 function MemoryCard({ systemInfo, history, cacheAgeMs }: MemoryCardProps) {
   const [memoryCollapsed, setMemoryCollapsed] = useState(true);
   const memory = systemInfo?.memory || 0;
+  // 【续 68】大数字变化时 300ms 平滑过渡(首帧直接终值,reduced-motion 关闭)
+  const memDisplay = useCountUp(memory);
   const memColor = getMemoryColor(memory);
   const colorClass =
     memColor === 'red'
@@ -29,17 +35,19 @@ function MemoryCard({ systemInfo, history, cacheAgeMs }: MemoryCardProps) {
         : 'text-green-600 dark:text-green-400';
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+    <div className={cardClass}>
       <div className="flex items-center justify-between mb-1">
         <div className="flex items-center">
-          <span className="text-2xl mr-2">🧠</span>
+          <span className={`${iconChipClass} mr-2.5`}>
+            <Icon icon={MemoryStick} size={18} />
+          </span>
           <div>
             <div className="flex items-center gap-1.5">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">内存</h3>
               <StaleBadge
                 cacheAgeMs={cacheAgeMs}
                 thresholdMs={60 * 1000}
-                title="Dashboard 缓存数据,点 🔄 刷新拉最新"
+                title="Dashboard 缓存数据,点「刷新」拉最新"
               />
             </div>
             {!memoryCollapsed && systemInfo?.memoryTotal && systemInfo.memoryTotal > 0 ? (
@@ -59,9 +67,7 @@ function MemoryCard({ systemInfo, history, cacheAgeMs }: MemoryCardProps) {
             )}
           </div>
         </div>
-        <div className={`text-2xl font-bold ${colorClass}`}>
-          {systemInfo?.memory?.toFixed(1) || '0'}%
-        </div>
+        <div className={`text-2xl font-bold ${colorClass}`}>{memDisplay.toFixed(1)}%</div>
       </div>
 
       <ProgressBar label="" value={memory} color={memColor} />
@@ -84,7 +90,7 @@ function MemoryCard({ systemInfo, history, cacheAgeMs }: MemoryCardProps) {
         onClick={() => setMemoryCollapsed(!memoryCollapsed)}
         className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 mt-2 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
       >
-        <span>{memoryCollapsed ? '▶' : '▼'}</span>
+        <Icon icon={memoryCollapsed ? ChevronRight : ChevronDown} size={12} />
         <span>{memoryCollapsed ? '展开' : '收起'}</span>
       </button>
 

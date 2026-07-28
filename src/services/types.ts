@@ -48,6 +48,8 @@ export interface UnraidDisk {
   writes?: number; // 累计写入字节数
   readSpeed?: number; // 实时读取速度 (bytes/sec)
   writeSpeed?: number; // 实时写入速度 (bytes/sec)
+  /** 【续 66】转动状态(false=休眠),来自 isSpinning;未拉取时 undefined */
+  isSpinning?: boolean;
 }
 
 export interface UnraidDockerContainer {
@@ -59,6 +61,8 @@ export interface UnraidDockerContainer {
   status: string;
   created: string;
   ports: string[];
+  /** 【续 68】有可用更新(列表查询返回;null=未知/未计算) */
+  isUpdateAvailable?: boolean | null;
   // 资源使用（可选）
   cpuPercent?: number;
   memoryPercent?: number;

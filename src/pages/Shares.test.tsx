@@ -232,7 +232,7 @@ describe('Shares 页面', () => {
       navigateUp: vi.fn(),
     });
     renderShares();
-    const searchInput = screen.getByPlaceholderText('🔍 搜索文件名...');
+    const searchInput = screen.getByPlaceholderText('搜索文件名...');
     await user.type(searchInput, 'bear');
     // debounce 300ms 后才显示
     await waitFor(
@@ -257,7 +257,7 @@ describe('Shares 页面', () => {
       navigateUp: vi.fn(),
     });
     renderShares();
-    const searchInput = screen.getByPlaceholderText('🔍 搜索文件名...');
+    const searchInput = screen.getByPlaceholderText('搜索文件名...');
     await user.type(searchInput, 'nonexistent-zzz');
     await waitFor(
       () => {
@@ -315,14 +315,14 @@ describe('Shares 页面', () => {
       navigateUp: vi.fn(),
     });
     renderShares();
-    // EmptyFolder 渲染 `📂` + `空目录` 两 p,用 /空目录/ 匹配叶子 p
+    // EmptyFolder 渲染 FolderOpen 图标 + `空目录` 两 p,用 /空目录/ 匹配叶子 p
     expect(
       screen.getByText((_, node) => node?.children?.length === 0 && !!node?.textContent?.includes('空目录'))
     ).toBeInTheDocument();
   });
 
   // ==== 续 55 商业化:Shares 写操作 → Pro ====
-  it('未解锁 → 上传/新建文件夹/清理换 🔒 占位按钮,文件行菜单写操作带 🔒(下载保持免费)', async () => {
+  it('未解锁 → 上传/新建文件夹/清理换锁占位按钮,文件行菜单写操作带锁图标(下载保持免费)', async () => {
     __setLicenseStateForTest({ status: 'none' });
     const user: UserEvent = userEvent.setup();
     mockUseShares.mockReturnValue({
@@ -337,17 +337,17 @@ describe('Shares 页面', () => {
       navigateUp: vi.fn(),
     });
     renderShares();
-    // 工具条:🔒 占位(ProGateButton 渲染 "🔒 <label>"),点击不打开上传队列/新建模态
-    expect(screen.getByRole('button', { name: /🔒 上传/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /🔒 新建文件夹/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /🔒 清理/ })).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: /🔒 新建文件夹/ }));
+    // 工具条:锁占位(ProGateButton 渲染锁图标 + <label>,可访问名即 label),点击不打开上传队列/新建模态
+    expect(screen.getByRole('button', { name: '上传' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '新建文件夹' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '清理' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '新建文件夹' }));
     expect(screen.queryByPlaceholderText(/文件夹名/)).not.toBeInTheDocument();
-    // 文件行 ⋮ 菜单:下载免费,删除带 🔒
+    // 文件行 ⋮ 菜单:下载免费,删除/重命名带 Lock 图标(label 纯文本,图标 aria-hidden)
     const menuTriggers = screen.getAllByRole('button', { name: '更多操作' });
     await user.click(menuTriggers[0]);
     expect(screen.getByRole('menuitem', { name: '下载' })).toBeInTheDocument();
-    expect(screen.getByRole('menuitem', { name: /🔒 删除/ })).toBeInTheDocument();
-    expect(screen.getByRole('menuitem', { name: /🔒 重命名/ })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: '删除' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: '重命名' })).toBeInTheDocument();
   });
 });

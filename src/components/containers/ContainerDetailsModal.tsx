@@ -11,11 +11,25 @@
 // 【续 53 2026-07-19】删底部"关闭"按钮(内容变长沉底按不到,右上角 × 即可);
 //   非 running 容器 stats 区显示友好提示(docker stats 仅运行中有数据),不再 ❌ 报错
 import { useEffect, useState } from 'react';
+import {
+  Bell,
+  Star,
+  RefreshCw,
+  AlertTriangle,
+  Check,
+  X,
+  Link as LinkIcon,
+  ExternalLink,
+  Globe,
+  ChevronDown,
+  ChevronRight,
+} from 'lucide-react';
 import { UnraidApiService, UnraidDockerContainer, ContainerDetailInfo } from '../../services';
 import { useFavorites } from '../../hooks/useFavorites';
 import { useApiConfig } from '../../hooks/useUnraidApi';
 import MiniSparkline from '../dashboard/MiniSparkline';
 import { Modal, ModalHeader } from '../Modal';
+import Icon from '../ui/Icon';
 import { containerStateLabel, formatDate, formatBytes } from '../../utils/formatters';
 
 interface ContainerDetailsModalProps {
@@ -132,8 +146,9 @@ export default function ContainerDetailsModal({
           <p className={`text-sm font-medium ${state.color}`}>
             {state.text}
             {detail?.isUpdateAvailable === true && (
-              <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300">
-                🔔 有更新
+              <span className="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300">
+                <Icon icon={Bell} size={12} />
+                有更新
               </span>
             )}
           </p>
@@ -143,13 +158,13 @@ export default function ContainerDetailsModal({
           onClick={() =>
             toggleFav({ kind: 'container', value: container.containerId, label: container.name })
           }
-          className={`text-xl leading-none ml-1 p-1 rounded transition-colors ${
+          className={`leading-none ml-1 p-1 rounded transition-colors ${
             faved ? 'text-yellow-500 hover:text-yellow-600' : 'text-gray-300 hover:text-yellow-500'
           }`}
           aria-label={faved ? '取消收藏' : '添加到收藏'}
           title={faved ? '取消收藏' : '添加到收藏'}
         >
-          {faved ? '★' : '☆'}
+          <Icon icon={Star} size={20} fill={faved ? 'currentColor' : 'none'} />
         </button>
       </ModalHeader>
 
@@ -159,14 +174,20 @@ export default function ContainerDetailsModal({
           实时资源
         </h4>
         {statsLoading ? (
-          <div className="text-sm text-gray-400 py-2">⏳ 加载 stats...</div>
+          <div className="inline-flex items-center gap-1 text-sm text-gray-400 py-2">
+            <Icon icon={RefreshCw} size={14} className="animate-spin" />
+            加载 stats...
+          </div>
         ) : container.state !== 'running' ? (
           // 【续 53】docker stats 仅运行中容器有数据,停止的容器不再显示 ❌ 报错
           <div className="text-sm text-gray-400 py-2">
             容器未运行,无实时资源数据(CPU/内存统计仅运行中可用)
           </div>
         ) : statsError ? (
-          <div className="text-sm text-red-500 py-2">❌ {statsError}</div>
+          <div className="flex items-center gap-1 text-sm text-red-500 py-2">
+            <Icon icon={AlertTriangle} size={14} />
+            {statsError}
+          </div>
         ) : stats ? (
           <div className="space-y-2.5">
             <div>
@@ -239,9 +260,12 @@ export default function ContainerDetailsModal({
         <div className="flex justify-between gap-2 py-1.5 border-b border-gray-100 dark:border-gray-700">
           <span className="text-gray-500 dark:text-gray-400 shrink-0">开机自启</span>
           <span
-            className={container.autoStart ? 'text-green-600 dark:text-green-400' : 'text-gray-500'}
+            className={`inline-flex items-center gap-1 ${
+              container.autoStart ? 'text-green-600 dark:text-green-400' : 'text-gray-500'
+            }`}
           >
-            {container.autoStart ? '✓ 启用' : '✗ 禁用'}
+            <Icon icon={container.autoStart ? Check : X} size={14} />
+            {container.autoStart ? '启用' : '禁用'}
             {container.autoStart && detail?.autoStartOrder != null && (
               <span className="text-gray-400 dark:text-gray-500 text-xs ml-1">
                 (顺序 {detail.autoStartOrder}
@@ -304,7 +328,9 @@ export default function ContainerDetailsModal({
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1 font-mono text-xs text-primary-600 dark:text-primary-400 hover:underline"
               >
-                🔗 {addr} ↗
+                <Icon icon={LinkIcon} size={12} />
+                {addr}
+                <Icon icon={ExternalLink} size={12} />
               </a>
             ))}
           </div>
@@ -347,7 +373,7 @@ export default function ContainerDetailsModal({
             className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2 hover:text-gray-700 dark:hover:text-gray-200"
             aria-expanded={showMounts}
           >
-            <span>{showMounts ? '▾' : '▸'}</span>
+            <Icon icon={showMounts ? ChevronDown : ChevronRight} size={12} />
             挂载
             <span className="normal-case font-normal">({detail.mounts.length})</span>
           </button>
@@ -418,7 +444,9 @@ export default function ContainerDetailsModal({
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium"
             >
-              🌐 打开 Web UI ↗
+              <Icon icon={Globe} size={14} />
+              打开 Web UI
+              <Icon icon={ExternalLink} size={12} />
             </a>
           </div>
         )}
@@ -429,9 +457,10 @@ export default function ContainerDetailsModal({
                 href={detail.projectUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-primary-600 dark:text-primary-400 hover:underline"
+                className="inline-flex items-center gap-1 text-primary-600 dark:text-primary-400 hover:underline"
               >
-                项目主页 ↗
+                项目主页
+                <Icon icon={ExternalLink} size={12} />
               </a>
             )}
             {detail?.supportUrl && (
@@ -439,9 +468,10 @@ export default function ContainerDetailsModal({
                 href={detail.supportUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-primary-600 dark:text-primary-400 hover:underline"
+                className="inline-flex items-center gap-1 text-primary-600 dark:text-primary-400 hover:underline"
               >
-                支持 ↗
+                支持
+                <Icon icon={ExternalLink} size={12} />
               </a>
             )}
           </div>
@@ -453,7 +483,9 @@ export default function ContainerDetailsModal({
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1 text-primary-600 dark:text-primary-400 hover:underline font-medium"
           >
-            🔗 在 unRAID WebGUI 中打开 ↗
+            <Icon icon={LinkIcon} size={12} />
+            在 unRAID WebGUI 中打开
+            <Icon icon={ExternalLink} size={12} />
           </a>
         )}
       </div>

@@ -296,7 +296,7 @@ describe('Containers 页面', () => {
     renderContainers();
     // 默认 modal 关闭
     expect(screen.queryByTestId('logs-modal')).not.toBeInTheDocument();
-    // 日志按钮在 ActionMenu 下拉里:先点 "更多操作" trigger,再点 "📋 日志" menuitem
+    // 日志按钮在 ActionMenu 下拉里:先点 "更多操作" trigger,再点 "日志" menuitem(批 B 起为 icon+label)
     await user.click(screen.getByRole('button', { name: '更多操作' }));
     await user.click(screen.getByRole('menuitem', { name: /日志/ }));
     // LogsModal 打开并显示 containerName
@@ -395,7 +395,7 @@ describe('Containers 页面', () => {
     // 勾选两个容器 → 批量工具条出现
     await user.click(screen.getByLabelText('选择 nginx'));
     await user.click(screen.getByLabelText('选择 redis'));
-    await user.click(screen.getByRole('button', { name: '▶ 启动' }));
+    await user.click(screen.getByRole('button', { name: '启动' }));
     await waitFor(() =>
       expect(toastMocks.warning).toHaveBeenCalledWith('批量 启动: 成功 1 / 失败 1', 5000)
     );
@@ -423,7 +423,7 @@ describe('Containers 页面', () => {
     });
     renderContainers();
     await user.click(screen.getByLabelText('选择 nginx'));
-    await user.click(screen.getByRole('button', { name: '⏹ 停止' }));
+    await user.click(screen.getByRole('button', { name: '停止' }));
     await waitFor(() => expect(toastMocks.success).toHaveBeenCalledWith('批量 停止 完成: 1 个'));
     expect(toastMocks.warning).not.toHaveBeenCalled();
   });
@@ -496,7 +496,7 @@ describe('Containers 页面', () => {
   });
 
   // ==== 续 55 商业化:Pro 门控 ====
-  it('未解锁 → Compose tab 显示 🔒 引导(不渲染 ComposeStacks)', async () => {
+  it('未解锁 → Compose tab 显示 ProGate 锁引导(不渲染 ComposeStacks)', async () => {
     __setLicenseStateForTest({ status: 'none' });
     const user: UserEvent = userEvent.setup();
     renderContainers();

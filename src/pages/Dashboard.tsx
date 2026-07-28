@@ -4,6 +4,7 @@
 // 【阶段 P2-拖拽 - 2026-06-17 续 34-2】卡片拖拽重排
 // 【续 45.7 2026-07-01】加 🔄 头部按钮 + 5 个数据卡 staleness 提示
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { RotateCcw } from 'lucide-react';
 import {
   UnraidSystemInfo,
   UnraidDisk,
@@ -31,7 +32,8 @@ import FavoritesCard from '../components/dashboard/FavoritesCard';
 import ContainerSummaryCard from '../components/dashboard/ContainerSummaryCard';
 import DraggableCard from '../components/dashboard/DraggableCard';
 import { ConfigRequiredState } from '../components/dashboard/EmptyState';
-import StaleBadge from '../components/ui/StaleBadge';
+import ServerHeroCard from '../components/dashboard/ServerHeroCard';
+import Icon from '../components/ui/Icon';
 import { useDashboardOrder, type DashboardCardKey } from '../hooks/useDashboardOrder';
 import { useContainersData } from '../hooks/useContainersData';
 import { recordDiskSnapshot } from '../utils/diskHistory';
@@ -45,6 +47,8 @@ export default function Dashboard() {
   const [systemInfo, setSystemInfo] = useState<UnraidSystemInfo | null>(cache?.systemInfo ?? null);
   const [disks, setDisks] = useState<UnraidDisk[]>(cache?.disks ?? []);
   const [networks, setNetworks] = useState<UnraidNetworkInfo[]>(cache?.networks ?? []);
+  // 【续 66】磁盘休眠状态(轻查询,不唤盘,随每次真实刷新更新;不进 LS 缓存)
+  const [spinMap, setSpinMap] = useState<Map<string, boolean>>(new Map());
   const [loading, setLoading] = useState(!cache);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -112,12 +116,17 @@ export default function Dashboard() {
 
       try {
         if (manual) setIsRefreshing(true);
-        // 并行获取所有数据(磁盘按需)
-        const tasks: Promise<unknown>[] = [api.getSystemInfo(), api.getNetworkInfo()];
+        // 并行获取所有数据(磁盘按需;spin 轻查询常拉,实测不唤盘)
+        const tasks: Promise<unknown>[] = [
+          api.getSystemInfo(),
+          api.getNetworkInfo(),
+          api.getSpinStatus(),
+        ];
         if (shouldFetchDisks) tasks.push(api.getDisks());
-        const [sysInfo, networkData, diskRaw] = (await Promise.all(tasks)) as [
+        const [sysInfo, networkData, spinStatus, diskRaw] = (await Promise.all(tasks)) as [
           UnraidSystemInfo | null,
           UnraidNetworkInfo[],
+          Map<string, boolean>,
           UnraidDisk[] | undefined,
         ];
 
@@ -126,6 +135,7 @@ export default function Dashboard() {
         }
 
         setNetworks(networkData);
+        setSpinMap(spinStatus);
 
         // 仅当本次真拉了 disks 才更新磁盘 state(否则保留旧数据,避免被 undefined 清空)
         let diskDataForCache: UnraidDisk[] | undefined;
@@ -267,38 +277,16 @@ export default function Dashboard() {
 
   return (
     <div className="p-4 space-y-4">
-      {/* Server Name */}
-      <div className="mb-6">
-        <div className="flex flex-wrap items-center gap-3">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-            {systemInfo?.name || 'unRAID Server'}
-          </h2>
-          {/* 【续 45.7 2026-07-01】手动刷新按钮:invalidate cache + 强制 fetch */}
-          <button
-            onClick={handleManualRefresh}
-            disabled={isRefreshing}
-            className="text-xs px-2.5 py-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            aria-label="手动刷新 Dashboard 数据"
-            title="立即拉新数据(不拉磁盘,不唤醒硬盘)"
-          >
-            🔄 刷新
-          </button>
-          {isRefreshing && (
-            <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 rounded-full px-3 py-1">
-              后台刷新中…
-            </span>
-          )}
-          {/* 【续 45.7】头部 staleness 提示 */}
-          <StaleBadge
-            cacheAgeMs={dashboardCacheAge}
-            thresholdMs={60 * 1000}
-            title="Dashboard 缓存数据,点 🔄 刷新拉最新"
-          />
-        </div>
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          运行时长: {systemInfo?.uptime || 'N/A'}
-        </p>
-      </div>
+      {/* 【续 68 GUI 焕新】门面头卡:主色渐变 + 阵列状态 pill + 幽灵刷新按钮
+          (原黑字标题 + 灰色 uptime 朴素头部已并入 ServerHeroCard) */}
+      <ServerHeroCard
+        name={systemInfo?.name}
+        uptime={systemInfo?.uptime}
+        arrayStatus={systemInfo?.arrayStatus}
+        isRefreshing={isRefreshing}
+        onRefresh={handleManualRefresh}
+        cacheAgeMs={dashboardCacheAge}
+      />
 
       {/* 【续 34-2】按 order 渲染卡片(可拖拽重排) */}
       {order.map((key, idx) => {
@@ -314,6 +302,7 @@ export default function Dashboard() {
           dashboardCacheAge,
           disksCacheAge,
           onRefreshDisks: handleRefreshDisks,
+          spinMap,
         });
         return (
           <DraggableCard key={key} id={key} index={idx} totalCount={order.length} onMove={move}>
@@ -328,9 +317,10 @@ export default function Dashboard() {
           onClick={() => {
             if (confirm('恢复 Dashboard 卡片为默认顺序?')) reset();
           }}
-          className="text-xs text-gray-400 hover:text-primary-600"
+          className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-primary-600"
         >
-          ↺ 恢复默认顺序
+          <Icon icon={RotateCcw} size={12} />
+          恢复默认顺序
         </button>
       </div>
     </div>
@@ -355,6 +345,8 @@ function renderCard(
     disksCacheAge?: number | null;
     /** 【续 45.8 2026-07-04】DiskCard 显式刷新磁盘按钮回调 */
     onRefreshDisks?: () => void;
+    /** 【续 66】磁盘休眠状态(name → isSpinning),给 DiskCard 用 */
+    spinMap?: Map<string, boolean>;
   }
 ) {
   switch (key) {
@@ -407,6 +399,7 @@ function renderCard(
           cacheAgeMs={props.disksCacheAge}
           onRefreshDisks={props.onRefreshDisks}
           isRefreshing={props.isRefreshing}
+          spinMap={props.spinMap}
         />
       );
     default:

@@ -2,8 +2,10 @@
 // 用 nginx /dav/ GET 读 + PUT 写回
 // 限制:文本类(扩展名白名单),< 1MB
 import { useEffect, useState, useRef } from 'react';
+import { AlertTriangle, Pencil } from 'lucide-react';
 import { useToast } from '../../hooks/useToast';
 import { davFetch } from './davAuth';
+import Icon from '../ui/Icon';
 
 const MAX_EDIT_BYTES = 1024 * 1024; // 1MB
 
@@ -116,18 +118,20 @@ export default function TextFileEditor({
 
   return (
     <div
-      className="fixed inset-0 z-[80] bg-black/40 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4"
+      className="fixed inset-0 z-overlay bg-black/50 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 anim-fade"
       onClick={handleClose}
       role="dialog"
       aria-modal="true"
       aria-label="文本编辑"
     >
       <div
-        className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-4xl max-h-[95dvh] flex flex-col overflow-hidden border border-gray-200 dark:border-gray-700"
+        className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[95dvh] flex flex-col overflow-hidden border border-gray-200 dark:border-gray-700 anim-pop"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-2 px-4 py-2.5 border-b border-gray-200 dark:border-gray-700">
-          <span className="text-base shrink-0">✏️</span>
+          <span className="shrink-0 inline-flex text-gray-500 dark:text-gray-400">
+            <Icon icon={Pencil} size={16} />
+          </span>
           <span
             className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate flex-1"
             title={displayName}
@@ -160,7 +164,7 @@ export default function TextFileEditor({
           </div>
         ) : error ? (
           <div className="flex-1 flex flex-col items-center justify-center text-red-500 text-sm gap-2 p-4 text-center">
-            <span className="text-2xl">⚠️</span>
+            <Icon icon={AlertTriangle} size={24} />
             <span>{error}</span>
             <button onClick={handleClose} className="text-xs text-primary-600 hover:underline">
               关闭

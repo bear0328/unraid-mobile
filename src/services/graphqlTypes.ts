@@ -90,6 +90,8 @@ export interface DiskInfo {
   fsFree: number;
   numReads: number;
   numWrites: number;
+  /** 【续 66】emhttp 内存里的转动状态(false=休眠),读它不唤盘 */
+  isSpinning?: boolean | null;
 }
 
 // 【续 50 C9b】删 DiskCapacity:真实 schema 的 array.capacity 是 ArrayCapacity
@@ -104,6 +106,14 @@ export interface DisksResponse {
   };
 }
 
+/** 【续 66】SPIN_STATUS_QUERY 响应(轻量休眠状态) */
+export interface SpinStatusResponse {
+  array: {
+    disks: Array<{ name: string; isSpinning: boolean | null }>;
+    caches: Array<{ name: string; isSpinning: boolean | null }>;
+  };
+}
+
 // ==================== Docker ====================
 
 export interface DockerContainer {
@@ -113,6 +123,8 @@ export interface DockerContainer {
   state: string;
   status: string;
   autoStart: boolean;
+  /** 【续 68】列表形态可查(ha-unraid 同字段实证);null = 更新缓存未计算 */
+  isUpdateAvailable?: boolean | null;
 }
 
 export interface DockerLogLine {
@@ -154,8 +166,9 @@ export interface VmsResponse {
 
 export interface NetworkMetric {
   name: string;
-  received: number;
-  sent: number;
+  /** BigInt 累积字节数,JSON 里是字符串 */
+  bytesReceived: string | number;
+  bytesSent: string | number;
 }
 
 export interface NetworkInterface {

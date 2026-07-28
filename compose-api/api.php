@@ -290,11 +290,14 @@ function runComposeAsync(string $dir, string $op, string $args): void
     fwrite($lock, $op);
     fclose($lock);
     // 【续 50 D3-3】异步动作的真实成败在后台 shell 里,完成时把审计行追加进 AUDIT_LOG
+    // 【续 68.2】pull/rebuild 成功后(rm .op-running 之前)回写 unraid-api 更新状态缓存,
+    //   否则「更新」徽章要等 unraid-api 次日 6AM cron 才消
     $inner = sprintf(
         'cd %s && %s %s compose %s > last_cmd.log 2>&1; ec=$?; '
         . 'printf \'{"result":"%%s","exit_code":%%d,"operation":"%s","timestamp":"%%s"}\' '
         . '"$([ "$ec" -eq 0 ] && echo success || echo error)" "$ec" "$(date \'+%%Y-%%m-%%dT%%H:%%M:%%S%%z\')" '
         . '> last_result.json; '
+        . '[ "$ec" -eq 0 ] && /usr/bin/php %s %s >/dev/null 2>&1; '
         . 'printf \'[%%s] action=%s stack=%s result=%%s ip=%s\n\' "$(date -Iseconds)" '
         . '"$([ "$ec" -eq 0 ] && echo ok || echo fail)" >> %s; '
         . 'rm -f .op-running',
@@ -303,6 +306,8 @@ function runComposeAsync(string $dir, string $op, string $args): void
         DOCKER,
         $args,
         $op,
+        escapeshellarg(__DIR__ . '/update-status.php'),
+        escapeshellarg($dir),
         $op,
         basename($dir),
         escapeshellarg((string) ($_SERVER['REMOTE_ADDR'] ?? '-')),

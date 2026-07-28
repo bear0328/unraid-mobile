@@ -27,9 +27,9 @@
 set -euo pipefail
 
 # 【续 49.4】公开版默认从 GitHub raw 拉 api.php(tag 固定版本)
-RAW_URL="https://raw.githubusercontent.com/bear0328/unraid-mobile/v1.0.2/compose-api/api.php"
+RAW_URL="https://raw.githubusercontent.com/bear0328/unraid-mobile/v1.0.3/compose-api/api.php"
 # 【续 50 D4-1】下载的 api.php 做 sha256 校验(防下载源被篡改);改动 api.php 后必须同步更新此值
-EXPECTED_API_SHA256="c7e14c5a1a6d00c21eb8bfafa82fe20437439e0ffb7828621cd79d160c99e01e"
+EXPECTED_API_SHA256="6d2f13a52a1f26aca4b4b935ddb43ba3210dc9072abd0a06817d8280e417a461"
 
 PLUGIN_DIR="/boot/config/plugins/unraid-mobile"
 EXEC_DIR="/usr/local/emhttp/plugins/compose.manager"
@@ -99,17 +99,39 @@ php -l "$PLUGIN_DIR/api.php" > /dev/null || die "api.php 语法检查失败,不�
 cp "$PLUGIN_DIR/api.php" "$EXEC_DIR/api.php"
 info "api.php: 正本 $PLUGIN_DIR/api.php → 执行位置 $EXEC_DIR/api.php"
 
+# ---------- 3.5 装 update-status.php(续 68.2:pull 成功后回写更新徽章缓存) ----------
+# 老版本发布物里没有这个文件,下载失败只警告不中止(徽章回写失效,主流程不受影响)
+if [ -f "$SCRIPT_DIR/update-status.php" ]; then
+    cp "$SCRIPT_DIR/update-status.php" "$PLUGIN_DIR/update-status.php"
+    info "update-status.php 来自脚本同目录"
+elif [ -n "$RAW_URL" ]; then
+    US_RAW_URL="${RAW_URL%/*}/update-status.php"
+    if curl -fsSL "$US_RAW_URL" -o "$PLUGIN_DIR/update-status.php"; then
+        info "update-status.php 下载自 $US_RAW_URL"
+    else
+        rm -f "$PLUGIN_DIR/update-status.php"
+        echo "[install] 警告: update-status.php 下载失败($US_RAW_URL),徽章即时回写不可用,其余功能正常"
+    fi
+fi
+if [ -f "$PLUGIN_DIR/update-status.php" ]; then
+    php -l "$PLUGIN_DIR/update-status.php" > /dev/null || die "update-status.php 语法检查失败,不安装"
+    cp "$PLUGIN_DIR/update-status.php" "$EXEC_DIR/update-status.php"
+    info "update-status.php: 正本 $PLUGIN_DIR/update-status.php → 执行位置 $EXEC_DIR/update-status.php"
+fi
+
 # ---------- 4. go 钩子(幂等:先清旧行再追加) ----------
 # 清掉历史版本钩子行(续 47/49 旧布局 + 本脚本以往安装)
 sed -i.unraid-mobile-bak \
     -e '/【unraid-mobile/d' \
     -e '/tmpfs,重启后 api\.php 丢失/d' \
     -e '/compose\.manager\/api\.php/d' \
+    -e '/compose\.manager\/update-status\.php/d' \
     "$GO_FILE"
 cat >> "$GO_FILE" << 'EOF'
 # 【unraid-mobile】compose-api 恢复钩子(install-compose-api.sh 安装)
 # /usr/local/emhttp 是 tmpfs,重启后 api.php 丢失,从 flash 正本恢复
 cp /boot/config/plugins/unraid-mobile/api.php /usr/local/emhttp/plugins/compose.manager/api.php
+cp /boot/config/plugins/unraid-mobile/update-status.php /usr/local/emhttp/plugins/compose.manager/update-status.php 2>/dev/null || true
 EOF
 info "go 钩子已更新(旧备份: $GO_FILE.unraid-mobile-bak)"
 
@@ -124,6 +146,6 @@ cat << 'EOF'
 
 go 文件备份: /boot/config/go.unraid-mobile-bak(如需还原直接覆盖回去)
 卸载: 删掉 /boot/config/plugins/unraid-mobile/、
-      /usr/local/emhttp/plugins/compose.manager/api.php、
-      以及 /boot/config/go 里【unraid-mobile】标记的三行。
+      /usr/local/emhttp/plugins/compose.manager/api.php 和 update-status.php、
+      以及 /boot/config/go 里【unraid-mobile】标记的四行。
 EOF

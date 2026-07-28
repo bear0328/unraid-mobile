@@ -3,6 +3,26 @@
 // 模糊匹配 + Enter 执行 + Esc 关闭 + ↑↓ 选择
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+  LayoutDashboard,
+  Boxes,
+  FolderOpen,
+  ScrollText,
+  Settings as SettingsIcon,
+  Wrench,
+  Bell,
+  Sun,
+  Moon,
+  SunMedium,
+  Contrast,
+  Upload,
+  RefreshCw,
+  Trash2,
+  Brush,
+  Monitor,
+  Zap,
+  type LucideIcon,
+} from 'lucide-react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { useToast } from '../hooks/useToast';
 import { useDialog } from '../hooks/useDialog';
@@ -10,12 +30,13 @@ import { useTheme } from '../context/useTheme';
 import { exportBackup } from '../utils/backup';
 import { getServers, getActiveServer, setActiveServer } from '../services/unraidApi/config';
 import Dialog from './shares/Dialog';
+import Icon from './ui/Icon';
 
 interface Command {
   id: string;
   title: string;
   hint?: string;
-  icon: string;
+  icon: LucideIcon;
   category: 'nav' | 'theme' | 'action' | 'server';
   /** 不需要参数直接执行 */
   run?: () => void | Promise<void>;
@@ -63,56 +84,56 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
       {
         id: 'nav-dashboard',
         title: '前往 仪表盘',
-        icon: '📊',
+        icon: LayoutDashboard,
         category: 'nav',
         run: () => navigate('/'),
       },
       {
         id: 'nav-containers',
         title: '前往 容器/VM',
-        icon: '📦',
+        icon: Boxes,
         category: 'nav',
         run: () => navigate('/containers'),
       },
       {
         id: 'nav-shares',
         title: '前往 共享',
-        icon: '📁',
+        icon: FolderOpen,
         category: 'nav',
         run: () => navigate('/shares'),
       },
       {
         id: 'nav-logs',
         title: '前往 日志',
-        icon: '📋',
+        icon: ScrollText,
         category: 'nav',
         run: () => navigate('/logs'),
       },
       {
         id: 'nav-settings',
         title: '前往 设置',
-        icon: '⚙️',
+        icon: SettingsIcon,
         category: 'nav',
         run: () => navigate('/settings'),
       },
       {
         id: 'nav-debug',
         title: '前往 诊断',
-        icon: '🔧',
+        icon: Wrench,
         category: 'nav',
         run: () => navigate('/debug'),
       },
       {
         id: 'nav-notifications',
         title: '前往 通知中心',
-        icon: '🔔',
+        icon: Bell,
         category: 'nav',
         run: () => navigate('/notifications'),
       },
       {
         id: 'theme-light',
         title: '主题: 浅色',
-        icon: '🌞',
+        icon: Sun,
         category: 'theme',
         run: () => {
           setTheme('light');
@@ -122,7 +143,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
       {
         id: 'theme-dark',
         title: '主题: 深色',
-        icon: '🌙',
+        icon: Moon,
         category: 'theme',
         run: () => {
           setTheme('dark');
@@ -132,7 +153,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
       {
         id: 'theme-hc-light',
         title: '主题: 高对比度浅色',
-        icon: '☀️',
+        icon: SunMedium,
         category: 'theme',
         run: () => {
           setTheme('hc-light');
@@ -142,7 +163,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
       {
         id: 'theme-hc-dark',
         title: '主题: 高对比度深色',
-        icon: '🔆',
+        icon: Contrast,
         category: 'theme',
         run: () => {
           setTheme('hc-dark');
@@ -152,7 +173,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
       {
         id: 'action-export',
         title: '导出配置备份',
-        icon: '📤',
+        icon: Upload,
         category: 'action',
         run: () => {
           const json = exportBackup();
@@ -171,14 +192,14 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
       {
         id: 'action-reload',
         title: '重新加载页面',
-        icon: '🔄',
+        icon: RefreshCw,
         category: 'action',
         run: () => window.location.reload(),
       },
       {
         id: 'action-clear-cache',
         title: '清空 localStorage(慎用)',
-        icon: '🗑',
+        icon: Trash2,
         category: 'action',
         hint: '清除所有偏好/收藏/设置/密钥,需重配',
         run: async () => {
@@ -200,7 +221,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
       {
         id: 'action-disk-cleanup',
         title: '磁盘清理建议',
-        icon: '🧹',
+        icon: Brush,
         category: 'action',
         hint: '扫大文件/长期未动',
         run: () => navigate('/shares'),
@@ -214,7 +235,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
       list.push({
         id: `server-${srv.id}`,
         title: `切换到服务器: ${srv.name}`,
-        icon: '🖥️',
+        icon: Monitor,
         category: 'server',
         hint: srv.serverUrl,
         run: () => {
@@ -279,7 +300,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
 
   return (
     <div
-      className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-start justify-center pt-[15dvh] px-3"
+      className="fixed inset-0 z-toast bg-black/50 backdrop-blur-sm flex items-start justify-center pt-[15dvh] px-3 anim-fade"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -287,12 +308,12 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
     >
       <div
         ref={trapRef}
-        className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-200 dark:border-gray-700"
+        className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-200 dark:border-gray-700 anim-pop"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={onKeyDown}
       >
         <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-          <span className="text-gray-400">⚡</span>
+          <Icon icon={Zap} className="text-gray-400" />
           <input
             ref={inputRef}
             type="text"
@@ -323,7 +344,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
                     : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
                 }`}
               >
-                <span className="text-lg shrink-0">{c.icon}</span>
+                <Icon icon={c.icon} className="shrink-0" />
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium truncate">{c.title}</div>
                   {c.hint && (

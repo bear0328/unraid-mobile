@@ -20,7 +20,7 @@ describe('FavoritesCard', () => {
     // 【续 33-3】空时有意渲染导入入口(方便恢复备份),不返回 null
     expect(container.firstChild).not.toBeNull();
     expect(screen.getByText(/暂无收藏/)).toBeInTheDocument();
-    expect(screen.getByText('📥 导入')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '导入' })).toBeInTheDocument();
   });
 
   it('渲染收藏项,显示 label + 类型标签', () => {

@@ -3,13 +3,15 @@
 // 监听 useToast 的事件总线,自动消失
 // 支持可选 action 按钮(用于 "撤销" 等交互)
 import { useEffect } from 'react';
+import { CheckCircle2, XCircle, Info, AlertTriangle, X, type LucideIcon } from 'lucide-react';
 import { useToastList, type ToastItem, type ToastType } from '../hooks/useToast';
+import Icon from './ui/Icon';
 
-const ICON: Record<ToastType, string> = {
-  success: '✅',
-  error: '❌',
-  info: 'ℹ️',
-  warning: '⚠️',
+const ICON: Record<ToastType, LucideIcon> = {
+  success: CheckCircle2,
+  error: XCircle,
+  info: Info,
+  warning: AlertTriangle,
 };
 
 const COLOR: Record<ToastType, string> = {
@@ -30,9 +32,9 @@ function ToastView({ toast, onClose }: { toast: ToastItem; onClose: () => void }
   return (
     <div
       role="alert"
-      className={`flex items-center gap-2 ${COLOR[toast.type]} px-4 py-2.5 rounded-lg shadow-lg min-w-[200px] max-w-[90vw] animate-in fade-in slide-in-from-top-2`}
+      className={`flex items-center gap-2 ${COLOR[toast.type]} px-4 py-2.5 rounded-lg shadow-lg min-w-[200px] max-w-[90vw] anim-toast`}
     >
-      <span className="text-lg shrink-0">{ICON[toast.type]}</span>
+      <Icon icon={ICON[toast.type]} size={18} className="shrink-0" />
       <span className="flex-1 text-sm break-all">{toast.message}</span>
       {toast.action && (
         <button
@@ -47,10 +49,10 @@ function ToastView({ toast, onClose }: { toast: ToastItem; onClose: () => void }
       )}
       <button
         onClick={onClose}
-        className="text-white/80 hover:text-white text-lg leading-none shrink-0"
+        className="text-white/80 hover:text-white leading-none shrink-0 p-0.5"
         aria-label="关闭"
       >
-        ×
+        <Icon icon={X} size={16} />
       </button>
     </div>
   );
@@ -61,7 +63,7 @@ export default function ToastContainer() {
   if (toasts.length === 0) return null;
   return (
     <div
-      className="fixed z-[100] flex flex-col gap-2"
+      className="fixed z-toast flex flex-col gap-2"
       style={{
         top: 'calc(env(safe-area-inset-top) + 0.5rem)',
         right: '0.5rem',

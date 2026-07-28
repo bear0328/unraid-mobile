@@ -2,6 +2,7 @@
 // 只在 getServers().length >= 2 时显示
 // 点击切换后整个 app 重新拉数据(useApiConfig 订阅)
 import { useEffect, useState } from 'react';
+import { Check, ChevronDown } from 'lucide-react';
 import {
   getServers,
   getActiveServer,
@@ -9,6 +10,8 @@ import {
   subscribeServersChange,
   type Server,
 } from '../services/unraidApi/config';
+import Icon from './ui/Icon';
+import { DEFAULT_COLOR } from '../hooks/usePrimaryColor';
 
 export default function ServerSwitcher() {
   const [servers, setServers] = useState<Server[]>([]);
@@ -36,16 +39,16 @@ export default function ServerSwitcher() {
       >
         <span
           className="w-2.5 h-2.5 rounded-full shrink-0"
-          style={{ backgroundColor: active?.color || '#3b82f6' }}
+          style={{ backgroundColor: active?.color || DEFAULT_COLOR }}
         />
         <span className="hidden sm:inline max-w-[80px] truncate font-medium">
           {active?.name || '服务器'}
         </span>
-        <span className="text-[10px]">▾</span>
+        <Icon icon={ChevronDown} size={12} />
       </button>
       {open && (
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} aria-hidden="true" />
+          <div className="fixed inset-0 z-dropdown" onClick={() => setOpen(false)} aria-hidden="true" />
           <div
             className="absolute right-0 top-full mt-1 z-50 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 min-w-[200px] py-1"
             role="menu"
@@ -64,11 +67,11 @@ export default function ServerSwitcher() {
               >
                 <span
                   className="w-2.5 h-2.5 rounded-full shrink-0"
-                  style={{ backgroundColor: srv.color || '#3b82f6' }}
+                  style={{ backgroundColor: srv.color || DEFAULT_COLOR }}
                 />
                 <span className="flex-1 truncate">{srv.name}</span>
                 {srv.id === active?.id && (
-                  <span className="text-primary-600 dark:text-primary-400">✓</span>
+                  <Icon icon={Check} size={16} className="text-primary-600 dark:text-primary-400" />
                 )}
               </button>
             ))}

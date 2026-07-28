@@ -1,5 +1,7 @@
 // 【阶段 1 P0 - 2026-06-17 续 29-1】从 Shares.tsx 拆出批量操作条
 // 全选 checkbox + "已选 N/M" 提示 + "批量删除" 按钮
+import { Trash2 } from 'lucide-react';
+import Icon from '../ui/Icon';
 interface BatchActionsBarProps {
   total: number;
   selected: number;
@@ -34,7 +36,10 @@ export default function BatchActionsBar({
         disabled={disabled}
         className="px-3 py-1 text-xs bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white rounded"
       >
-        🗑 批量删除 ({selected})
+        <span className="inline-flex items-center gap-1">
+          <Icon icon={Trash2} size={13} />
+          {`批量删除 (${selected})`}
+        </span>
       </button>
     </div>
   );

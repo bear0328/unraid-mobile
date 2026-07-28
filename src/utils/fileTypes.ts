@@ -20,6 +20,28 @@ export function isImageFile(name: string): boolean {
   return IMAGE_EXTS.includes(ext);
 }
 
+// 【批 D 图标】视频/音频/压缩包扩展名识别(FileRow 行首图标映射用)
+const VIDEO_EXTS = ['mp4', 'mkv', 'avi', 'mov', 'webm', 'm4v', 'wmv', 'flv', 'ts'];
+const AUDIO_EXTS = ['mp3', 'flac', 'wav', 'aac', 'ogg', 'm4a', 'wma', 'opus'];
+const ARCHIVE_EXTS = ['zip', 'rar', '7z', 'tar', 'gz', 'bz2', 'xz', 'iso'];
+
+function hasExt(name: string, exts: string[]): boolean {
+  const ext = name.toLowerCase().split('.').pop() || '';
+  return exts.includes(ext);
+}
+
+export function isVideoFile(name: string): boolean {
+  return hasExt(name, VIDEO_EXTS);
+}
+
+export function isAudioFile(name: string): boolean {
+  return hasExt(name, AUDIO_EXTS);
+}
+
+export function isArchiveFile(name: string): boolean {
+  return hasExt(name, ARCHIVE_EXTS);
+}
+
 export function getImageMime(name: string): string | null {
   const ext = name.toLowerCase().split('.').pop() || '';
   return IMAGE_MIME[ext] || null;

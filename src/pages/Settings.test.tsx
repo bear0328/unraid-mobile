@@ -108,13 +108,13 @@ describe('Settings 页面', () => {
     expect(putBody).not.toHaveProperty('apiKey');
   });
 
-  it('点击 "👁️" 切换 API Key input type:password → text', async () => {
+  it('点击显示密钥按钮切换 API Key input type:password → text', async () => {
     const user: UserEvent = userEvent.setup();
     renderSettings();
     const apiKeyInput = screen.getByPlaceholderText('输入您的 unRAID API 密钥') as HTMLInputElement;
     expect(apiKeyInput.type).toBe('password');
-    // 找 API Key 旁边的"显示密码"按钮(👁️‍🗨️)
-    const showButtons = screen.getAllByText('👁️‍🗨️');
+    // 找 API Key 旁边的"显示密钥"按钮(EyeOff 图标,aria-label 定位)
+    const showButtons = screen.getAllByRole('button', { name: '显示密钥' });
     await user.click(showButtons[0]);
     expect(apiKeyInput.type).toBe('text');
   });
@@ -183,7 +183,7 @@ describe('Settings 页面', () => {
     });
     renderSettings();
     expect(screen.getByText(/容器事件 Webhook/)).toBeInTheDocument();
-    expect(screen.getByText(/📡 远程上报/)).toBeInTheDocument();
+    expect(screen.getByText('远程上报')).toBeInTheDocument();
     expect(screen.queryByText(/告警通知 · Pro 功能/)).not.toBeInTheDocument();
   });
 });

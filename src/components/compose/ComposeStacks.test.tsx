@@ -9,8 +9,14 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ComposeApiError, type ComposeStack, type ComposeStackDetail } from '../../services/composeApi';
 
+// 【续 68】ComposeStacks 现在也用 useUnraidApi 拿容器列表(isUpdateAvailable 匹配栈更新)
+// mock 必须返回**稳定引用**(真实 hook 用 useMemo 记忆);每次返回新对象会让
+// ComposeStacks 的 useCallback([api]) → useEffect 无限重跑,vitest 整体挂起(踩过)
+const mockGetDockerContainers = vi.fn().mockResolvedValue([]);
+const mockApi = { getDockerContainers: mockGetDockerContainers };
 vi.mock('../../hooks/useUnraidApi', () => ({
   useApiConfig: vi.fn(() => ({ config: { serverUrl: 'http://test', apiKey: 'k' }, isConfigured: true })),
+  useUnraidApi: () => mockApi,
 }));
 
 // 【续 50】toast 断言:useToast mock 成 vi.fn 组
@@ -36,6 +42,22 @@ vi.mock('../../services/composeApi', async (importOriginal) => {
 
 import { useApiConfig } from '../../hooks/useUnraidApi';
 import ComposeStacks from './ComposeStacks';
+import { computeStackUpdates } from './stackUpdates';
+import type { UnraidDockerContainer } from '../../services';
+
+function makeC(name: string, isUpdateAvailable: boolean | null): UnraidDockerContainer {
+  return {
+    id: name,
+    name,
+    containerId: `container:${name}`,
+    image: 'img:latest',
+    state: 'running',
+    status: 'Up 1 hour',
+    created: '',
+    ports: [],
+    isUpdateAvailable,
+  } as UnraidDockerContainer;
+}
 
 function makeStack(overrides: Partial<ComposeStack> = {}): ComposeStack {
   return {
@@ -62,13 +84,15 @@ function makeDetail(stack: ComposeStack): ComposeStackDetail {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // clearAllMocks 不清实现,显式复位默认(防用例间泄漏)
+  mockGetDockerContainers.mockResolvedValue([]);
   vi.mocked(useApiConfig).mockReturnValue({
     config: { serverUrl: 'http://test', apiKey: 'k' },
     isConfigured: true,
   });
   mockGetStacks.mockResolvedValue([
     makeStack(),
-    makeStack({ name: 'lucky', status: null, running: false, autostart: false }),
+    makeStack({ name: 'lucky', project: 'lucky', status: null, running: false, autostart: false }),
   ]);
 });
 
@@ -142,7 +166,10 @@ describe('ComposeStacks 组件(容器页 compose tab)', () => {
     expect(screen.getByText('拉取镜像')).toBeInTheDocument();
     expect(screen.getByText('重建')).toBeInTheDocument();
     expect(mockGetStack).toHaveBeenCalledWith('emby');
-    // yaml 内容可见
+    // 【续 68.1】yaml 默认折叠:日志直接可见,yaml 点标题展开后才可见
+    expect(screen.getByText('(暂无日志)')).toBeInTheDocument();
+    expect(screen.queryByText(/emby\/embyserver/)).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /compose\.yaml/ }));
     expect(screen.getByText(/emby\/embyserver/)).toBeInTheDocument();
   });
 
@@ -293,5 +320,48 @@ describe('ComposeStacks 异步操作轮询(C7)', () => {
     const calls = mockGetStackLog.mock.calls.length;
     await advance(20000);
     expect(mockGetStackLog.mock.calls.length).toBe(calls);
+  });
+});
+
+describe('computeStackUpdates(【续 68】栈更新匹配)', () => {
+  const stacks = [
+    makeStack({ name: 'emby', project: 'emby' }),
+    makeStack({ name: 'lucky', project: 'lucky' }),
+  ];
+
+  it('compose v2 命名 <project>-<service>-1 命中', () => {
+    const out = computeStackUpdates(stacks, [makeC('emby-emby-1', true)]);
+    expect(out.has('emby')).toBe(true);
+    expect(out.has('lucky')).toBe(false);
+  });
+
+  it('legacy 命名 <project>_<service>_1 命中;大小写不敏感', () => {
+    const out = computeStackUpdates(stacks, [makeC('Lucky_lucky_1', true)]);
+    expect(out.has('lucky')).toBe(true);
+  });
+
+  it('isUpdateAvailable=false/null 不算;自定义 container_name 不匹配(不误报)', () => {
+    expect(computeStackUpdates(stacks, [makeC('emby-emby-1', false)]).size).toBe(0);
+    expect(computeStackUpdates(stacks, [makeC('emby-emby-1', null)]).size).toBe(0);
+    expect(computeStackUpdates(stacks, [makeC('my-media-server', true)]).size).toBe(0);
+    // 前缀相邻但不属于项目:embyserver-* 不应命中 emby
+    expect(computeStackUpdates(stacks, [makeC('embyserver-x-1', true)]).size).toBe(0);
+  });
+});
+
+describe('ComposeStacks 更新徽章(【续 68】)', () => {
+  it('栈内容器有更新 → 栈行显示「更新」徽章', async () => {
+    mockGetDockerContainers.mockResolvedValue([makeC('emby-emby-1', true)]);
+    render(<ComposeStacks />);
+    await waitFor(() => expect(screen.getByText('更新')).toBeInTheDocument());
+    // lucky 栈无匹配容器 → 只有 1 个徽章
+    expect(screen.getAllByText('更新')).toHaveLength(1);
+  });
+
+  it('容器查询失败 → 不显示徽章,栈列表照常', async () => {
+    mockGetDockerContainers.mockRejectedValue(new Error('boom'));
+    render(<ComposeStacks />);
+    await waitFor(() => expect(screen.getByText('emby')).toBeInTheDocument());
+    expect(screen.queryByText('更新')).not.toBeInTheDocument();
   });
 });

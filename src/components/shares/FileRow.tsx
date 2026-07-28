@@ -8,15 +8,34 @@
 // 【阶段 P2-分享 - 2026-06-17 续 33-6】文件加 📤 分享按钮(Web Share API → 隔空投送/微信/邮件)
 import { memo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+  Copy,
+  Download,
+  File,
+  FileArchive,
+  FileAudio,
+  FileImage,
+  FilePen,
+  FileText,
+  FileVideo,
+  Folder,
+  FolderInput,
+  Lock,
+  Pencil,
+  Share2,
+  Star,
+  Trash2,
+} from 'lucide-react';
 import { FileItem } from './davAuth';
 import { formatBytes } from '../../utils/formatters';
-import { isImageFile } from '../../utils/fileTypes';
+import { isImageFile, isVideoFile, isAudioFile, isArchiveFile } from '../../utils/fileTypes';
 import { isTextFile } from './textFileTypes';
 import { useFavorites } from '../../hooks/useFavorites';
 import { useShare } from '../../hooks/useShare';
 import { useApiConfig } from '../../hooks/useUnraidApi';
 import { usePro } from '../../hooks/usePro';
 import ActionMenu, { type MenuItem } from '../ActionMenu';
+import Icon from '../ui/Icon';
 
 interface FileRowProps {
   item: FileItem;
@@ -55,6 +74,20 @@ function FileRow({
   const isImage = !item.isDir && isImageFile(item.name);
   // 【续 34-8】文本文件(< 1MB 限制在 editor 内,这里只判断扩展名)
   const canEdit = !item.isDir && isTextFile(item.name);
+  // 行首图标:目录/图片/视频/音频/压缩包/文本/通用文件
+  const fileIcon = item.isDir
+    ? Folder
+    : isImage
+      ? FileImage
+      : isVideoFile(item.name)
+        ? FileVideo
+        : isAudioFile(item.name)
+          ? FileAudio
+          : isArchiveFile(item.name)
+            ? FileArchive
+            : canEdit
+              ? FileText
+              : File;
   // 【续 32-6】目录可收藏
   const { toggle: toggleFav, isFavorite: isFav } = useFavorites();
   const faved = item.isDir && isFav('path', item.path);
@@ -62,7 +95,7 @@ function FileRow({
   const { share } = useShare();
   const { config } = useApiConfig();
   // 【续 55 商业化】写操作(编辑/重命名/拷贝/移动/删除) → Pro;
-  // 未解锁时菜单项带 🔒,点击跳设置页 License 区(下载/预览/进入目录保持免费)
+  // 未解锁时菜单项带 Lock 图标,点击跳设置页 License 区(下载/预览/进入目录保持免费)
   const pro = usePro();
   const navigate = useNavigate();
   const goUnlock = () => navigate('/settings', { state: { focusLicense: true } });
@@ -87,17 +120,18 @@ function FileRow({
   // 文件名 truncate 到只剩几个字。现只保留目录 ★ inline,其余全部进 ActionMenu。
   const menuItems: MenuItem[] = [];
   if (!item.isDir) {
-    menuItems.push({ label: '下载', onClick: () => onDownload(item) });
+    menuItems.push({ label: '下载', icon: Download, onClick: () => onDownload(item) });
     if (canEdit && onEdit) {
       menuItems.push(
         pro
-          ? { label: '编辑', onClick: () => onEdit(item) }
-          : { label: '🔒 编辑', onClick: goUnlock }
+          ? { label: '编辑', icon: Pencil, onClick: () => onEdit(item) }
+          : { label: '编辑', icon: Lock, onClick: goUnlock }
       );
     }
     if (config?.baseUrl) {
       menuItems.push({
         label: '分享链接',
+        icon: Share2,
         onClick: () => {
           const baseUrl = config.baseUrl!.replace(/\/$/, '');
           const url = `${baseUrl}/dav/${item.path.split('/').filter(Boolean).map(encodeURIComponent).join('/')}`;
@@ -109,16 +143,16 @@ function FileRow({
   menuItems.push(
     ...(pro
       ? [
-          { label: '重命名', onClick: () => onRename(item) },
-          { label: '拷贝', onClick: () => onCopy(item) },
-          { label: '移动', onClick: () => onMove(item) },
-          { label: '删除', onClick: () => onDelete(item), danger: true },
+          { label: '重命名', icon: FilePen, onClick: () => onRename(item) },
+          { label: '拷贝', icon: Copy, onClick: () => onCopy(item) },
+          { label: '移动', icon: FolderInput, onClick: () => onMove(item) },
+          { label: '删除', icon: Trash2, onClick: () => onDelete(item), danger: true },
         ]
       : [
-          { label: '🔒 重命名', onClick: goUnlock },
-          { label: '🔒 拷贝', onClick: goUnlock },
-          { label: '🔒 移动', onClick: goUnlock },
-          { label: '🔒 删除', onClick: goUnlock, danger: true },
+          { label: '重命名', icon: Lock, onClick: goUnlock },
+          { label: '拷贝', icon: Lock, onClick: goUnlock },
+          { label: '移动', icon: Lock, onClick: goUnlock },
+          { label: '删除', icon: Lock, onClick: goUnlock, danger: true },
         ])
   );
 
@@ -143,7 +177,9 @@ function FileRow({
         className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
         onClick={handleMainClick}
       >
-        <span className="text-lg">{item.isDir ? '📁' : isImage ? '🖼️' : '📄'}</span>
+        <span className="inline-flex shrink-0 text-gray-400 dark:text-gray-500">
+          <Icon icon={fileIcon} size={20} />
+        </span>
         <div className="flex-1 min-w-0">
           <div className="font-medium text-gray-900 dark:text-white truncate">{item.name}</div>
           {!item.isDir && item.size !== undefined && (
@@ -164,7 +200,7 @@ function FileRow({
               aria-label={faved ? '取消收藏' : '添加到收藏'}
               title={faved ? '取消收藏' : '添加到收藏'}
             >
-              {faved ? '★' : '☆'}
+              <Icon icon={Star} size={16} fill={faved ? 'currentColor' : 'none'} />
             </button>
           )}
           <ActionMenu items={menuItems} />

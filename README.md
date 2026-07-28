@@ -5,7 +5,9 @@
 [![Telegram Group](https://img.shields.io/badge/Telegram-Group-2CA5E0?logo=telegram&logoColor=white)](https://t.me/+l1iA02ZkOK1lNmEx)
 
 A mobile-optimized management interface for unRAID servers. React 18 + TypeScript + Vite + Tailwind CSS,
-single-container deployment, data via the unRAID GraphQL API (7.2+).
+single-container deployment, data via the unRAID GraphQL API (7.2+; disk sleep badges and
+network rate stats require unRAID 7.3+ / unraid-api ≥ 4.20 — on older versions the app
+detects the missing schema fields and degrades gracefully).
 
 ## Screenshots
 
@@ -60,7 +62,7 @@ Open `http://<unraid-IP>:3999`, go to "Settings" and fill in:
 > The API key lives only in your own browser's localStorage and is **never** written to any file on
 > the server.
 
-Image tags: `latest` (newest stable) / `1.0.2` (pinned version). linux/amd64 only (unRAID platform).
+Image tags: `latest` (newest stable) / `1.0.3` (pinned version). linux/amd64 only (unRAID platform).
 
 ### Alternative: unRAID Docker UI template
 
@@ -135,9 +137,9 @@ Prerequisite: the **compose.manager** plugin installed from Community Applicatio
 # Run as root on the unRAID host
 mkdir -p /tmp/um-install && cd /tmp/um-install
 curl -fsSL -o install-compose-api.sh \
-  https://raw.githubusercontent.com/bear0328/unraid-mobile/v1.0.2/compose-api/install-compose-api.sh
+  https://raw.githubusercontent.com/bear0328/unraid-mobile/v1.0.3/compose-api/install-compose-api.sh
 curl -fsSL -o api.php \
-  https://raw.githubusercontent.com/bear0328/unraid-mobile/v1.0.2/compose-api/api.php
+  https://raw.githubusercontent.com/bear0328/unraid-mobile/v1.0.3/compose-api/api.php
 bash install-compose-api.sh
 ```
 

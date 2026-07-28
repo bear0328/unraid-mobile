@@ -149,3 +149,11 @@ export function buildGraphqlEndpoint(baseUrl: string, useProxy: boolean): string
   }
   return `${baseUrl.replace(/\/?$/, '')}/graphql`;
 }
+
+// 【续 67】判断 GraphQL schema 校验失败(查询了老版本 unraid-api 不存在的字段,
+// 如 isSpinning@4.20.0)。Apollo 校验错误 message 形如
+// `Cannot query field "isSpinning" on type "ArrayDisk".`,error code 是
+// GRAPHQL_VALIDATION_FAILED;匹配 message 关键词比 code 更稳(网关层可能改写 code)。
+export function isSchemaValidationError(error?: string): boolean {
+  return !!error && error.includes('Cannot query field');
+}

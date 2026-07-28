@@ -40,7 +40,8 @@ describe('CpuCard', () => {
   it('systemInfo=null → 显示 "CPU" 标题 + "0.0%"', () => {
     render(<CpuCard systemInfo={null} />);
     expect(screen.getByText('CPU')).toBeInTheDocument();
-    expect(screen.getByText('0.0%')).toBeInTheDocument();
+    // 【续 68】大数字统一 toFixed(1) → 与 ProgressBar 各显示一次 0.0%
+    expect(screen.getAllByText('0.0%').length).toBeGreaterThanOrEqual(1);
   });
 
   it('基本渲染:显示 cpu 百分比和 brand', () => {
@@ -95,12 +96,12 @@ describe('CpuCard', () => {
     expect(screen.queryByText(/°C/)).not.toBeInTheDocument();
   });
 
-  it('【续 57】非 Pro → 渲染 🔒 占位,不渲染温度数值', () => {
+  it('【续 57】非 Pro → 渲染锁图标占位,不渲染温度数值', () => {
     __setLicenseStateForTest({ status: 'none' });
     render(
       <CpuCard systemInfo={makeSystem({ cpuTemp: 45, cpuInfo: { cores: 4, threads: 8 } })} />
     );
-    expect(screen.getByText(/🔒 温度 Pro/)).toBeInTheDocument();
+    expect(screen.getByText(/温度 Pro/)).toBeInTheDocument();
     expect(screen.queryByText(/°C/)).not.toBeInTheDocument();
   });
 
@@ -146,7 +147,8 @@ describe('MemoryCard', () => {
   it('systemInfo=null → 显示 "0.0%" 和 "0% 已用"', () => {
     render(<MemoryCard systemInfo={null} />);
     expect(screen.getByText('内存')).toBeInTheDocument();
-    expect(screen.getByText('0.0%')).toBeInTheDocument();
+    // 【续 68】大数字统一 toFixed(1) → 与 ProgressBar 各显示一次 0.0%
+    expect(screen.getAllByText('0.0%').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('0% 已用')).toBeInTheDocument();
   });
 
