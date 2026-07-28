@@ -5,7 +5,7 @@
 import { memo } from 'react';
 import { RefreshCw } from 'lucide-react';
 import Icon from '../ui/Icon';
-import StaleBadge from '../ui/StaleBadge';
+import LastRefreshText from '../ui/LastRefreshText';
 
 interface ServerHeroCardProps {
   name?: string;
@@ -13,8 +13,6 @@ interface ServerHeroCardProps {
   arrayStatus?: string;
   isRefreshing: boolean;
   onRefresh: () => void;
-  /** 【续 45.7】dashboard 数据 cache age(ms),>threshold 显示 staleness 提示 */
-  cacheAgeMs?: number | null;
 }
 
 function ServerHeroCard({
@@ -23,7 +21,6 @@ function ServerHeroCard({
   arrayStatus,
   isRefreshing,
   onRefresh,
-  cacheAgeMs,
 }: ServerHeroCardProps) {
   const isStarted = arrayStatus === 'Started';
 
@@ -68,21 +65,15 @@ function ServerHeroCard({
         </button>
       </div>
 
-      {(isRefreshing || cacheAgeMs != null) && (
-        <div className="relative flex items-center gap-2 mt-2.5">
-          {isRefreshing && (
-            <span className="text-xs text-white/85 bg-white/15 rounded-full px-3 py-0.5">
-              后台刷新中…
-            </span>
-          )}
-          <StaleBadge
-            cacheAgeMs={cacheAgeMs}
-            thresholdMs={60 * 1000}
-            title="Dashboard 缓存数据,点「刷新」拉最新"
-            className="!text-amber-200"
-          />
-        </div>
-      )}
+      <div className="relative flex items-center gap-2 mt-2.5">
+        {isRefreshing && (
+          <span className="text-xs text-white/85 bg-white/15 rounded-full px-3 py-0.5">
+            后台刷新中…
+          </span>
+        )}
+        {/* 【续 74】页签刷新时间统一走全局「更新于」(所有页签同一个值) */}
+        <LastRefreshText className="!text-white/80" />
+      </div>
     </div>
   );
 }

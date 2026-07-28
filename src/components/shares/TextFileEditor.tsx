@@ -125,7 +125,7 @@ export default function TextFileEditor({
       aria-label="文本编辑"
     >
       <div
-        className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[95dvh] flex flex-col overflow-hidden border border-gray-200 dark:border-gray-700 anim-pop"
+        className="bg-white dark:bg-[#273244] rounded-2xl shadow-2xl w-full max-w-4xl max-h-[95dvh] flex flex-col overflow-hidden border border-gray-200 dark:border-gray-700 anim-pop"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-2 px-4 py-2.5 border-b border-gray-200 dark:border-gray-700">
@@ -159,7 +159,7 @@ export default function TextFileEditor({
           </button>
         </div>
         {loading ? (
-          <div className="flex-1 flex items-center justify-center text-gray-400 text-sm">
+          <div className="flex-1 flex items-center justify-center text-gray-500 dark:text-gray-400 text-sm">
             加载中…
           </div>
         ) : error ? (
@@ -180,7 +180,7 @@ export default function TextFileEditor({
             style={{ minHeight: '50dvh', tabSize: 2 }}
           />
         )}
-        <div className="px-4 py-1.5 border-t border-gray-200 dark:border-gray-700 text-[10px] text-gray-400 flex justify-between">
+        <div className="px-4 py-1.5 border-t border-gray-200 dark:border-gray-700 text-[10px] text-gray-500 dark:text-gray-400 flex justify-between">
           <span>Ctrl/Cmd+S 保存 · Esc 关闭 · {content.length.toLocaleString()} 字符</span>
           <span>{dirty ? '已修改' : '未修改'}</span>
         </div>

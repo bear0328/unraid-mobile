@@ -80,3 +80,19 @@ export function cacheAgeMs(namespace: string): number | null {
   const c = getCache<unknown>(getCacheKey(namespace));
   return c ? Date.now() - c.timestamp : null;
 }
+
+/**
+ * 【续 73】指定 namespace 的 cache 年龄是否 < maxAgeMs(无 cache 返 false)。
+ * 用于轮询 tick 按用户设置的刷新间隔节流:tick 时 cache 比设置值新 → 跳过,
+ * 否则 invalidate 后真实拉取。不再用固定 30min TTL 做 tick 门槛(会把设置架空)。
+ */
+export function isNamespaceFreshWithin(namespace: string, maxAgeMs: number): boolean {
+  const age = cacheAgeMs(namespace);
+  return age !== null && age < maxAgeMs;
+}
+
+/**
+ * 【续 73】容器/VM 轮询地板:跟随用户设置但不低于 60s。
+ * getDockerContainers/getVMs 涉及 docker/cgroup IO,10-30s 过频有磁盘负担风险。
+ */
+export const CONTAINER_POLL_FLOOR_MS = 60_000;

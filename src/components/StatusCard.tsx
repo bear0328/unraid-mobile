@@ -19,7 +19,7 @@ function StatusCard({ title, value, icon, subtitle, color = 'blue' }: StatusCard
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+    <div className="bg-white dark:bg-[#273244] rounded-xl p-4 shadow-md dark:shadow-lg dark:border dark:border-gray-700/60">
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">{title}</p>

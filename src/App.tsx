@@ -28,7 +28,7 @@ const PageFallback = () => (
   <div className="flex items-center justify-center min-h-[60dvh]">
     <div className="text-center">
       <div className="text-3xl mb-2 animate-pulse">⏳</div>
-      <p className="text-gray-400 text-xs">加载页面…</p>
+      <p className="text-gray-500 dark:text-gray-400 text-xs">加载页面…</p>
     </div>
   </div>
 );
@@ -308,7 +308,7 @@ function AppReadyGate({ children }: { children: React.ReactNode }) {
           <div className="text-5xl mb-4 animate-pulse">🔌</div>
           <p className="text-gray-500 dark:text-gray-400 text-sm">正在连接 unRAID 服务器...</p>
           {health.report && health.status === 'checking' && (
-            <p className="text-xs text-gray-400 mt-2">上次耗时 {health.report.durationMs}ms</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">上次耗时 {health.report.durationMs}ms</p>
           )}
         </div>
       </div>
@@ -324,7 +324,7 @@ function AppReadyGate({ children }: { children: React.ReactNode }) {
     const allFailed = failedNames.length === 4;
     return (
       <div className="flex items-center justify-center min-h-dvh bg-gray-100 dark:bg-gray-900 p-6">
-        <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg">
+        <div className="max-w-md w-full bg-white dark:bg-[#273244] rounded-xl p-6 shadow-lg">
           <div className="text-center">
             <div className="text-5xl mb-3">🚫</div>
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
@@ -370,13 +370,13 @@ function AppReadyGate({ children }: { children: React.ReactNode }) {
                           <span className="font-medium text-gray-700 dark:text-gray-200">
                             {meta.label}
                           </span>
-                          <span className="text-gray-400 tabular-nums">{r.latencyMs}ms</span>
+                          <span className="text-gray-500 dark:text-gray-400 tabular-nums">{r.latencyMs}ms</span>
                         </div>
                         {!r.ok && (
                           <div className="text-gray-500 dark:text-gray-400 mt-0.5 break-all">
                             {r.error || '未知错误'}
                             {r.status ? ` (HTTP ${r.status})` : ''}
-                            <span className="text-gray-400"> — {statusHint}</span>
+                            <span className="text-gray-500 dark:text-gray-400"> — {statusHint}</span>
                           </div>
                         )}
                       </div>

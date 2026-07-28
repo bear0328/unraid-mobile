@@ -28,7 +28,7 @@ export function MoveCopyModal({
   return (
     <SheetModal title={title} onClose={onClose}>
       <p className="text-sm text-gray-500 mb-2">源：{item.name}</p>
-      <p className="text-xs text-gray-400 mb-3">当前路径：{currentPath}</p>
+      <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">当前路径：{currentPath}</p>
       <label className="block text-sm font-medium text-gray-700 mb-1">目标路径</label>
       <input
         type="text"

@@ -256,7 +256,7 @@ describe('DashboardSkeleton', () => {
 
   it('渲染多个骨架卡片(至少 5 个 bg-white 卡片)', () => {
     const { container } = render(<DashboardSkeleton />);
-    const matches = container.innerHTML.match(/bg-white dark:bg-gray-800/g) || [];
+    const matches = container.innerHTML.match(/bg-white dark:bg-\[#273244\]/g) || [];
     expect(matches.length).toBeGreaterThanOrEqual(5);
   });
 });

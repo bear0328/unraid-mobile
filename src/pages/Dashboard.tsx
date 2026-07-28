@@ -37,7 +37,8 @@ import Icon from '../components/ui/Icon';
 import { useDashboardOrder, type DashboardCardKey } from '../hooks/useDashboardOrder';
 import { useContainersData } from '../hooks/useContainersData';
 import { recordDiskSnapshot } from '../utils/diskHistory';
-import { cacheAgeMs, getCacheKey } from '../services/unraidApi/cache';
+import { markRefreshed } from '../utils/lastRefresh';
+import { cacheAgeMs, getCacheKey, invalidateNamespace } from '../services/unraidApi/cache';
 
 // 【续 32-7】历史采样窗口(过去 10 分钟 = 60 个采样点 @ 10s polling)
 const HISTORY_POINTS = 60;
@@ -194,6 +195,8 @@ export default function Dashboard() {
         }
 
         setError(null);
+        // 【续 74】真实刷新成功 → 更新全局「上次刷新」时间(自动 tick/手动共用此路径)
+        markRefreshed();
         // 保存 cache:本次没拉 disks 时用旧 disk 数据(沿用 LS 已有的),避免覆盖磁盘温度
         if (sysInfo) {
           const diskForSave = diskDataForCache ?? disks;
@@ -253,14 +256,24 @@ export default function Dashboard() {
 
   const pollInterval = usePollInterval();
   usePolling(
-    () => refreshDashboard(),
+    () => {
+      // 【续 73】tick 放行 = dashboard cache 年龄 ≥ pollInterval,此时必须失效
+      // 'systemInfo' 的 30min graphql cache,否则 getSystemInfo 喂旧数据,
+      // 设置间隔仍被 namespace cache 架空(network/spin 本就不带 cache)
+      invalidateNamespace('systemInfo');
+      return refreshDashboard();
+    },
     pollInterval,
     true,
     {
       // 【续 45 2026-06-26】dashboard cache < 5min 时跳过 mount 立即 fire,刷新页面不唤醒 array
       skipInitialIf: () => isDashboardCacheFresh(loadDashboardCache()),
-      // 【续 45 2026-06-26】interval tick 也尊重 cache:5min 内完全不 fetch
-      shouldSkipTick: () => isDashboardCacheFresh(loadDashboardCache()),
+      // 【续 73】tick 阈值跟随用户设置的刷新间隔:cache 年龄 < pollInterval 才跳过
+      // (原用固定 5min TTL,设置 10-120s 全被架空;磁盘数据不在轮询路径,不唤盘)
+      shouldSkipTick: () => {
+        const ts = getDashboardCacheTimestamp();
+        return ts !== null && Date.now() - ts < pollInterval;
+      },
       // 【续 45.7 2026-07-01】默认 respectVisibility=true, resumeDelayMs 默认 30s
       // 切回 tab 不立即 fire,30s 兜底,期间用户操作 (pointerdown/keydown) 立即 fire
     }
@@ -285,7 +298,6 @@ export default function Dashboard() {
         arrayStatus={systemInfo?.arrayStatus}
         isRefreshing={isRefreshing}
         onRefresh={handleManualRefresh}
-        cacheAgeMs={dashboardCacheAge}
       />
 
       {/* 【续 34-2】按 order 渲染卡片(可拖拽重排) */}
@@ -317,7 +329,7 @@ export default function Dashboard() {
           onClick={() => {
             if (confirm('恢复 Dashboard 卡片为默认顺序?')) reset();
           }}
-          className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-primary-600"
+          className="inline-flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-primary-600"
         >
           <Icon icon={RotateCcw} size={12} />
           恢复默认顺序

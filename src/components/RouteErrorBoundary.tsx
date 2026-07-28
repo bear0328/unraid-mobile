@@ -40,7 +40,7 @@ export default class RouteErrorBoundary extends Component<
     }
     return (
       <div className="flex items-center justify-center min-h-[60dvh] px-6">
-        <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg text-center">
+        <div className="max-w-md w-full bg-white dark:bg-[#273244] rounded-xl p-6 shadow-lg text-center">
           <div className="mb-3 inline-flex text-red-500">
             <Icon icon={Bomb} size={36} />
           </div>

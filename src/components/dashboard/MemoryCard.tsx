@@ -43,7 +43,7 @@ function MemoryCard({ systemInfo, history, cacheAgeMs }: MemoryCardProps) {
           </span>
           <div>
             <div className="flex items-center gap-1.5">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">内存</h3>
+              <h3 className="text-base font-semibold text-gray-900 dark:text-white">内存</h3>
               <StaleBadge
                 cacheAgeMs={cacheAgeMs}
                 thresholdMs={60 * 1000}
@@ -124,7 +124,7 @@ function MemoryCard({ systemInfo, history, cacheAgeMs }: MemoryCardProps) {
                   <span className="inline-block w-2 h-2 bg-green-500 rounded mr-1" />
                   空闲 {formatBytes(systemInfo.memoryFree || 0)}
                 </span>
-                <span className="text-gray-400">总计 {formatBytes(systemInfo.memoryTotal)}</span>
+                <span className="text-gray-500 dark:text-gray-400">总计 {formatBytes(systemInfo.memoryTotal)}</span>
               </div>
             </div>
           )}

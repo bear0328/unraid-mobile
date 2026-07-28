@@ -1,9 +1,13 @@
 // 【续 68 GUI 焕新】ServerHeroCard 测试
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import ServerHeroCard from './ServerHeroCard';
+import { markRefreshed } from '../../utils/lastRefresh';
 
 describe('ServerHeroCard', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
   it('渲染服务器名 / 阵列状态 pill / uptime', () => {
     render(
       <ServerHeroCard
@@ -39,16 +43,10 @@ describe('ServerHeroCard', () => {
     expect(screen.getByText('后台刷新中…')).toBeInTheDocument();
   });
 
-  it('cacheAgeMs 超阈值 → StaleBadge 出现(琥珀色在渐变底上为 amber-200)', () => {
-    render(
-      <ServerHeroCard
-        name="T"
-        isRefreshing={false}
-        onRefresh={() => {}}
-        cacheAgeMs={2 * 60 * 1000}
-      />
-    );
-    expect(screen.getByText(/·2m 前/)).toBeInTheDocument();
+  it('【续 74】全局有刷新记录 → 显示「更新于」(所有页签同一个值)', () => {
+    markRefreshed();
+    render(<ServerHeroCard name="T" isRefreshing={false} onRefresh={() => {}} />);
+    expect(screen.getByText(/更新于/)).toBeInTheDocument();
   });
 
   it('主色渐变 class 存在(跟随用户自选主色的 CSS 覆盖)', () => {

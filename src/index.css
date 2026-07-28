@@ -2,6 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
+/* 【续 72 2026-07-28】设计尺度约定(后续开发遵循)
+   排版:页标题 h1 = text-2xl font-bold;区块标题 h2 = text-lg font-semibold;
+        卡片标题 h3 = text-base font-semibold;正文 = text-sm;辅助 = text-xs;
+        数字 = tabular-nums(font-mono/code 已默认,见文件底部)
+   配色:辅助文字 light = text-gray-500 / dark = text-gray-400(text-gray-400 仅
+        placeholder/disabled/装饰图标);彩色文字 light 600 系 / dark 400 系;
+        暗色面统一 dark:bg-[#273244](卡片/浮层/输入框同层);
+        卡片 = shadow-md + dark:border-gray-700/60(见 ui/Card.tsx 常量)
+*/
 @layer base {
   body {
     @apply bg-gray-50 text-gray-900;
@@ -172,70 +181,3 @@ kbd {
   font-variant-numeric: tabular-nums;
 }
 
-/* 【阶段 P2-高对比度 - 2026-06-17 续 33-7】无障碍高对比度模式
-   增强:加深文字/背景对比、链接下划线、focus 环加粗
-   同时支持亮色(.hc-light)和暗色(.hc-dark + .dark)
-   用 !important 覆盖 Tailwind 的灰度色阶
-*/
-.hc {
-  --hc-fg: #000000;
-  --hc-bg: #ffffff;
-  --hc-border: #000000;
-  --hc-link: #0000ee;
-  --hc-focus: #ff0000;
-}
-.dark.hc {
-  --hc-fg: #ffffff;
-  --hc-bg: #000000;
-  --hc-border: #ffffff;
-  --hc-link: #ffff00;
-  --hc-focus: #ffff00;
-}
-.hc body,
-.hc .bg-white,
-.hc .bg-gray-50,
-.hc .bg-gray-100 {
-  background-color: var(--hc-bg) !important;
-  color: var(--hc-fg) !important;
-}
-.dark.hc .dark\:bg-gray-800,
-.dark.hc .dark\:bg-gray-900,
-.dark.hc .dark\:bg-gray-700 {
-  background-color: var(--hc-bg) !important;
-  color: var(--hc-fg) !important;
-}
-.hc,
-.hc *:not(svg):not(svg *) {
-  border-color: var(--hc-border) !important;
-}
-.hc a,
-.dark.hc a {
-  color: var(--hc-link) !important;
-  text-decoration: underline !important;
-}
-.hc :focus-visible,
-.dark.hc :focus-visible {
-  outline: 3px solid var(--hc-focus) !important;
-  outline-offset: 3px !important;
-}
-.hc .text-gray-400,
-.hc .text-gray-500,
-.hc .text-gray-600,
-.hc .text-gray-700,
-.hc .text-gray-800,
-.hc .text-gray-900 {
-  color: var(--hc-fg) !important;
-}
-.dark.hc .dark\:text-gray-100,
-.dark.hc .dark\:text-gray-200,
-.dark.hc .dark\:text-gray-300,
-.dark.hc .dark\:text-gray-400,
-.dark.hc .dark\:text-gray-500 {
-  color: var(--hc-fg) !important;
-}
-.hc button,
-.hc input,
-.hc select,
-.hc textarea {
-  border: 2px solid var(--hc-border) !important;
-}

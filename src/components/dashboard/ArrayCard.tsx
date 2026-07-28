@@ -36,7 +36,7 @@ function ArrayCard({ systemInfo, disks, cacheAgeMs }: ArrayCardProps) {
           <span className={`${iconChipClass} mr-1`}>
             <Icon icon={HardDrive} size={18} />
           </span>
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">存储阵列状态</h3>
+          <h3 className="text-base font-semibold text-gray-900 dark:text-white">存储阵列状态</h3>
           <StaleBadge
             cacheAgeMs={cacheAgeMs}
             thresholdMs={60 * 1000}

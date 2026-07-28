@@ -40,7 +40,7 @@ export function LogsModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-2xl max-h-[80dvh] flex flex-col anim-pop"
+        className="bg-white dark:bg-[#273244] rounded-2xl w-full max-w-2xl max-h-[80dvh] flex flex-col anim-pop"
       >
         <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
           <h2 id={titleId} className="font-bold">

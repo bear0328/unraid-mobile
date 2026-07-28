@@ -1,10 +1,12 @@
 // 【续 46 2026-07-12】全局轮询间隔配置
-// 让用户在 Settings 里调节 Dashboard / 容器数据的刷新频率(默认 30s,范围 10s-2min)。
+// 让用户在 Settings 里调节 Dashboard / 容器数据的刷新频率。
+// 【续 74】默认/最小 30s/10s → 60s/60s(范围 60s-2min):统一所有数据节拍,
+// 容器地板(CONTAINER_POLL_FLOOR_MS)退化为恒等安全网。
 // 数据走 localStorage + 自定义事件广播,各 polling hook 订阅后热更新 delay,
 // 自动重启 interval(usePolling/useResourcePoller 的 effect 已把 delay/pollMs 纳入 deps)。
 export const POLL_INTERVAL_KEY = 'unraid-mobile-poll-interval';
-export const DEFAULT_POLL_INTERVAL = 30_000;
-export const MIN_POLL_INTERVAL = 10_000;
+export const DEFAULT_POLL_INTERVAL = 60_000;
+export const MIN_POLL_INTERVAL = 60_000;
 export const MAX_POLL_INTERVAL = 120_000;
 
 const CHANGE_EVENT = 'unraid-mobile-poll-interval-change';

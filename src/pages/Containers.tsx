@@ -12,17 +12,16 @@ import { useContainersData } from '../hooks/useContainersData';
 import { useContainerActions } from '../hooks/useContainerActions';
 import { useContainerLogs } from '../hooks/useContainerLogs';
 import { useToast } from '../hooks/useToast';
-import { useNow } from '../hooks/useNow';
 import { DockerList, VmList } from '../components/ContainerLists';
 import { LogsModal } from '../components/LogsModal';
 import VmDetailsModal from '../components/vms/VmDetailsModal';
 import ContainerDetailsModal from '../components/containers/ContainerDetailsModal';
 import ComposeStacks from '../components/compose/ComposeStacks';
-import StaleBadge from '../components/ui/StaleBadge';
+import LastRefreshText from '../components/ui/LastRefreshText';
 import Icon from '../components/ui/Icon';
 import ProGate from '../components/ProGate';
 import { usePro } from '../hooks/usePro';
-import { cacheAgeMs, getCacheKey } from '../services/unraidApi/cache';
+import { getCacheKey } from '../services/unraidApi/cache';
 
 type TabType = 'docker' | 'compose' | 'vm';
 
@@ -57,11 +56,8 @@ export default function Containers() {
     vmsRef,
   } = useContainersData(api, hasConfig);
 
-  // 【续 46.2 2026-07-18】30s 本地 tick 强制重渲染 — 同 Dashboard,polling skip 窗口内
-  // 让 containersCacheAge 自己增长,staleness badge 及时出现(零网络零 IO)
-  useNow(30_000);
-  // 【续 45.7 2026-07-01】容器数据 cache age(给 StaleBadge 提示)
-  const containersCacheAge = cacheAgeMs('containers');
+  // 【续 74】页级 StaleBadge 移除,刷新时间统一走全局 <LastRefreshText>;
+  // useNow/cacheAgeMs 随之不再需要( polling 刷新本身会触发 re-render)
 
   // 【续 45.7】手动刷新按钮:invalidate containers + vms cache + 调 useContainersData.refresh
   const handleManualRefresh = useCallback(async () => {
@@ -73,6 +69,14 @@ export default function Containers() {
     }
     await refreshContainers();
   }, [refreshContainers]);
+
+  // 【续 70】compose tab 的刷新:信号递增 → ComposeStacks 内部 handleRefresh
+  // (失效 containers 缓存由 ComposeStacks.handleRefresh 里的 invalidateNamespace 负责)
+  const [composeTick, setComposeTick] = useState(0);
+  const [composeLoading, setComposeLoading] = useState(false);
+  const handleComposeRefresh = useCallback(() => {
+    setComposeTick((t) => t + 1);
+  }, []);
 
   const {
     actionLoading,
@@ -217,25 +221,19 @@ export default function Containers() {
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-2xl font-bold">容器管理</h1>
         {/* 【续 45.7 2026-07-01】手动刷新按钮 */}
-        {/* 【续 68.2】compose tab 隐藏页级刷新:ComposeStacks 有自己的刷新钮,两个并存易混淆 */}
-        {activeTab !== 'compose' && (
-          <button
-            onClick={handleManualRefresh}
-            disabled={loading}
-            className="inline-flex items-center gap-1 text-xs px-2.5 py-1 text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            aria-label="手动刷新容器列表"
-            title="立即拉新容器数据(不唤醒硬盘)"
-          >
-            <Icon icon={RefreshCw} size={12} />
-            刷新
-          </button>
-        )}
-        {/* 【续 45.7】容器 staleness 提示 (复用 30s 阈值) */}
-        <StaleBadge
-          cacheAgeMs={containersCacheAge}
-          thresholdMs={30_000}
-          title="容器缓存数据,点「刷新」拉最新"
-        />
+        {/* 【续 70】三 tab 统一走页级刷新钮:docker/vm 刷容器数据,compose 信号联动 ComposeStacks */}
+        <button
+          onClick={activeTab === 'compose' ? handleComposeRefresh : handleManualRefresh}
+          disabled={activeTab === 'compose' ? composeLoading : loading}
+          className="inline-flex items-center gap-1 text-xs px-2.5 py-1 text-gray-700 dark:text-gray-300 font-medium hover:text-primary-600 dark:hover:text-primary-400 hover:underline underline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          aria-label="手动刷新容器列表"
+          title="立即拉新容器数据(不唤醒硬盘)"
+        >
+          <Icon icon={RefreshCw} size={12} />
+          刷新
+        </button>
+        {/* 【续 74】页签刷新时间统一走全局「更新于」(原容器 StaleBadge 移除) */}
+        <LastRefreshText />
       </div>
 
       {actionError && (
@@ -347,7 +345,7 @@ export default function Containers() {
           <button
             onClick={clearSelection}
             disabled={batchBusy}
-            className="text-xs px-2.5 py-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 rounded-lg"
+            className="text-xs px-2.5 py-1.5 bg-white dark:bg-[#273244] border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 rounded-lg"
           >
             取消
           </button>
@@ -378,7 +376,7 @@ export default function Containers() {
       {activeTab === 'compose' ? (
         /* 【续 55 商业化】Compose tab 整体 → Pro(tab 按钮保留可点) */
         <ProGate feature="Compose 管理">
-          <ComposeStacks />
+          <ComposeStacks refreshSignal={composeTick} onLoadingChange={setComposeLoading} />
         </ProGate>
       ) : activeTab === 'docker' ? (
         <DockerList

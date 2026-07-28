@@ -55,12 +55,12 @@ function DiskCard({ disks, cacheAgeMs, onRefreshDisks, isRefreshing, spinMap }: 
           <span className={`${iconChipClass} mr-2`}>
             <Icon icon={HardDrive} size={18} />
           </span>
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">磁盘状态</h3>
+          <h3 className="text-base font-semibold text-gray-900 dark:text-white">磁盘状态</h3>
           {onRefreshDisks && (
             <button
               onClick={onRefreshDisks}
               disabled={isRefreshing}
-              className="ml-auto inline-flex items-center gap-1 text-xs px-2 py-1 text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="ml-auto inline-flex items-center gap-1 text-xs px-2 py-1 text-gray-700 dark:text-gray-300 font-medium hover:text-primary-600 dark:hover:text-primary-400 hover:underline underline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               aria-label="刷新磁盘数据(会唤醒休眠的阵列盘)"
               title="拉取最新磁盘温度/容量(会唤醒休眠的 array 盘)"
             >
@@ -116,7 +116,7 @@ function DiskCard({ disks, cacheAgeMs, onRefreshDisks, isRefreshing, spinMap }: 
         <span className={`${iconChipClass} mr-1`}>
           <Icon icon={HardDrive} size={18} />
         </span>
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">磁盘状态</h3>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white">磁盘状态</h3>
         <StaleBadge
           cacheAgeMs={cacheAgeMs}
           thresholdMs={60 * 1000}
@@ -126,7 +126,7 @@ function DiskCard({ disks, cacheAgeMs, onRefreshDisks, isRefreshing, spinMap }: 
           <button
             onClick={onRefreshDisks}
             disabled={isRefreshing}
-            className="ml-auto inline-flex items-center gap-1 text-xs px-2 py-1 text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="ml-auto inline-flex items-center gap-1 text-xs px-2 py-1 text-gray-700 dark:text-gray-300 font-medium hover:text-primary-600 dark:hover:text-primary-400 hover:underline underline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             aria-label="刷新磁盘数据(会唤醒休眠的阵列盘)"
             title="拉取最新磁盘温度/容量(会唤醒休眠的 array 盘)"
           >
@@ -221,7 +221,7 @@ function DiskTempSparkline({ data, hot }: { data: number[]; hot: boolean }) {
     .join(' ');
   const color = hot ? '#ef4444' : '#6b7280';
   return (
-    <div className="flex items-center gap-1.5 text-[10px] text-gray-400" title="过去 16 小时温度">
+    <div className="flex items-center gap-1.5 text-[10px] text-gray-500 dark:text-gray-400" title="过去 16 小时温度">
       <Icon icon={Timer} size={12} />
       <svg
         viewBox={`0 0 ${W} ${H}`}

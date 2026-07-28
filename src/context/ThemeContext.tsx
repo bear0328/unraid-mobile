@@ -1,13 +1,14 @@
 // 【阶段 1 P0 2026-06-15】ThemeContext 导出对象会被 fast-refresh 报警,
 // 用 file-level disable 关掉(useTheme 已拆到 useTheme.ts 单独 hook 文件)
-// 【阶段 P2-高对比度 - 2026-06-17 续 33-7】加 hc-light / hc-dark 主题(无障碍)
 // 【阶段 P2-系统主题 - 2026-06-17 续 36-1】auto 模式:跟 prefers-color-scheme,用户手动切后关 auto
+// 【续 72 2026-07-28】移除 hc-light/hc-dark 高对比主题,只保留 light/dark;
+// 老用户 LS 残留的 hc 值在 THEME_CYCLE 校验处失败,自动回落系统偏好
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useEffect, useState, type ReactNode } from 'react';
 
-export type Theme = 'light' | 'dark' | 'hc-light' | 'hc-dark';
+export type Theme = 'light' | 'dark';
 
-const THEME_CYCLE: Theme[] = ['light', 'dark', 'hc-light', 'hc-dark'];
+const THEME_CYCLE: Theme[] = ['light', 'dark'];
 const LS_THEME = 'theme';
 const LS_AUTO = 'theme-auto';
 
@@ -64,12 +65,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   // 应用主题到 <html>
   useEffect(() => {
     const root = document.documentElement;
+    // 【续 72】remove 清单保留 hc 类:老用户 html 上可能挂着,启动即清
     root.classList.remove('dark', 'hc-light', 'hc-dark', 'hc');
-    if (theme === 'dark' || theme === 'hc-dark') {
+    if (theme === 'dark') {
       root.classList.add('dark');
-    }
-    if (theme === 'hc-light' || theme === 'hc-dark') {
-      root.classList.add('hc');
     }
     // auto 模式下不写 LS(每次进都重新跟系统);手动选后写
     if (!auto) {

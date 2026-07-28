@@ -95,7 +95,7 @@ export default function DiskCleanupModal({ open, onClose, filesUrl, onPick }: Pr
               {scanning ? '递归扫描 /files/user/ 树…' : '初始化…'}
             </p>
             {result === null && scanning && (
-              <p className="text-xs text-gray-400 mt-2">深度 4 / 最多 3000 条 / 4 并发</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">深度 4 / 最多 3000 条 / 4 并发</p>
             )}
           </div>
         </div>
@@ -156,7 +156,7 @@ export default function DiskCleanupModal({ open, onClose, filesUrl, onPick }: Pr
                     <div className="text-xs font-medium text-gray-700 dark:text-gray-200">
                       {f.size != null ? formatBytes(f.size) : '-'}
                     </div>
-                    <div className="text-[10px] text-gray-400">
+                    <div className="text-[10px] text-gray-500 dark:text-gray-400">
                       {f.mtime > 0 ? formatMtime(f.mtime) : '-'}
                     </div>
                   </div>
@@ -184,7 +184,7 @@ export default function DiskCleanupModal({ open, onClose, filesUrl, onPick }: Pr
               ))
             )}
           </ul>
-          <footer className="px-4 py-2 text-[10px] text-gray-400 border-t border-gray-100 dark:border-gray-700">
+          <footer className="px-4 py-2 text-[10px] text-gray-500 dark:text-gray-400 border-t border-gray-100 dark:border-gray-700">
             扫描:{result.stats.dirsScanned} 目录 · {result.stats.filesScanned} 文件 · 累计{' '}
             {formatBytes(result.stats.totalBytes)} · 错误 {result.stats.errors}
           </footer>

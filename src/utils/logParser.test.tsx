@@ -55,6 +55,13 @@ describe('colorizeLine', () => {
   it('普通行返 gray 类', () => {
     expect(colorizeLine('hello world')).toContain('gray');
   });
+
+  it('【续 71】视口恒深色底:配色不带 dark: 分支,默认浅灰', () => {
+    const c = colorizeLine('hello world');
+    expect(c).not.toContain('dark:');
+    expect(c).toBe('text-gray-200');
+    expect(colorizeLine('something ERROR happened')).not.toContain('dark:');
+  });
   it('大小写不敏感', () => {
     expect(colorizeLine('ERROR')).toContain('red');
     expect(colorizeLine('error')).toContain('red');

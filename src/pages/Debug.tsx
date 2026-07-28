@@ -86,7 +86,7 @@ function VitalCell({
   unit: string;
   goodAt: number;
 }) {
-  let color = 'text-gray-400';
+  let color = 'text-gray-500 dark:text-gray-400';
   if (value !== null) {
     if (value <= goodAt) color = 'text-green-600 dark:text-green-400';
     else if (value <= goodAt * 1.5) color = 'text-yellow-600 dark:text-yellow-400';
@@ -215,7 +215,7 @@ export default function Debug() {
   return (
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">API 诊断工具 (GraphQL)</h2>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">API 诊断工具 (GraphQL)</h1>
       </div>
 
       <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -225,7 +225,7 @@ export default function Debug() {
       {/* 【阶段 P1-3 - 2026-06-15 续 9】前端错误日志 */}
       <section
         data-testid="error-log-section"
-        className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm"
+        className="bg-white dark:bg-[#273244] rounded-xl p-4 shadow-md dark:shadow-lg dark:border dark:border-gray-700/60"
       >
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
@@ -335,7 +335,7 @@ export default function Debug() {
       {/* 【续 42.5 2026-06-19】4 端点健康状态 — 与 AppReadyGate 同步 */}
       <section
         data-testid="endpoints-section"
-        className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm"
+        className="bg-white dark:bg-[#273244] rounded-xl p-4 shadow-md dark:shadow-lg dark:border dark:border-gray-700/60"
       >
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
@@ -355,7 +355,7 @@ export default function Debug() {
               {health.status}
             </span>
             {health.report && (
-              <span className="text-[10px] text-gray-400 font-normal">
+              <span className="text-[10px] text-gray-500 dark:text-gray-400 font-normal">
                 耗时 {health.report.durationMs}ms
               </span>
             )}
@@ -386,7 +386,7 @@ export default function Debug() {
                 <span className="font-mono font-medium text-gray-700 dark:text-gray-200">
                   {ENDPOINT_META[name].label}
                 </span>
-                <span className="text-[11px] text-gray-400 inline-flex items-center gap-1">
+                <span className="text-[11px] text-gray-500 dark:text-gray-400 inline-flex items-center gap-1">
                   <Icon icon={Hourglass} size={11} />
                   检查中…
                 </span>
@@ -408,12 +408,12 @@ export default function Debug() {
                     <span className="font-mono font-medium text-gray-700 dark:text-gray-200 shrink-0">
                       {meta.label}
                     </span>
-                    <code className="text-[10px] text-gray-400 truncate" title={meta.hint}>
+                    <code className="text-[10px] text-gray-500 dark:text-gray-400 truncate" title={meta.hint}>
                       → {meta.hint}
                     </code>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-[10px] text-gray-400 font-mono">{r.latencyMs}ms</span>
+                    <span className="text-[10px] text-gray-500 dark:text-gray-400 font-mono">{r.latencyMs}ms</span>
                     <span className="text-[11px] inline-flex items-center gap-1">
                       <Icon icon={hint.icon} size={12} />
                       {hint.text}
@@ -429,7 +429,7 @@ export default function Debug() {
       {/* 【阶段 P2-性能 - 2026-06-17 续 33-8】Web Vitals */}
       <section
         data-testid="vitals-section"
-        className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm"
+        className="bg-white dark:bg-[#273244] rounded-xl p-4 shadow-md dark:shadow-lg dark:border dark:border-gray-700/60"
       >
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
           <Icon icon={BarChart3} size={20} />
@@ -453,7 +453,7 @@ export default function Debug() {
             {Math.round(vitals.memory.totalJSHeapSize / 1024 / 1024)} MB
           </div>
         )}
-        <p className="mt-2 text-[10px] text-gray-400">
+        <p className="mt-2 text-[10px] text-gray-500 dark:text-gray-400">
           LCP&lt;2.5s / FCP&lt;1.8s / CLS&lt;0.1 / INP&lt;200ms
           视为良好。绿色=达标,黄色=需改进,红色=差。
         </p>
@@ -476,7 +476,7 @@ export default function Debug() {
       </section>
 
       {/* 【续 39-1 候选 - 2026-06-18】磁盘温度历史 */}
-      <section className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+      <section className="bg-white dark:bg-[#273244] rounded-xl p-4 shadow-md dark:shadow-lg dark:border dark:border-gray-700/60">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
           <Icon icon={Thermometer} size={20} />
           磁盘温度历史
@@ -485,7 +485,7 @@ export default function Debug() {
       </section>
 
       {/* 【续 34-9】通知测试 */}
-      <section className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+      <section className="bg-white dark:bg-[#273244] rounded-xl p-4 shadow-md dark:shadow-lg dark:border dark:border-gray-700/60">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
           <Icon icon={Bell} size={20} />
           推送通知
@@ -496,7 +496,7 @@ export default function Debug() {
       {/* 【阶段 P2-审计 - 2026-06-17 续 31-3】WebDAV 审计日志 */}
       <section
         data-testid="audit-section"
-        className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm"
+        className="bg-white dark:bg-[#273244] rounded-xl p-4 shadow-md dark:shadow-lg dark:border dark:border-gray-700/60"
       >
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
@@ -565,7 +565,7 @@ export default function Debug() {
       </section>
 
       {Object.entries(apiData).map(([name, data]) => (
-        <div key={name} className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+        <div key={name} className="bg-white dark:bg-[#273244] rounded-xl p-4 shadow-md dark:shadow-lg dark:border dark:border-gray-700/60">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">{name}</h3>
           <pre className="bg-gray-100 dark:bg-gray-900 p-3 rounded text-xs overflow-x-auto max-h-96">
             {JSON.stringify(data, null, 2)}
@@ -592,7 +592,7 @@ function DebugNotifications() {
   const toast = useToast();
 
   const STATUS_LABEL: Record<typeof status, { label: string; color: string }> = {
-    unsupported: { label: '浏览器不支持', color: 'text-gray-400' },
+    unsupported: { label: '浏览器不支持', color: 'text-gray-500 dark:text-gray-400' },
     default: { label: '未请求', color: 'text-yellow-600 dark:text-yellow-400' },
     granted: { label: '已授权', color: 'text-green-600 dark:text-green-400' },
     denied: { label: '已拒绝(浏览器设置可改)', color: 'text-red-600 dark:text-red-400' },
@@ -618,7 +618,7 @@ function DebugNotifications() {
         <span className={`font-medium ${s.color}`}>{s.label}</span>
         <span>·</span>
         <span>SW:</span>
-        <span className={registration ? 'text-green-600 dark:text-green-400' : 'text-gray-400'}>
+        <span className={registration ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}>
           {registration ? '已注册' : '未注册'}
         </span>
       </div>
@@ -642,7 +642,7 @@ function DebugNotifications() {
           </span>
         </button>
       </div>
-      <p className="text-[10px] text-gray-400">
+      <p className="text-[10px] text-gray-500 dark:text-gray-400">
         实际推送依赖后端 push service(需订阅端点 + VAPID 密钥)。本测试通过 SW
         直接触发,验证通知链路通畅。 服务器 push payload 格式: {'{ title, body, url?, tag?, icon? }'}
       </p>
@@ -662,7 +662,7 @@ function DiskTempTrends() {
   };
   if (totalSamples === 0) {
     return (
-      <p className="text-[10px] text-gray-400">
+      <p className="text-[10px] text-gray-500 dark:text-gray-400">
         暂无磁盘历史(每 5min 自动采一次,首条在加载后 ~5min 出现)
       </p>
     );
@@ -670,7 +670,7 @@ function DiskTempTrends() {
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <p className="text-[10px] text-gray-400">
+        <p className="text-[10px] text-gray-500 dark:text-gray-400">
           {names.length} 个盘 · {totalSamples} 个采样点(每盘最多 200 条)
         </p>
         <button onClick={handleClear} className="text-[10px] text-red-500 hover:text-red-600">
@@ -699,7 +699,7 @@ function DiskRow({
   const max = temps.length ? Math.max(...temps) : null;
   const color =
     last === null
-      ? 'text-gray-400'
+      ? 'text-gray-500 dark:text-gray-400'
       : last > 50
         ? 'text-red-600 dark:text-red-400'
         : last > 40
@@ -736,7 +736,7 @@ function VitalsTrends() {
   const { history, count, clear } = useVitalsHistory();
   if (count === 0) {
     return (
-      <p className="mt-3 text-[10px] text-gray-400">
+      <p className="mt-3 text-[10px] text-gray-500 dark:text-gray-400">
         暂无历史数据(每 5min 自动采一次,首条在加载后 ~5min 出现)
       </p>
     );
@@ -744,7 +744,7 @@ function VitalsTrends() {
   return (
     <div className="mt-3 space-y-2">
       <div className="flex items-center justify-between">
-        <p className="text-[10px] text-gray-400">
+        <p className="text-[10px] text-gray-500 dark:text-gray-400">
           趋势: {count} 条快照,最近{' '}
           {count > 1 ? Math.round((history[count - 1].ts - history[0].ts) / 60000) : 0}min
         </p>
@@ -784,7 +784,7 @@ function VitalTrend({
   // 转 null → 0(给 sparkline 画图,留空也行但会断)
   const nums = data.map((v) => (v === null ? 0 : v * multiplier));
   const last = data[data.length - 1] ?? null;
-  let color = 'text-gray-400';
+  let color = 'text-gray-500 dark:text-gray-400';
   if (last !== null) {
     const v = last * multiplier;
     if (v <= goodAt) color = 'text-green-600 dark:text-green-400';

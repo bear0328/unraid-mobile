@@ -1,7 +1,7 @@
 // 【阶段 P2-1 - 2026-06-16 续 13】cache 单元测试
 // 覆盖:getCacheKey 前缀 / getCache 命中/过期/损坏/无 timestamp / setCache / clearAllGraphqlCache
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { getCache, setCache, getCacheKey, clearAllGraphqlCache, CACHE_TTL } from './cache';
+import { getCache, setCache, getCacheKey, clearAllGraphqlCache, isNamespaceFreshWithin, CACHE_TTL } from './cache';
 
 describe('cache', () => {
   beforeEach(() => {
@@ -64,6 +64,29 @@ describe('cache', () => {
       });
       expect(() => setCache('unraid-mobile-gql-x', { v: 1 })).not.toThrow();
       setItemSpy.mockRestore();
+    });
+  });
+
+  describe('isNamespaceFreshWithin (续 73)', () => {
+    it('无 cache → false', () => {
+      expect(isNamespaceFreshWithin('missing', 30_000)).toBe(false);
+    });
+
+    it('cache 年龄 < maxAgeMs → true', () => {
+      setCache(getCacheKey('fresh'), { x: 1 });
+      expect(isNamespaceFreshWithin('fresh', 30_000)).toBe(true);
+    });
+
+    it('cache 年龄 ≥ maxAgeMs → false(设置间隔到期,该真拉了)', () => {
+      const old = { data: { x: 1 }, timestamp: Date.now() - 60_000 };
+      localStorage.setItem(getCacheKey('stale'), JSON.stringify(old));
+      expect(isNamespaceFreshWithin('stale', 30_000)).toBe(false);
+    });
+
+    it('cache 年龄超 CACHE_TTL → key 已清,false', () => {
+      const ancient = { data: { x: 1 }, timestamp: Date.now() - CACHE_TTL - 1000 };
+      localStorage.setItem(getCacheKey('ancient'), JSON.stringify(ancient));
+      expect(isNamespaceFreshWithin('ancient', 120_000)).toBe(false);
     });
   });
 

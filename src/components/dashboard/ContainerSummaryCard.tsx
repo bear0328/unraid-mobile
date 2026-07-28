@@ -105,13 +105,13 @@ function ContainerSummaryCard({ containers, loading, api: apiProp, cacheAgeMs }:
   return (
     <div className={cardClass}>
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-1.5">
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white flex items-center gap-1.5">
           <span className={iconChipClass}>
             <Icon icon={Package} size={18} />
           </span>
           容器状态
           {total > 0 && (
-            <span className="text-xs text-gray-400 font-normal">
+            <span className="text-xs text-gray-500 dark:text-gray-400 font-normal">
               {runningCount}/{total} 运行中
             </span>
           )}
@@ -134,7 +134,7 @@ function ContainerSummaryCard({ containers, loading, api: apiProp, cacheAgeMs }:
       </div>
 
       {total === 0 ? (
-        <p className="text-xs text-gray-400">暂无容器数据</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400">暂无容器数据</p>
       ) : (
         <>
           {/* 状态分布 */}
@@ -196,7 +196,7 @@ function ContainerSummaryCard({ containers, loading, api: apiProp, cacheAgeMs }:
                   );
                 }
               )}
-              {Object.keys(stats).length === 0 && <div className="text-gray-400">无数据</div>}
+              {Object.keys(stats).length === 0 && <div className="text-gray-500 dark:text-gray-400">无数据</div>}
             </div>
           </div>
 
@@ -251,7 +251,7 @@ function ContainerSummaryCard({ containers, loading, api: apiProp, cacheAgeMs }:
               {runningCount > topRunning.length && (
                 <Link
                   to="/containers"
-                  className="block text-center text-[10px] text-gray-400 hover:text-primary-600 pt-1"
+                  className="block text-center text-[10px] text-gray-500 dark:text-gray-400 hover:text-primary-600 pt-1"
                 >
                   还有 {runningCount - topRunning.length} 个运行中 →
                 </Link>

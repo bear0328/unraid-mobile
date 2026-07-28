@@ -10,7 +10,7 @@ export default function DashboardSkeleton() {
       </div>
 
       {/* CPU card skeleton */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+      <div className="bg-white dark:bg-[#273244] rounded-xl p-4 shadow-md dark:shadow-lg dark:border dark:border-gray-700/60">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center">
             <div className="h-7 w-7 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mr-2" />
@@ -25,7 +25,7 @@ export default function DashboardSkeleton() {
       </div>
 
       {/* Memory card skeleton */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+      <div className="bg-white dark:bg-[#273244] rounded-xl p-4 shadow-md dark:shadow-lg dark:border dark:border-gray-700/60">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center">
             <div className="h-7 w-7 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mr-2" />
@@ -40,7 +40,7 @@ export default function DashboardSkeleton() {
       </div>
 
       {/* Network skeleton */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+      <div className="bg-white dark:bg-[#273244] rounded-xl p-4 shadow-md dark:shadow-lg dark:border dark:border-gray-700/60">
         <div className="h-5 w-20 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mb-4" />
         <div className="flex items-center justify-around">
           <div className="text-center">
@@ -57,7 +57,7 @@ export default function DashboardSkeleton() {
       </div>
 
       {/* Array status skeleton */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+      <div className="bg-white dark:bg-[#273244] rounded-xl p-4 shadow-md dark:shadow-lg dark:border dark:border-gray-700/60">
         <div className="flex items-center justify-between mb-3">
           <div className="h-5 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
           <div className="h-6 w-20 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse" />
@@ -66,7 +66,7 @@ export default function DashboardSkeleton() {
       </div>
 
       {/* Disks skeleton */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+      <div className="bg-white dark:bg-[#273244] rounded-xl p-4 shadow-md dark:shadow-lg dark:border dark:border-gray-700/60">
         <div className="h-5 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mb-4" />
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (

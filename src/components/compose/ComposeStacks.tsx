@@ -2,8 +2,8 @@
 // 【续 48 2026-07-19】从独立页面抽成组件,并入 Containers 页 compose tab(docker/compose/vm)
 // 数据源: compose.manager 插件项目目录(宿主 PHP 端点,见 compose-api/api.php)
 // 不自动轮询(操作驱动型页面),头部 🔄 手动刷新
-import { useCallback, useEffect, useState } from 'react';
-import { RefreshCw, Puzzle } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Puzzle } from 'lucide-react';
 import { useApiConfig, useUnraidApi } from '../../hooks/useUnraidApi';
 import { useToast } from '../../hooks/useToast';
 import StackDetailModal from './StackDetailModal';
@@ -13,6 +13,7 @@ import { computeStackUpdates } from './stackUpdates';
 // 【续 68.2】手动刷新时失效 containers 缓存:compose pull 走 PHP 后端,
 // 不经 GraphQL mutation,缓存里的 isUpdateAvailable 不会自己更新
 import { invalidateNamespace } from '../../services/unraidApi/cache';
+import { markRefreshed } from '../../utils/lastRefresh';
 
 /** 【续 49.3】这些状态码 = 宿主没装 compose-api 后端(优雅降级,显示安装指引而非报错) */
 const BACKEND_MISSING_STATUS = new Set([404, 502, 503]);
@@ -22,9 +23,16 @@ function statusLabel(stack: ComposeStack): string {
   return stack.status;
 }
 
-export default function ComposeStacks() {
+interface ComposeStacksProps {
+  /** 【续 70】页级刷新钮的信号:值变化(>0)触发一次刷新(初始加载不受影响) */
+  refreshSignal?: number;
+  /** 【续 70】loading 状态上报,页级刷新钮的 spin/disabled 用 */
+  onLoadingChange?: (loading: boolean) => void;
+}
+
+export default function ComposeStacks({ refreshSignal = 0, onLoadingChange }: ComposeStacksProps) {
   const [stacks, setStacks] = useState<ComposeStack[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoadingState] = useState(true);
   const [error, setError] = useState<string | null>(null);
   // 【续 49.3】后端不存在(404/502/503)→ 显示安装指引空态,不显示报错
   const [backendMissing, setBackendMissing] = useState(false);
@@ -34,6 +42,15 @@ export default function ComposeStacks() {
   const { isConfigured } = useApiConfig();
   const api = useUnraidApi();
   const toast = useToast();
+
+  // 【续 70】loading 状态同步上报给页级刷新钮
+  const setLoading = useCallback(
+    (v: boolean) => {
+      setLoadingState(v);
+      onLoadingChange?.(v);
+    },
+    [onLoadingChange]
+  );
 
   // 【续 50 C10】返回是否成功,给刷新 toast 用(原实现吞错,"已刷新"无条件弹)
   const load = useCallback(async (): Promise<boolean> => {
@@ -49,6 +66,8 @@ export default function ComposeStacks() {
       } catch {
         setUpdateStacks(new Set());
       }
+      // 【续 74】真实刷新成功 → 更新全局「上次刷新」时间
+      markRefreshed();
       return true;
     } catch (err) {
       const status = err instanceof ComposeApiError ? err.status : 0;
@@ -65,7 +84,7 @@ export default function ComposeStacks() {
     } finally {
       setLoading(false);
     }
-  }, [api]);
+  }, [api, setLoading]);
 
   useEffect(() => {
     if (isConfigured) {
@@ -73,7 +92,7 @@ export default function ComposeStacks() {
     } else {
       setLoading(false);
     }
-  }, [isConfigured, load]);
+  }, [isConfigured, load, setLoading]);
 
   const handleRefresh = useCallback(async () => {
     setLoading(true);
@@ -86,7 +105,19 @@ export default function ComposeStacks() {
     } else {
       toast.error('刷新失败,请检查后端连接或 API Key');
     }
-  }, [load, toast]);
+  }, [load, toast, setLoading]);
+
+  // 【续 70】页级刷新钮信号:>0 且变化时触发刷新(跳过首渲染,初始加载走上面 effect)
+  const firstSignal = useRef(true);
+  useEffect(() => {
+    if (firstSignal.current) {
+      firstSignal.current = false;
+      return;
+    }
+    if (refreshSignal > 0) {
+      void handleRefresh();
+    }
+  }, [refreshSignal, handleRefresh]);
 
   const runningCount = stacks.filter((s) => s.running).length;
 
@@ -104,15 +135,7 @@ export default function ComposeStacks() {
                 : `${stacks.length} 个栈 · ${runningCount} 个运行中`}
           </p>
         </div>
-        <button
-          onClick={() => void handleRefresh()}
-          disabled={loading}
-          className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50"
-          aria-label="刷新"
-          title="刷新栈列表"
-        >
-          <Icon icon={RefreshCw} className={loading ? 'animate-spin' : ''} />
-        </button>
+        {/* 【续 70】组件内刷新钮已删,统一走 Containers 页级刷新钮(refreshSignal 联动) */}
       </div>
 
       {error && (
@@ -122,13 +145,13 @@ export default function ComposeStacks() {
       )}
 
       {!isConfigured && (
-        <div className="text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 rounded-xl p-6 text-center">
+        <div className="text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-[#273244] rounded-xl p-6 text-center">
           请先在设置页配置服务器和 API Key
         </div>
       )}
 
       {isConfigured && !loading && !error && !backendMissing && stacks.length === 0 && (
-        <div className="text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 rounded-xl p-6 text-center">
+        <div className="text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-[#273244] rounded-xl p-6 text-center">
           未发现 compose.manager 项目
         </div>
       )}
@@ -137,7 +160,7 @@ export default function ComposeStacks() {
       {isConfigured && !loading && backendMissing && (
         <div
           data-testid="compose-backend-missing"
-          className="bg-white dark:bg-gray-800 rounded-xl p-5 text-sm"
+          className="bg-white dark:bg-[#273244] rounded-xl p-5 text-sm"
         >
           <div className="flex items-center gap-1.5 text-base mb-1">
             <Icon icon={Puzzle} size={18} />
@@ -179,7 +202,7 @@ export default function ComposeStacks() {
           <button
             key={stack.name}
             onClick={() => setSelected(stack.name)}
-            className="w-full text-left bg-white dark:bg-gray-800 rounded-xl p-3.5 shadow-sm hover:shadow-md transition-shadow flex items-center gap-3"
+            className="w-full text-left bg-white dark:bg-[#273244] rounded-xl p-3.5 shadow-md dark:shadow-lg dark:border dark:border-gray-700/60 hover:shadow-lg transition-shadow flex items-center gap-3"
           >
             <span
               className={`inline-block w-2.5 h-2.5 rounded-full shrink-0 ${

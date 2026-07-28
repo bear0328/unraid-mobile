@@ -159,6 +159,31 @@ function composeLsMap(): array
     return $map;
 }
 
+/**
+ * 【续 70 2026-07-28】project => [容器名] 精确归属映射(靠 docker label,
+ * 不靠名字启发式)。背景:自定义 container_name(如项目 ms-go / 容器 msgo)
+ * 会让前端「更新」徽章的前缀匹配失配。单次 docker ps -a(含停止的容器),
+ * 失败返回空数组静默降级(前端回退前缀启发式)。
+ */
+function projectContainersMap(): array
+{
+    $out = [];
+    exec(
+        PATH_ENV . ' ' . DOCKER
+        . ' ps -a --filter label=com.docker.compose.project'
+        . " --format '{{.Names}}|{{.Label \"com.docker.compose.project\"}}' 2>/dev/null",
+        $out
+    );
+    $map = [];
+    foreach ($out as $line) {
+        $parts = explode('|', trim($line), 2);
+        if (count($parts) === 2 && $parts[0] !== '' && $parts[1] !== '') {
+            $map[$parts[1]][] = $parts[0];
+        }
+    }
+    return $map;
+}
+
 function readJsonFile(string $path): ?array
 {
     $data = json_decode((string) @file_get_contents($path), true);
@@ -234,7 +259,7 @@ function readCpuTemp(): array
     return ['celsius' => null, 'sensor' => null];
 }
 
-function stackSummary(string $dirName, array $lsMap): array
+function stackSummary(string $dirName, array $lsMap, array $pcMap = []): array
 {
     $dir = PROJECTS_DIR . '/' . $dirName;
     $project = projectName($dirName);
@@ -248,6 +273,8 @@ function stackSummary(string $dirName, array $lsMap): array
         'autostart' => readAutostart($dir),
         'lastResult' => readJsonFile($dir . '/last_result.json'),
         'composeFile' => firstExisting($dir, composeFileCandidates()),
+        // 【续 70】该栈的容器名列表(label 精确归属,自定义 container_name 也准)
+        'containers' => $pcMap[$project] ?? [],
     ];
 }
 
@@ -337,7 +364,8 @@ if ($method === 'GET') {
         }
         sort($names, SORT_NATURAL | SORT_FLAG_CASE);
         $lsMap = composeLsMap();
-        ok(array_map(fn($n) => stackSummary($n, $lsMap), $names));
+        $pcMap = projectContainersMap();
+        ok(array_map(fn($n) => stackSummary($n, $lsMap, $pcMap), $names));
     }
 
     if ($action === 'get') {

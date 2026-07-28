@@ -2,17 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePolling } from './usePolling';
 import { usePollInterval } from './usePollInterval';
 import { UnraidApiService, UnraidDockerContainer, UnraidVM } from '../services';
-import { getCache, getCacheKey } from '../services/unraidApi/cache';
-
-/**
- * 【续 45 2026-06-26】判断 graphql namespace cache 是否新鲜
- * 用于 usePolling skipInitialIf —— 命中 cache 时跳过 mount 立即 fire,
- * 避免刷新页面时 fetch getDockerContainers/getVMs 唤醒 cgroup/docker 跨 disk IO。
- * 注:getCache 内部已校验 TTL,返回非 null 即新鲜
- */
-function isNamespaceCacheFresh(namespace: string): boolean {
-  return getCache<unknown>(getCacheKey(namespace)) !== null;
-}
+import {
+  CONTAINER_POLL_FLOOR_MS,
+  invalidateNamespace,
+  isNamespaceFreshWithin,
+} from '../services/unraidApi/cache';
+import { markRefreshed } from '../utils/lastRefresh';
 
 export function useContainersData(api: UnraidApiService | null, enabled: boolean) {
   const [containers, setContainers] = useState<UnraidDockerContainer[]>([]);
@@ -44,6 +39,8 @@ export function useContainersData(api: UnraidApiService | null, enabled: boolean
       setVMs(vmData);
       setError(null);
       setHasFetched(true);
+      // 【续 74】真实刷新成功 → 更新全局「上次刷新」时间
+      markRefreshed();
     } catch (err) {
       console.error('Failed to fetch containers/vms:', err);
       setError('无法连接到 unRAID 服务器');
@@ -53,6 +50,9 @@ export function useContainersData(api: UnraidApiService | null, enabled: boolean
   }, [api]);
 
   const pollInterval = usePollInterval();
+  // 【续 73】容器/VM 跟随用户设置,但地板 60s(getDockerContainers/getVMs 涉及
+  // docker/cgroup IO,过频有磁盘负担)。tick 节拍直接用有效间隔,不空转 skip。
+  const effectiveInterval = Math.max(pollInterval, CONTAINER_POLL_FLOOR_MS);
   usePolling(
     async () => {
       if (!enabled) {
@@ -60,20 +60,27 @@ export function useContainersData(api: UnraidApiService | null, enabled: boolean
         return;
       }
 
+      // 【续 73】tick 时 cache 年龄 < 有效间隔 → 直接读 cache 填充,0 网络;
+      // 否则先失效 30min namespace cache 再拉,否则 graphql 层喂旧数据,
+      // 设置间隔被架空(mount 首跑依赖 cache 命中,也走同一判断)
+      const fresh =
+        isNamespaceFreshWithin('containers', effectiveInterval) &&
+        isNamespaceFreshWithin('vms', effectiveInterval);
+      if (fresh && hasFetched) {
+        return;
+      }
+      if (!fresh) {
+        invalidateNamespace('containers');
+        invalidateNamespace('vms');
+      }
+
       if (!hasFetched) {
         setLoading(true);
       }
       await refresh();
     },
-    pollInterval,
-    enabled,
-    {
-      // 【续 45.4 2026-06-28】移除 skipInitialIf —— mount 必须跑一次填充 state,
-      // 否则 warm cache 时 loading=true 永远不被设 false,页面永远"加载中..."
-      // mount 时 graphql 层 namespace cache 命中 = 0ms 返回,0 网络请求,只做 state 填充
-      // 【续 45 2026-06-26】interval tick 也尊重 cache:5min 内 cache 命中 → 跳过 fetch
-      shouldSkipTick: () => isNamespaceCacheFresh('containers') && isNamespaceCacheFresh('vms'),
-    }
+    effectiveInterval,
+    enabled
   );
 
   return useMemo(

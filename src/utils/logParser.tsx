@@ -8,15 +8,18 @@
 import type { ReactNode } from 'react';
 
 // ANSI 前景色码 → Tailwind class
+// 【续 71】日志视口两种模式都是深色底(bg-gray-900 dark:bg-black),
+// 行色统一用深色底配色,去掉 dark: 分支 —— 原 light 分支(text-gray-900 等)
+// 在深色底上白天几乎隐形
 const ANSI_COLORS: Record<number, string> = {
-  30: 'text-gray-900 dark:text-gray-100',
-  31: 'text-red-600 dark:text-red-400',
-  32: 'text-green-600 dark:text-green-400',
-  33: 'text-yellow-600 dark:text-yellow-400',
-  34: 'text-blue-600 dark:text-blue-400',
-  35: 'text-purple-600 dark:text-purple-400',
-  36: 'text-cyan-600 dark:text-cyan-400',
-  37: 'text-gray-600 dark:text-gray-300',
+  30: 'text-gray-100',
+  31: 'text-red-400',
+  32: 'text-green-400',
+  33: 'text-yellow-400',
+  34: 'text-blue-400',
+  35: 'text-purple-400',
+  36: 'text-cyan-400',
+  37: 'text-gray-300',
   90: 'text-gray-500',
   91: 'text-red-500',
   92: 'text-green-500',
@@ -109,19 +112,20 @@ export function parseSyslogLine(line: string): {
 
 /**
  * 颜色化整行（基于日志级别关键字）
+ * 【续 71】视口恒为深色底 → 统一深色底配色,不再分 light/dark
  */
 export function colorizeLine(line: string): string {
   const lower = line.toLowerCase();
   if (/\berror\b|\bfail(ed|ure)?\b|\bcritical\b|\balert\b|\bpanic\b/.test(lower)) {
-    return 'text-red-600 dark:text-red-400';
+    return 'text-red-400';
   }
   if (/\bwarn(ing)?\b/.test(lower)) {
-    return 'text-yellow-600 dark:text-yellow-400';
+    return 'text-yellow-400';
   }
   if (/\bnotice\b|\binfo\b/.test(lower)) {
-    return 'text-blue-600 dark:text-blue-400';
+    return 'text-blue-400';
   }
-  return 'text-gray-800 dark:text-gray-200';
+  return 'text-gray-200';
 }
 
 /**

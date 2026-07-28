@@ -23,12 +23,14 @@ describe('pollInterval', () => {
   });
 
   it('读 LS 存储值', () => {
-    window.localStorage.setItem(POLL_INTERVAL_KEY, '45000');
-    expect(getPollInterval()).toBe(45000);
+    window.localStorage.setItem(POLL_INTERVAL_KEY, '90000');
+    expect(getPollInterval()).toBe(90000);
   });
 
-  it('clamp 到 [MIN, MAX]', () => {
+  it('clamp 到 [MIN, MAX](旧版本存的 10-55s 值也会被抬到 60s)', () => {
     window.localStorage.setItem(POLL_INTERVAL_KEY, '5000');
+    expect(getPollInterval()).toBe(MIN_POLL_INTERVAL);
+    window.localStorage.setItem(POLL_INTERVAL_KEY, '45000');
     expect(getPollInterval()).toBe(MIN_POLL_INTERVAL);
     window.localStorage.setItem(POLL_INTERVAL_KEY, '999999');
     expect(getPollInterval()).toBe(MAX_POLL_INTERVAL);

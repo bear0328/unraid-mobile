@@ -65,7 +65,7 @@ export function Modal({
         //   Tailwind 扫描不到(dist CSS 无该类);且原三元只对 vertical 拼 max-h,
         //   flex 分支无限高、容器非 flex,子级 flex-1 全失效(DiskCleanupModal 小屏溢出)
         className={[
-          'bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full anim-pop',
+          'bg-white dark:bg-[#273244] rounded-2xl shadow-xl w-full anim-pop',
           maxWidthClass,
           layout === 'vertical'
             ? 'p-5 space-y-4 overflow-y-auto'

@@ -8,6 +8,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { getApiConfig, UnraidApiService } from '../services';
 import { FileItem, davFetch } from '../components/shares/davAuth';
 import { parseAutoindexHtml } from '../components/shares/parseAutoindex';
+import { markRefreshed } from '../utils/lastRefresh';
 
 export interface SharesPaths {
   /** /files/user/... 列 user 共享（取自 /mnt/user/） */
@@ -102,6 +103,8 @@ export function useShares(): UseSharesResult {
               permissions: '',
             }))
           );
+          // 【续 74】真实刷新成功 → 更新全局「上次刷新」时间
+          markRefreshed();
           return;
         }
 
@@ -114,6 +117,8 @@ export function useShares(): UseSharesResult {
 
         const text = await response.text();
         setItems(parseAutoindexHtml(text, dirPath));
+        // 【续 74】真实刷新成功 → 更新全局「上次刷新」时间
+        markRefreshed();
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         setError(msg);

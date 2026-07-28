@@ -205,23 +205,48 @@ describe('ComposeStacks 组件(容器页 compose tab)', () => {
   });
 
   // ---------- 【续 50 C10】刷新 toast 成败分支 ----------
+  // 【续 70】组件内刷新钮已删,统一走页级钮 → 用 refreshSignal prop 触发
   it('刷新成功 → 弹「已刷新」', async () => {
-    const user = userEvent.setup();
-    render(<ComposeStacks />);
+    const { rerender } = render(<ComposeStacks refreshSignal={0} />);
     await screen.findByText('emby');
-    await user.click(screen.getByLabelText('刷新'));
+    rerender(<ComposeStacks refreshSignal={1} />);
     await waitFor(() => expect(mockToast.info).toHaveBeenCalledWith('已刷新'));
     expect(mockToast.error).not.toHaveBeenCalled();
   });
 
   it('刷新失败 → 不弹「已刷新」,改弹错误 toast', async () => {
-    const user = userEvent.setup();
-    render(<ComposeStacks />);
+    const { rerender } = render(<ComposeStacks refreshSignal={0} />);
     await screen.findByText('emby');
     mockGetStacks.mockRejectedValueOnce(new ComposeApiError(500, 'HTTP 500'));
-    await user.click(screen.getByLabelText('刷新'));
+    rerender(<ComposeStacks refreshSignal={1} />);
     await waitFor(() => expect(mockToast.error).toHaveBeenCalled());
     expect(mockToast.info).not.toHaveBeenCalledWith('已刷新');
+  });
+
+  // ---------- 【续 70】refreshSignal / onLoadingChange 联动 ----------
+  it('refreshSignal 首渲染不触发额外加载;递增才触发', async () => {
+    const { rerender } = render(<ComposeStacks refreshSignal={0} />);
+    await screen.findByText('emby');
+    expect(mockGetStacks).toHaveBeenCalledTimes(1);
+    // signal 不变 rerender → 不重载
+    rerender(<ComposeStacks refreshSignal={0} />);
+    expect(mockGetStacks).toHaveBeenCalledTimes(1);
+    rerender(<ComposeStacks refreshSignal={2} />);
+    await waitFor(() => expect(mockGetStacks).toHaveBeenCalledTimes(2));
+  });
+
+  it('onLoadingChange 上报 loading 状态(加载完成 → false;signal 刷新 → true→false)', async () => {
+    const onLoadingChange = vi.fn();
+    const { rerender } = render(
+      <ComposeStacks refreshSignal={0} onLoadingChange={onLoadingChange} />
+    );
+    await screen.findByText('emby');
+    await waitFor(() => expect(onLoadingChange).toHaveBeenLastCalledWith(false));
+    onLoadingChange.mockClear();
+    rerender(<ComposeStacks refreshSignal={1} onLoadingChange={onLoadingChange} />);
+    await waitFor(() => expect(onLoadingChange).toHaveBeenLastCalledWith(false));
+    // 刷新周期内先 true 后 false
+    expect(onLoadingChange.mock.calls[0][0]).toBe(true);
   });
 
   // ---------- 【续 50 C-补充】401 提示按 status 判定,不再靠 message 字符串匹配 ----------
@@ -347,6 +372,26 @@ describe('computeStackUpdates(【续 68】栈更新匹配)', () => {
     // 前缀相邻但不属于项目:embyserver-* 不应命中 emby
     expect(computeStackUpdates(stacks, [makeC('embyserver-x-1', true)]).size).toBe(0);
   });
+
+  // ---------- 【续 70】containers 字段(docker label 精确归属)优先 ----------
+  it('带 containers 字段:自定义 container_name 精确命中(ms-go/msgo 场景)', () => {
+    const s = [makeStack({ name: 'ms-go', project: 'ms-go', containers: ['msgo'] })];
+    expect(computeStackUpdates(s, [makeC('msgo', true)]).has('ms-go')).toBe(true);
+    expect(computeStackUpdates(s, [makeC('msgo', false)]).size).toBe(0);
+    // 大小写不敏感
+    expect(computeStackUpdates(s, [makeC('MsGo', true)]).has('ms-go')).toBe(true);
+  });
+
+  it('带 containers 字段:不在归属列表的同名前缀容器不误报;空数组恒无徽章', () => {
+    const s = [makeStack({ name: 'emby', project: 'emby', containers: ['emby-app-1'] })];
+    // 前缀能命中但 label 归属不含它 → 不误报(精确匹配优先于启发式)
+    expect(computeStackUpdates(s, [makeC('emby-other-1', true)]).size).toBe(0);
+    expect(
+      computeStackUpdates([makeStack({ name: 'x', project: 'x', containers: [] })], [
+        makeC('x-y-1', true),
+      ]).size
+    ).toBe(0);
+  });
 });
 
 describe('ComposeStacks 更新徽章(【续 68】)', () => {
@@ -363,5 +408,14 @@ describe('ComposeStacks 更新徽章(【续 68】)', () => {
     render(<ComposeStacks />);
     await waitFor(() => expect(screen.getByText('emby')).toBeInTheDocument());
     expect(screen.queryByText('更新')).not.toBeInTheDocument();
+  });
+
+  it('【续 70】栈带 containers 归属列表 → 自定义 container_name 也显示徽章', async () => {
+    mockGetStacks.mockResolvedValue([
+      makeStack({ name: 'ms-go', project: 'ms-go', containers: ['msgo'] }),
+    ]);
+    mockGetDockerContainers.mockResolvedValue([makeC('msgo', true)]);
+    render(<ComposeStacks />);
+    await waitFor(() => expect(screen.getByText('更新')).toBeInTheDocument());
   });
 });

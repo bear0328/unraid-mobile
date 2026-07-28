@@ -18,7 +18,8 @@ vi.mock('./useUnraidApi', () => ({
   useApiConfig: () => ({ isConfigured: true, config: { serverUrl: 'http://x', apiKey: 'k' } }),
 }));
 
-// 固定 1s 轮询间隔,便于 fake timers 推进
+// mock 1s 轮询间隔,但【续 73】容器轮询有 60s 地板(CONTAINER_POLL_FLOOR_MS),
+// 实际 pollMs = max(1000, 60000) = 60s,fake timers 按 60s 推进
 vi.mock('./usePollInterval', () => ({
   usePollInterval: () => 1000,
 }));
@@ -76,7 +77,7 @@ describe('useContainerEventWatcher (续 50 B6 方向过滤)', () => {
     });
     // 第 2 次 tick:exited → running(启动)
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(1000);
+      await vi.advanceTimersByTimeAsync(60_000);
     });
     expect(mocks.getDockerContainers).toHaveBeenCalledTimes(2);
     expect(sendWebhook).not.toHaveBeenCalled();
@@ -92,7 +93,7 @@ describe('useContainerEventWatcher (续 50 B6 方向过滤)', () => {
       await vi.advanceTimersByTimeAsync(0);
     });
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(1000);
+      await vi.advanceTimersByTimeAsync(60_000);
     });
     expect(sendWebhook).toHaveBeenCalledTimes(1);
     expect(pushNotification).toHaveBeenCalledTimes(1);
@@ -110,7 +111,7 @@ describe('useContainerEventWatcher (续 50 B6 方向过滤)', () => {
     });
     // 2 次 tick:status 在 healthy/unhealthy 间波动,state 始终 running
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(2000);
+      await vi.advanceTimersByTimeAsync(120_000);
     });
     expect(mocks.getDockerContainers).toHaveBeenCalledTimes(3);
     expect(sendWebhook).not.toHaveBeenCalled();

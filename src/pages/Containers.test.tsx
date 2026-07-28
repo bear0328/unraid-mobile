@@ -79,8 +79,13 @@ vi.mock('../components/vms/VmDetailsModal', () => ({
   ),
 }));
 // 【续 48 2026-07-19】Mock ComposeStacks:compose tab 内容,避免触发 composeApi fetch
+// 【续 70】捕获 props:断言页级刷新钮 → refreshSignal 联动
+const composeStacksProps = vi.hoisted(() => ({ current: null as { refreshSignal?: number } | null }));
 vi.mock('../components/compose/ComposeStacks', () => ({
-  default: () => <div data-testid="compose-stacks">Compose 栈面板</div>,
+  default: (props: { refreshSignal?: number }) => {
+    composeStacksProps.current = props;
+    return <div data-testid="compose-stacks">Compose 栈面板</div>;
+  },
 }));
 // 【续 50 C2】Mock useToast:批量操作 toast 计数断言用(hoisted 保序)
 const toastMocks = vi.hoisted(() => ({
@@ -234,6 +239,17 @@ describe('Containers 页面', () => {
     expect(screen.getByTestId('compose-stacks')).toBeInTheDocument();
     // compose tab 无批量全选行(currentList 为空)
     expect(screen.queryByLabelText('全选/反选')).not.toBeInTheDocument();
+  });
+
+  // ==== 续 70:三 tab 统一页级刷新钮,compose tab 点击 → refreshSignal 递增 ====
+  it('compose tab:页级刷新钮可见,点击后 ComposeStacks 的 refreshSignal 递增', async () => {
+    const user: UserEvent = userEvent.setup();
+    renderContainers();
+    await user.click(screen.getByRole('button', { name: 'Compose' }));
+    const btn = screen.getByLabelText('手动刷新容器列表');
+    const before = composeStacksProps.current?.refreshSignal ?? 0;
+    await user.click(btn);
+    expect(composeStacksProps.current?.refreshSignal).toBe(before + 1);
   });
 
   it('actionError 传入 → 显示红色错误提示', () => {

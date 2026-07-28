@@ -19,6 +19,8 @@ export interface ComposeStack {
   autostart: boolean;
   lastResult: ComposeLastResult | null;
   composeFile: string | null;
+  /** 【续 70】该栈的容器名列表(docker label 精确归属);旧版后端无此字段,前端回退前缀启发式 */
+  containers?: string[];
 }
 
 export interface ComposeStackDetail {

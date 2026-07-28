@@ -74,12 +74,10 @@ export default function Settings() {
   const handleToggleTheme = () => {
     toggleTheme();
     // theme 是旧值(异步更新),用当前 theme 推导目标值
-    const next = theme === 'dark' || theme === 'hc-dark' ? 'light' : 'dark';
+    const next = theme === 'dark' ? 'light' : 'dark';
     const labels: Record<string, string> = {
       light: '浅色',
       dark: '深色',
-      'hc-light': '高对比度浅色',
-      'hc-dark': '高对比度深色',
     };
     toast.success(`已切换到 ${labels[next] ?? next}`);
   };
@@ -264,7 +262,7 @@ export default function Settings() {
 
   return (
     <div className="p-4 space-y-6">
-      <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">设置</h2>
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">设置</h1>
 
       {/* 【续 33-10】服务器列表管理(在「服务器连接」之上,默认折叠感不强,常驻) */}
       <ServerList />
@@ -273,7 +271,7 @@ export default function Settings() {
       <LicenseSection />
 
       {/* Server Connection */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+      <div className="bg-white dark:bg-[#273244] rounded-xl p-4 shadow-md dark:shadow-lg dark:border dark:border-gray-700/60">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">服务器连接</h3>
 
         <div className="space-y-4">
@@ -391,7 +389,7 @@ export default function Settings() {
                       <span className="text-gray-700 dark:text-gray-300 flex-1">
                         {ENDPOINT_LABEL[e.name]}
                       </span>
-                      <span className="text-gray-400 tabular-nums">{e.latencyMs}ms</span>
+                      <span className="text-gray-500 dark:text-gray-400 tabular-nums">{e.latencyMs}ms</span>
                     </li>
                   ))}
                 </ul>
@@ -402,7 +400,7 @@ export default function Settings() {
       </div>
 
       {/* 【D4 2026-06-14】WebDAV 鉴权密码 - 文件管理页用 */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+      <div className="bg-white dark:bg-[#273244] rounded-xl p-4 shadow-md dark:shadow-lg dark:border dark:border-gray-700/60">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
           WebDAV 鉴权密码
         </h3>
@@ -448,7 +446,7 @@ export default function Settings() {
       </div>
 
       {/* 【阶段 5.1.b 2026-06-14】日志鉴权密码 - 系统日志页用 */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+      <div className="bg-white dark:bg-[#273244] rounded-xl p-4 shadow-md dark:shadow-lg dark:border dark:border-gray-700/60">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">日志鉴权密码</h3>
         <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
           用于「日志」页查看系统日志（syslog 等）。 syslog 可能含 sshd 失败日志、docker token
@@ -492,7 +490,7 @@ export default function Settings() {
       </div>
 
       {/* Appearance */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+      <div className="bg-white dark:bg-[#273244] rounded-xl p-4 shadow-md dark:shadow-lg dark:border dark:border-gray-700/60">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">外观</h3>
 
         {/* 【续 34-3】主题色 */}
@@ -505,20 +503,20 @@ export default function Settings() {
           <div>
             <p className="font-medium text-gray-900 dark:text-white">深色模式</p>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              {auto ? '跟随系统' : theme === 'dark' || theme === 'hc-dark' ? '已开启' : '已关闭'}
+              {auto ? '跟随系统' : theme === 'dark' ? '已开启' : '已关闭'}
             </p>
           </div>
           <button
             onClick={handleToggleTheme}
             className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors ${
-              theme === 'dark' || theme === 'hc-dark' ? 'bg-primary-600' : 'bg-gray-300'
+              theme === 'dark' ? 'bg-primary-600' : 'bg-gray-300'
             }`}
             disabled={auto}
             title={auto ? '关闭"跟随系统"后可手动切换' : ''}
           >
             <span
               className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${
-                theme === 'dark' || theme === 'hc-dark' ? 'translate-x-7' : 'translate-x-1'
+                theme === 'dark' ? 'translate-x-7' : 'translate-x-1'
               }`}
             />
           </button>
@@ -543,7 +541,7 @@ export default function Settings() {
       <PollIntervalSection />
 
       {/* 【续 48.1 2026-07-19】诊断入口(原底部 🔧 tab 收起,/debug 路由保留) */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+      <div className="bg-white dark:bg-[#273244] rounded-xl p-4 shadow-md dark:shadow-lg dark:border dark:border-gray-700/60">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">诊断</h3>
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
           API 诊断工具:逐个探测后端端点,排查连接/鉴权/挂载问题
@@ -563,7 +561,7 @@ export default function Settings() {
       </div>
 
       {/* About */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+      <div className="bg-white dark:bg-[#273244] rounded-xl p-4 shadow-md dark:shadow-lg dark:border dark:border-gray-700/60">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">关于</h3>
         <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
           <p>unRAID Mobile v0.1.0</p>
@@ -637,7 +635,7 @@ function BackupSection() {
   }
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+    <div className="bg-white dark:bg-[#273244] rounded-xl p-4 shadow-md dark:shadow-lg dark:border dark:border-gray-700/60">
       <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
         <Icon icon={Save} size={20} />
         备份与恢复
@@ -735,7 +733,7 @@ function WebhookSection() {
   const info = PROVIDER_INFO[cfg.provider];
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+    <div className="bg-white dark:bg-[#273244] rounded-xl p-4 shadow-md dark:shadow-lg dark:border dark:border-gray-700/60">
       <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
         <Icon icon={Bell} size={20} />
         容器事件 Webhook
@@ -781,7 +779,7 @@ function WebhookSection() {
             </button>
           ))}
         </div>
-        <p className="text-[10px] text-gray-400 mt-1">{info.desc}</p>
+        <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">{info.desc}</p>
       </div>
 
       <div className="mb-3">
@@ -840,7 +838,7 @@ function WebhookSection() {
               placeholder="re_xxxxxxxxxx"
               className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono"
             />
-            <p className="text-[10px] text-gray-400 mt-1">
+            <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
               在{' '}
               <a
                 href="https://resend.com/api-keys"
@@ -890,7 +888,7 @@ function WebhookSection() {
               placeholder="[{{server}}] {{container}} {{state}}"
               className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono"
             />
-            <p className="text-[10px] text-gray-400 mt-1">
+            <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
               变量: {'{{container}} {{state}} {{server}} {{time}}'}
             </p>
           </div>
@@ -909,7 +907,7 @@ function WebhookSection() {
             placeholder="[{{server}}] {{container}} -> {{state}}"
             className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono"
           />
-          <p className="text-[10px] text-gray-400 mt-1">
+          <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
             变量: {'{{container}} {{state}} {{server}} {{time}}'}
           </p>
         </div>
@@ -940,7 +938,7 @@ function PwaInstallSection() {
 
   if (standalone) {
     return (
-      <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+      <div className="bg-white dark:bg-[#273244] rounded-xl p-4 shadow-md dark:shadow-lg dark:border dark:border-gray-700/60">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
           <Icon icon={Smartphone} size={20} />
           安装到主屏幕
@@ -996,7 +994,7 @@ function PwaInstallSection() {
   }
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+    <div className="bg-white dark:bg-[#273244] rounded-xl p-4 shadow-md dark:shadow-lg dark:border dark:border-gray-700/60">
       <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
         <Icon icon={Smartphone} size={20} />
         安装到主屏幕
@@ -1030,7 +1028,7 @@ function PwaInstallSection() {
           resetDismiss();
           toast.success('已重置,iOS 用户重新进入会再次看到顶部提示');
         }}
-        className="mt-3 text-[10px] text-gray-400 hover:text-primary-600"
+        className="mt-3 text-[10px] text-gray-500 dark:text-gray-400 hover:text-primary-600"
       >
         <span className="inline-flex items-center gap-1">
           <Icon icon={RotateCcw} size={11} />
@@ -1068,7 +1066,7 @@ function RemoteReporterSection() {
   }
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+    <div className="bg-white dark:bg-[#273244] rounded-xl p-4 shadow-md dark:shadow-lg dark:border dark:border-gray-700/60">
       <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1 flex items-center gap-2">
         <Icon icon={Satellite} size={20} />
         远程上报
@@ -1229,23 +1227,23 @@ function RemoteReporterSection() {
 function PollIntervalSection() {
   const [secs, setSecs] = useState<number>(() => Math.round(getPollInterval() / 1000));
   const update = (s: number) => {
-    const clamped = Math.min(120, Math.max(10, Math.round(s)));
+    const clamped = Math.min(120, Math.max(60, Math.round(s)));
     setSecs(clamped);
     setPollInterval(clamped * 1000);
   };
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+    <div className="bg-white dark:bg-[#273244] rounded-xl p-4 shadow-md dark:shadow-lg dark:border dark:border-gray-700/60">
       <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
         <Icon icon={RefreshCw} size={20} />
         数据刷新间隔
       </h3>
       <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-        Dashboard / 容器数据的自动刷新周期。越长越省(更不易唤醒磁盘),越短数据越新。
+        系统 / 网络 / 休眠状态与容器、虚拟机列表的自动刷新周期(60s-2min)。磁盘数据始终手动刷新,不受此设置影响,不会唤醒休眠硬盘。
       </p>
       <div className="flex items-center gap-3">
         <input
           type="range"
-          min={10}
+          min={60}
           max={120}
           step={5}
           value={secs}
@@ -1255,17 +1253,17 @@ function PollIntervalSection() {
         />
         <span className="text-sm font-mono w-16 text-right tabular-nums">{secs}s</span>
       </div>
-      <div className="flex justify-between text-[10px] text-gray-400 mt-1">
-        <span>10s</span>
+      <div className="flex justify-between text-[10px] text-gray-500 dark:text-gray-400 mt-1">
+        <span>60s</span>
         <span>2min</span>
       </div>
       <button
-        onClick={() => update(30)}
-        className="mt-3 text-[10px] text-gray-400 hover:text-primary-600"
+        onClick={() => update(60)}
+        className="mt-3 text-[10px] text-gray-500 dark:text-gray-400 hover:text-primary-600"
       >
         <span className="inline-flex items-center gap-1">
           <Icon icon={RotateCcw} size={11} />
-          重置默认(30s)
+          重置默认(60s)
         </span>
       </button>
     </div>

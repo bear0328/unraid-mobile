@@ -161,7 +161,7 @@ function FileRow({
       className={`flex items-center justify-between p-3 rounded-lg border hover:bg-gray-50 dark:hover:bg-gray-700 active:bg-gray-100 dark:active:bg-gray-600 ${
         selected
           ? 'bg-primary-50 dark:bg-primary-900/30 border-primary-300 dark:border-primary-700'
-          : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700'
+          : 'bg-white dark:bg-[#273244] border-gray-100 dark:border-gray-700'
       }`}
     >
       {selectable && (

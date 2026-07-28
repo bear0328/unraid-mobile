@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState, type DragEvent } from 'react
 import { useNavigate } from 'react-router-dom';
 import { Folder, Lightbulb, Search, Upload } from 'lucide-react';
 import Icon from '../components/ui/Icon';
+import LastRefreshText from '../components/ui/LastRefreshText';
 import { FileItem } from '../components/shares/davAuth';
 import Breadcrumb from '../components/shares/Breadcrumb';
 import FileRow from '../components/shares/FileRow';
@@ -154,6 +155,10 @@ export default function Shares() {
 
   return (
     <div className="p-4 pb-20">
+      {/* 【续 74】页签刷新时间统一走全局「更新于」,放工具栏上方右对齐 */}
+      <div className="flex justify-end mb-1">
+        <LastRefreshText />
+      </div>
       <FileToolbar
         inRoot={inRoot}
         selectMode={selectMode}
@@ -177,7 +182,7 @@ export default function Shares() {
               placeholder="搜索文件名..."
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400"
+              className="w-full pl-9 pr-3 py-2 bg-white dark:bg-[#273244] border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400"
             />
           </div>
           {searchActive && (
@@ -269,7 +274,7 @@ export default function Shares() {
           </div>
 
           {filteredItems.length === 0 && items.length > 0 && (
-            <div className="text-center py-8 text-gray-400">无匹配 "{searchActive}"</div>
+            <div className="text-center py-8 text-gray-500 dark:text-gray-400">无匹配 "{searchActive}"</div>
           )}
           {filteredItems.length === 0 && items.length === 0 && <EmptyFolder />}
         </div>

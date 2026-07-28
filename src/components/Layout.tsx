@@ -10,8 +10,6 @@ import {
   Bell,
   Sun,
   Moon,
-  SunMedium,
-  Contrast,
   type LucideIcon,
 } from 'lucide-react';
 import Icon from './ui/Icon';
@@ -72,7 +70,7 @@ export default function Layout() {
     <div className="min-h-dvh bg-gray-50 dark:bg-gray-900 transition-colors">
       {/* Header — 【续 68】半透明 + 毛玻璃,滚动时内容透出层次感 */}
       <header
-        className="sticky top-0 z-sticky bg-white/80 dark:bg-gray-800/80 backdrop-blur-md shadow-sm"
+        className="sticky top-0 z-sticky bg-white/80 dark:bg-[#273244]/80 backdrop-blur-md shadow-sm"
         style={{ paddingTop: 'env(safe-area-inset-top)' }}
       >
         <div className="px-3 sm:px-4 py-2.5 sm:py-3 flex items-center gap-2">
@@ -88,7 +86,7 @@ export default function Layout() {
             <Icon icon={Search} size={15} className="shrink-0" />
             <span className="hidden sm:inline truncate">搜索页面、收藏、路径...</span>
             <span className="sm:hidden truncate">搜索</span>
-            <kbd className="hidden sm:inline-block ml-auto text-[10px] px-1.5 py-0.5 rounded bg-white dark:bg-gray-800 text-gray-400 border border-gray-200 dark:border-gray-600">
+            <kbd className="hidden sm:inline-block ml-auto text-[10px] px-1.5 py-0.5 rounded bg-white dark:bg-[#273244] text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-600">
               ⌘K
             </kbd>
           </button>
@@ -100,10 +98,6 @@ export default function Layout() {
           >
             {theme === 'dark' ? (
               <Icon icon={Sun} />
-            ) : theme === 'hc-light' ? (
-              <Icon icon={SunMedium} />
-            ) : theme === 'hc-dark' ? (
-              <Icon icon={Contrast} />
             ) : (
               <Icon icon={Moon} />
             )}
@@ -140,7 +134,7 @@ export default function Layout() {
 
       {/* Bottom Navigation — 【续 68】半透明毛玻璃 + 活动项胶囊 */}
       <nav
-        className="fixed bottom-0 left-0 right-0 z-sticky bg-white/80 dark:bg-gray-800/80 backdrop-blur-md border-t border-gray-200 dark:border-gray-700"
+        className="fixed bottom-0 left-0 right-0 z-sticky bg-white/80 dark:bg-[#273244]/80 backdrop-blur-md border-t border-gray-200 dark:border-gray-700"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
         <div className="flex justify-between sm:justify-around py-1.5 sm:py-2 px-1 max-w-screen-lg mx-auto">

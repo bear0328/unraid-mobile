@@ -50,7 +50,7 @@ export default function ServerSwitcher() {
         <>
           <div className="fixed inset-0 z-dropdown" onClick={() => setOpen(false)} aria-hidden="true" />
           <div
-            className="absolute right-0 top-full mt-1 z-50 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 min-w-[200px] py-1"
+            className="absolute right-0 top-full mt-1 z-50 bg-white dark:bg-[#273244] rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 min-w-[200px] py-1"
             role="menu"
           >
             {servers.map((srv) => (
@@ -75,7 +75,7 @@ export default function ServerSwitcher() {
                 )}
               </button>
             ))}
-            <div className="border-t border-gray-200 dark:border-gray-700 mt-1 pt-1 px-3 py-1.5 text-[10px] text-gray-400">
+            <div className="border-t border-gray-200 dark:border-gray-700 mt-1 pt-1 px-3 py-1.5 text-[10px] text-gray-500 dark:text-gray-400">
               在「设置」中添加/编辑/删除服务器
             </div>
           </div>

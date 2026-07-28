@@ -104,9 +104,9 @@ export default function ServerList() {
   }
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+    <div className="bg-white dark:bg-[#273244] rounded-xl p-4 shadow-md dark:shadow-lg dark:border dark:border-gray-700/60">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white flex items-center gap-2">
           <Icon icon={Monitor} />
           服务器列表
           {servers.length > 0 && (
@@ -204,7 +204,7 @@ export default function ServerList() {
             if (e.target === e.currentTarget) setEditing(null);
           }}
         >
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full p-5 space-y-3 anim-pop">
+          <div className="bg-white dark:bg-[#273244] rounded-2xl shadow-xl max-w-md w-full p-5 space-y-3 anim-pop">
             <h4 className="text-base font-semibold text-gray-900 dark:text-white">
               {editing.id ? '编辑服务器' : '添加服务器'}
             </h4>
@@ -230,7 +230,7 @@ export default function ServerList() {
             </div>
             <div>
               <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
-                API 密钥 {editing.id && <span className="text-gray-400">(留空保留原密钥)</span>}
+                API 密钥 {editing.id && <span className="text-gray-500 dark:text-gray-400">(留空保留原密钥)</span>}
               </label>
               <input
                 type="password"

@@ -11,7 +11,7 @@ interface DefaultFallbackProps {
 export default function DefaultErrorFallback({ error, onReset, onHome }: DefaultFallbackProps) {
   return (
     <div className="flex items-center justify-center min-h-dvh bg-gray-100 dark:bg-gray-900 p-4">
-      <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 border border-red-200 dark:border-red-900">
+      <div className="max-w-md w-full bg-white dark:bg-[#273244] rounded-lg shadow-lg p-6 border border-red-200 dark:border-red-900">
         <div className="text-center mb-4">
           <div className="mb-2 inline-flex text-red-500">
             <Icon icon={Bomb} size={48} />

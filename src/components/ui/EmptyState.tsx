@@ -31,13 +31,13 @@ export default function EmptyState({
           <Icon icon={icon} size={24} />
         </p>
         <p className="text-sm">{title}</p>
-        {hint && <p className="text-xs mt-0.5 text-gray-400">{hint}</p>}
+        {hint && <p className="text-xs mt-0.5 text-gray-500 dark:text-gray-400">{hint}</p>}
         {action && <div className="mt-2">{action}</div>}
       </div>
     );
   }
   return (
-    <div className={`bg-white dark:bg-gray-800 rounded-xl p-8 sm:p-12 text-center ${className}`}>
+    <div className={`bg-white dark:bg-[#273244] rounded-xl p-8 sm:p-12 text-center ${className}`}>
       <p className="text-5xl sm:text-6xl mb-3 inline-flex justify-center text-gray-300 dark:text-gray-600">
         <Icon icon={icon} size={56} />
       </p>

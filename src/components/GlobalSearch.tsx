@@ -167,7 +167,7 @@ export default function GlobalSearch({ open, onClose }: { open: boolean; onClose
     >
       <div
         ref={trapRef}
-        className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-200 dark:border-gray-700 anim-pop"
+        className="bg-white dark:bg-[#273244] rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-200 dark:border-gray-700 anim-pop"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={onKeyDown}
       >
@@ -188,7 +188,7 @@ export default function GlobalSearch({ open, onClose }: { open: boolean; onClose
         </div>
         <ul className="max-h-[60dvh] overflow-y-auto py-1" role="listbox">
           {results.length === 0 ? (
-            <li className="px-4 py-6 text-center text-sm text-gray-400">无匹配结果</li>
+            <li className="px-4 py-6 text-center text-sm text-gray-500 dark:text-gray-400">无匹配结果</li>
           ) : (
             results.map((it, idx) => (
               <li
@@ -210,14 +210,14 @@ export default function GlobalSearch({ open, onClose }: { open: boolean; onClose
                     {it.subtitle}
                   </div>
                 </div>
-                <span className="text-[10px] uppercase tracking-wide text-gray-400 shrink-0">
+                <span className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400 shrink-0">
                   {it.kind === 'page' ? '页面' : it.kind === 'favorite' ? '收藏' : '路径'}
                 </span>
               </li>
             ))
           )}
         </ul>
-        <div className="px-4 py-2 border-t border-gray-200 dark:border-gray-700 text-[10px] text-gray-400 flex justify-between">
+        <div className="px-4 py-2 border-t border-gray-200 dark:border-gray-700 text-[10px] text-gray-500 dark:text-gray-400 flex justify-between">
           <span>↑↓ 选择 · Enter 跳转</span>
           <span>{results.length} 条结果</span>
         </div>

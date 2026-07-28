@@ -72,7 +72,7 @@ export default function ActionMenu({ items }: { items: MenuItem[] }) {
           ref={trapRef as unknown as React.RefObject<HTMLDivElement>}
           id={menuId}
           role="menu"
-          className={`absolute right-0 z-20 min-w-[120px] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 ${
+          className={`absolute right-0 z-20 min-w-[120px] bg-white dark:bg-[#273244] border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 ${
             align === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'
           }`}
         >

@@ -36,7 +36,7 @@ export function SheetModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="bg-white dark:bg-gray-800 w-full rounded-t-2xl p-5 anim-sheet"
+        className="bg-white dark:bg-[#273244] w-full rounded-t-2xl p-5 anim-sheet"
         style={{ paddingBottom: 'calc(1.25rem + env(safe-area-inset-bottom))' }}
         onClick={(e) => e.stopPropagation()}
       >

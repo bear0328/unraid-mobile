@@ -174,13 +174,13 @@ export default function ContainerDetailsModal({
           实时资源
         </h4>
         {statsLoading ? (
-          <div className="inline-flex items-center gap-1 text-sm text-gray-400 py-2">
+          <div className="inline-flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400 py-2">
             <Icon icon={RefreshCw} size={14} className="animate-spin" />
             加载 stats...
           </div>
         ) : container.state !== 'running' ? (
           // 【续 53】docker stats 仅运行中容器有数据,停止的容器不再显示 ❌ 报错
-          <div className="text-sm text-gray-400 py-2">
+          <div className="text-sm text-gray-500 dark:text-gray-400 py-2">
             容器未运行,无实时资源数据(CPU/内存统计仅运行中可用)
           </div>
         ) : statsError ? (
@@ -236,7 +236,7 @@ export default function ContainerDetailsModal({
             </div>
           </div>
         ) : (
-          <div className="text-sm text-gray-400 py-2">无数据</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400 py-2">无数据</div>
         )}
       </section>
 

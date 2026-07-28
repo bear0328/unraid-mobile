@@ -83,7 +83,7 @@ export default function Notifications() {
     <div className="p-3 sm:p-4 max-w-3xl mx-auto">
       <header className="mb-3 flex items-center justify-between gap-2 flex-wrap">
         <div>
-          <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
             <Icon icon={Bell} size={20} />
             通知中心
             {unread > 0 && (
@@ -135,7 +135,7 @@ export default function Notifications() {
             return (
               <li
                 key={n.id}
-                className={`bg-white dark:bg-gray-800 rounded-xl p-3 shadow-sm flex items-start gap-2.5 ${n.link ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700' : ''} ${!n.read ? 'ring-1 ring-primary-200 dark:ring-primary-800' : ''}`}
+                className={`bg-white dark:bg-[#273244] rounded-xl p-3 shadow-md dark:shadow-lg dark:border dark:border-gray-700/60 flex items-start gap-2.5 ${n.link ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700' : ''} ${!n.read ? 'ring-1 ring-primary-200 dark:ring-primary-800' : ''}`}
                 onClick={() => handleClick(n)}
               >
                 <span className="inline-flex mt-0.5 shrink-0 text-gray-400 dark:text-gray-500">
@@ -151,7 +151,7 @@ export default function Notifications() {
                     <span className={`text-[10px] px-1.5 py-0.5 rounded ${style.badge}`}>
                       {n.level}
                     </span>
-                    <span className="text-[10px] text-gray-400 ml-auto shrink-0">
+                    <span className="text-[10px] text-gray-500 dark:text-gray-400 ml-auto shrink-0">
                       {timeAgo(n.ts)}
                     </span>
                   </div>

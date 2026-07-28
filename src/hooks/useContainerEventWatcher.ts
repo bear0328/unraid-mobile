@@ -12,7 +12,13 @@ import { sendWebhook, useWebhookConfig } from '../utils/webhook';
 import { pushNotification } from '../utils/notifications';
 import { useResourcePoller } from './useResourcePoller';
 import { usePollInterval } from './usePollInterval';
-import { getCache, getCacheKey } from '../services/unraidApi/cache';
+import {
+  CONTAINER_POLL_FLOOR_MS,
+  getCache,
+  getCacheKey,
+  invalidateNamespace,
+  isNamespaceFreshWithin,
+} from '../services/unraidApi/cache';
 import { loadDashboardCache } from '../components/dashboard/dashboardCache';
 
 const COOLDOWN_MS = 60_000;
@@ -24,21 +30,29 @@ export function useContainerEventWatcher() {
   const { isConfigured } = useApiConfig();
   const [cfg] = useWebhookConfig();
   const pollInterval = usePollInterval();
+  // 【续 73】与 useContainersData 一致:跟随设置,60s 地板
+  const effectiveInterval = Math.max(pollInterval, CONTAINER_POLL_FLOOR_MS);
 
   useResourcePoller({
     enabled: !!isConfigured && !!api && cfg.enabled,
-    fetcher: async () => (api ? await api.getDockerContainers() : []),
+    fetcher: async () => {
+      // 【续 73】tick 放行时先失效 30min namespace cache,否则拿到旧状态,
+      // webhook 检测被架空;skipInitialIf/mount 路径不走 fetcher,不受影响
+      invalidateNamespace('containers');
+      return api ? await api.getDockerContainers() : [];
+    },
     keyOf: (c) => c.name,
     stateOf: (c) => c.state,
     baselineKey: BASELINE_KEY,
     cooldownKey: COOLDOWN_KEY,
     cooldownMs: COOLDOWN_MS,
-    pollMs: pollInterval,
+    pollMs: effectiveInterval,
     // 【续 45 2026-06-26】命中 'containers' namespace cache → 跳过 mount 立即 tick,
     // 避免与 useContainersData 重复 fetch 唤醒 disk
     skipInitialIf: () => getCache<unknown>(getCacheKey('containers')) !== null,
-    // 【续 45 2026-06-26】interval tick 也尊重 cache:60s 内跳过 fetch
-    shouldSkipTick: () => getCache<unknown>(getCacheKey('containers')) !== null,
+    // 【续 73】tick 阈值跟随用户设置(60s 地板):cache 年龄 < 有效间隔才跳过
+    // (原用 30min TTL 非空即 skip,设置 10-120s 全被架空)
+    shouldSkipTick: () => isNamespaceFreshWithin('containers', effectiveInterval),
     onChange: (c, prev) => {
       // 【续 50 B6】方向过滤:只在"停止"(prev=running → 当前非 running)时通知。
       // useResourcePoller 对任何 prev!==cur 都回调,不过滤的话启动(stopped→running)

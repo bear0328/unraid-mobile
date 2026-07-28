@@ -1,7 +1,7 @@
 // 【阶段 P2-备份 - 2026-06-17 续 34-1】全量配置备份/导入
 // 打包(不包含敏感:apiKey / dav password / log password / webhook token):
 //   1. favorites 收藏
-//   2. theme 主题(light/dark/hc-light/hc-dark)
+//   2. theme 主题(light/dark;续 72 起移除 hc 主题)
 //   3. primaryColor 主题色
 //   4. dashboardOrder Dashboard 卡片顺序
 //   5. alertKeywords 日志告警关键字列表
@@ -171,8 +171,16 @@ export function importBackup(jsonStr: string, options?: { overwrite?: boolean })
 
   // 主题(直接覆盖)
   if (overwrite && obj.theme) {
-    writeLs(KEY_THEME, obj.theme);
-    result.theme = true;
+    // 【续 72】旧备份可能带已删除的 hc 主题:映射到对应 light/dark,其余非法值不写入
+    const LEGACY_THEME_MAP: Record<string, string> = {
+      'hc-light': 'light',
+      'hc-dark': 'dark',
+    };
+    const t = LEGACY_THEME_MAP[obj.theme] ?? obj.theme;
+    if (t === 'light' || t === 'dark') {
+      writeLs(KEY_THEME, t);
+      result.theme = true;
+    }
   }
   if (overwrite && obj.primaryColor) {
     writeLs(KEY_PRIMARY, obj.primaryColor);

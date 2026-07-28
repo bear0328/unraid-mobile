@@ -13,8 +13,6 @@ import {
   Bell,
   Sun,
   Moon,
-  SunMedium,
-  Contrast,
   Upload,
   RefreshCw,
   Trash2,
@@ -148,26 +146,6 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
         run: () => {
           setTheme('dark');
           toast.success('已切换到深色');
-        },
-      },
-      {
-        id: 'theme-hc-light',
-        title: '主题: 高对比度浅色',
-        icon: SunMedium,
-        category: 'theme',
-        run: () => {
-          setTheme('hc-light');
-          toast.success('已切换到高对比度浅色');
-        },
-      },
-      {
-        id: 'theme-hc-dark',
-        title: '主题: 高对比度深色',
-        icon: Contrast,
-        category: 'theme',
-        run: () => {
-          setTheme('hc-dark');
-          toast.success('已切换到高对比度深色');
         },
       },
       {
@@ -308,7 +286,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
     >
       <div
         ref={trapRef}
-        className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-200 dark:border-gray-700 anim-pop"
+        className="bg-white dark:bg-[#273244] rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-200 dark:border-gray-700 anim-pop"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={onKeyDown}
       >
@@ -329,7 +307,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
         </div>
         <ul className="max-h-[55dvh] overflow-y-auto py-1" role="listbox">
           {filtered.length === 0 ? (
-            <li className="px-4 py-6 text-center text-sm text-gray-400">无匹配命令</li>
+            <li className="px-4 py-6 text-center text-sm text-gray-500 dark:text-gray-400">无匹配命令</li>
           ) : (
             filtered.map((c, idx) => (
               <li
@@ -353,14 +331,14 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
                     </div>
                   )}
                 </div>
-                <span className="text-[10px] uppercase tracking-wide text-gray-400 shrink-0">
+                <span className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400 shrink-0">
                   {CATEGORY_LABEL[c.category]}
                 </span>
               </li>
             ))
           )}
         </ul>
-        <div className="px-4 py-2 border-t border-gray-200 dark:border-gray-700 text-[10px] text-gray-400 flex justify-between">
+        <div className="px-4 py-2 border-t border-gray-200 dark:border-gray-700 text-[10px] text-gray-500 dark:text-gray-400 flex justify-between">
           <span>↑↓ 选择 · Enter 执行</span>
           <span>{filtered.length} 条</span>
         </div>

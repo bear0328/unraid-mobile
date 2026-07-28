@@ -49,7 +49,7 @@ function CpuCard({ systemInfo, history, cacheAgeMs }: CpuCardProps) {
           </span>
           <div>
             <div className="flex items-center gap-1.5">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">CPU</h3>
+              <h3 className="text-base font-semibold text-gray-900 dark:text-white">CPU</h3>
               <StaleBadge
                 cacheAgeMs={cacheAgeMs}
                 thresholdMs={60 * 1000}
@@ -127,11 +127,11 @@ function CpuCard({ systemInfo, history, cacheAgeMs }: CpuCardProps) {
         <div className="mt-3">
           <button
             onClick={() => setCoresCollapsed(!coresCollapsed)}
-            className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 mb-2 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+            className="flex items-center gap-1 text-xs text-gray-700 dark:text-gray-300 font-medium mb-2 hover:text-primary-600 dark:hover:text-primary-400 hover:underline underline-offset-2 transition-colors"
           >
             <Icon icon={coresCollapsed ? ChevronRight : ChevronDown} size={12} />
             <span>{coresCollapsed ? '展开' : '收起'}</span>
-            <span className="text-gray-400">({systemInfo.cpus.length} 核心)</span>
+            <span className="text-gray-500 dark:text-gray-400">({systemInfo.cpus.length} 核心)</span>
           </button>
           {!coresCollapsed && (
             <div className="space-y-1">

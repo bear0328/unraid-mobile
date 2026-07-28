@@ -27,7 +27,7 @@ export function ConfigRequiredState({ error }: { error?: string | null }) {
 
 export function NoDataState() {
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm text-center">
+    <div className="bg-white dark:bg-[#273244] rounded-xl p-4 shadow-md dark:shadow-lg dark:border dark:border-gray-700/60 text-center">
       <p className="text-gray-500 dark:text-gray-400">暂无数据，请检查服务器连接</p>
     </div>
   );

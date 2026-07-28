@@ -14,6 +14,8 @@ import { Bell, Hourglass, Inbox, Monitor, RefreshCw, Save, Search, XCircle, type
 import { parseSyslogLine, colorizeLine, renderHighlightedWithAnsi } from '../utils/logParser';
 import { useToast } from '../hooks/useToast';
 import Icon from '../components/ui/Icon';
+import LastRefreshText from '../components/ui/LastRefreshText';
+import { markRefreshed } from '../utils/lastRefresh';
 
 // 【续 33-2】告警关键字(大小写不敏感),正则字面量
 const ALERT_KEYWORDS = [
@@ -88,7 +90,7 @@ const LogLine = memo(function LogLine({
 }) {
   if (!line.trim()) {
     return (
-      <div className="whitespace-pre-wrap break-all text-gray-600" style={{ height: ROW_HEIGHT }}>
+      <div className="whitespace-pre-wrap break-all text-gray-500" style={{ height: ROW_HEIGHT }}>
         {' '}
       </div>
     );
@@ -165,7 +167,7 @@ export default function Logs() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(false);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  // 【续 74】本地 lastUpdated 删除,「更新于」统一走全局 LastRefreshText(lastRefresh.ts)
   const [filter, setFilter] = useState('');
   const [autoScroll, setAutoScroll] = useState(false); // 默认关闭（最新在最上面）
   const [sizeInfo, setSizeInfo] = useState<{ lines: number; bytes: number }>({
@@ -248,7 +250,8 @@ export default function Logs() {
         const limited = reversed.length > maxLines ? reversed.slice(0, maxLines) : reversed;
         setSizeInfo({ lines: allLines.length, bytes: text.length });
         setContent(limited.join('\n'));
-        setLastUpdated(new Date());
+        // 【续 74】真实刷新成功 → 更新全局「上次刷新」时间
+        markRefreshed();
         // 【续 33-2】扫描告警(只在启用时)
         // 【续 50 C5】读 ref 拿最新开关值(闭包里的 alertEnabled 是 loadLog 创建时的旧值)
         if (alertEnabledRef.current) {
@@ -261,7 +264,7 @@ export default function Logs() {
         setContent('');
         setSizeInfo({ lines: 0, bytes: 0 });
         // 自动刷新时 fetch 失败也要更新「更新于」时间戳，否则 UI 不动但后端一直在打
-        setLastUpdated(new Date());
+        markRefreshed();
       } finally {
         if (showLoading) setLoading(false);
       }
@@ -373,7 +376,7 @@ export default function Logs() {
               className={`flex-1 min-w-fit px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
                 active.key === f.key
                   ? 'bg-primary-600 text-white shadow'
-                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700'
+                  : 'bg-white dark:bg-[#273244] text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700'
               }`}
             >
               <span className="mr-0.5 sm:mr-1 inline-flex align-middle">
@@ -408,7 +411,7 @@ export default function Logs() {
           <span className="hidden sm:inline">刷新</span>
         </button>
 
-        <label className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-xs sm:text-sm cursor-pointer">
+        <label className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 bg-white dark:bg-[#273244] border border-gray-200 dark:border-gray-700 rounded-lg text-xs sm:text-sm cursor-pointer">
           <input
             type="checkbox"
             checked={autoRefresh}
@@ -418,7 +421,7 @@ export default function Logs() {
           <span className="text-gray-700 dark:text-gray-300">自动 (5s)</span>
         </label>
 
-        <label className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-xs sm:text-sm cursor-pointer">
+        <label className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 bg-white dark:bg-[#273244] border border-gray-200 dark:border-gray-700 rounded-lg text-xs sm:text-sm cursor-pointer">
           <input
             type="checkbox"
             checked={autoScroll}
@@ -433,7 +436,7 @@ export default function Logs() {
           className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 border rounded-lg text-xs sm:text-sm cursor-pointer ${
             alertEnabled
               ? 'bg-yellow-50 dark:bg-yellow-900/30 border-yellow-300 dark:border-yellow-700 text-yellow-700 dark:text-yellow-300'
-              : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300'
+              : 'bg-white dark:bg-[#273244] border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300'
           }`}
           title="命中 error/fatal/panic 等关键字时弹 toast 通知"
         >
@@ -458,7 +461,7 @@ export default function Logs() {
             placeholder="过滤"
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
-            className="w-full pl-8 pr-2.5 sm:pr-3 py-1.5 sm:py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-xs sm:text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400"
+            className="w-full pl-8 pr-2.5 sm:pr-3 py-1.5 sm:py-2 bg-white dark:bg-[#273244] border border-gray-200 dark:border-gray-700 rounded-lg text-xs sm:text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400"
             style={{ WebkitTextFillColor: 'currentColor' }}
           />
         </div>
@@ -472,11 +475,8 @@ export default function Logs() {
           </span>
         )}
 
-        {lastUpdated && (
-          <span className="text-xs text-gray-500 dark:text-gray-400 w-full sm:w-auto">
-            更新于 {lastUpdated.toLocaleTimeString('zh-CN', { hour12: false })}
-          </span>
-        )}
+        {/* 【续 74】全局统一刷新时间(与其他页签同一个值) */}
+        <LastRefreshText className="w-full sm:w-auto" />
       </div>
 
       {/* Error */}
@@ -527,11 +527,11 @@ export default function Logs() {
           显示 {filteredLines.length} / {maxLines} 行(最大) · 最新在顶部 · 虚拟滚动已启用
         </span>
         <label className="flex items-center gap-1">
-          <span className="text-gray-400">显示:</span>
+          <span className="text-gray-500 dark:text-gray-400">显示:</span>
           <select
             value={maxLines}
             onChange={(e) => setMaxLines(Number(e.target.value))}
-            className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded px-1.5 py-0.5 text-xs"
+            className="bg-white dark:bg-[#273244] border border-gray-200 dark:border-gray-700 rounded px-1.5 py-0.5 text-xs"
             aria-label="最大显示行数"
           >
             {MAX_LINES_OPTIONS.map((n) => (
@@ -558,7 +558,7 @@ export default function Logs() {
               URL.revokeObjectURL(url);
               toast.success(`已导出 ${filteredLines.length} 行`);
             }}
-            className="px-2 py-0.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded text-xs text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+            className="px-2 py-0.5 bg-white dark:bg-[#273244] border border-gray-200 dark:border-gray-700 rounded text-xs text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
             title="导出当前显示/过滤的行(纯文本)"
           >
             <span className="inline-flex items-center gap-1">

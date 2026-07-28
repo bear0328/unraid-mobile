@@ -62,7 +62,7 @@ Open `http://<unraid-IP>:3999`, go to "Settings" and fill in:
 > The API key lives only in your own browser's localStorage and is **never** written to any file on
 > the server.
 
-Image tags: `latest` (newest stable) / `1.0.3` (pinned version). linux/amd64 only (unRAID platform).
+Image tags: `latest` (newest stable) / `1.0.4` (pinned version). linux/amd64 only (unRAID platform).
 
 ### Alternative: unRAID Docker UI template
 
@@ -137,9 +137,9 @@ Prerequisite: the **compose.manager** plugin installed from Community Applicatio
 # Run as root on the unRAID host
 mkdir -p /tmp/um-install && cd /tmp/um-install
 curl -fsSL -o install-compose-api.sh \
-  https://raw.githubusercontent.com/bear0328/unraid-mobile/v1.0.3/compose-api/install-compose-api.sh
+  https://raw.githubusercontent.com/bear0328/unraid-mobile/v1.0.4/compose-api/install-compose-api.sh
 curl -fsSL -o api.php \
-  https://raw.githubusercontent.com/bear0328/unraid-mobile/v1.0.3/compose-api/api.php
+  https://raw.githubusercontent.com/bear0328/unraid-mobile/v1.0.4/compose-api/api.php
 bash install-compose-api.sh
 ```
 

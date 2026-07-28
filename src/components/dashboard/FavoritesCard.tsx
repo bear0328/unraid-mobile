@@ -57,7 +57,7 @@ export default function FavoritesCard() {
   if (favorites.length === 0) {
     // 空时也显示导入入口,方便用户恢复备份
     return (
-      <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+      <div className="bg-white dark:bg-[#273244] rounded-xl p-4 shadow-md dark:shadow-lg dark:border dark:border-gray-700/60">
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
             <Icon icon={Star} size={14} fill="currentColor" className="text-yellow-500" /> 快捷收藏
@@ -83,13 +83,13 @@ export default function FavoritesCard() {
           />
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="inline-flex items-center gap-1 text-xs px-2 py-1 text-gray-500 dark:text-gray-400 hover:text-primary-600"
+            className="inline-flex items-center gap-1 text-xs px-2 py-1 text-gray-700 dark:text-gray-300 font-medium hover:text-primary-600 dark:hover:text-primary-400 hover:underline underline-offset-2 transition-colors"
           >
             <Icon icon={Download} size={12} />
             导入
           </button>
         </div>
-        <p className="text-xs text-gray-400">
+        <p className="text-xs text-gray-500 dark:text-gray-400">
           暂无收藏。在容器详情或文件目录点 ⭐ 添加。也可导入备份。
         </p>
       </div>
@@ -119,11 +119,11 @@ export default function FavoritesCard() {
   }
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+    <div className="bg-white dark:bg-[#273244] rounded-xl p-4 shadow-md dark:shadow-lg dark:border dark:border-gray-700/60">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
           <Icon icon={Star} size={14} fill="currentColor" className="text-yellow-500" /> 快捷收藏
-          <span className="text-xs text-gray-400 font-normal">({favorites.length})</span>
+          <span className="text-xs text-gray-500 dark:text-gray-400 font-normal">({favorites.length})</span>
         </h3>
         <div className="flex items-center gap-1">
           <input
@@ -147,7 +147,7 @@ export default function FavoritesCard() {
           />
           <button
             onClick={handleExport}
-            className="inline-flex items-center gap-1 text-xs px-2 py-1 text-gray-500 dark:text-gray-400 hover:text-primary-600"
+            className="inline-flex items-center gap-1 text-xs px-2 py-1 text-gray-700 dark:text-gray-300 font-medium hover:text-primary-600 dark:hover:text-primary-400 hover:underline underline-offset-2 transition-colors"
             title="下载 JSON 备份"
           >
             <Icon icon={Upload} size={12} />
@@ -155,7 +155,7 @@ export default function FavoritesCard() {
           </button>
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="inline-flex items-center gap-1 text-xs px-2 py-1 text-gray-500 dark:text-gray-400 hover:text-primary-600"
+            className="inline-flex items-center gap-1 text-xs px-2 py-1 text-gray-700 dark:text-gray-300 font-medium hover:text-primary-600 dark:hover:text-primary-400 hover:underline underline-offset-2 transition-colors"
             title="从 JSON 文件恢复"
           >
             <Icon icon={Download} size={12} />
