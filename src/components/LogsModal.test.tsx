@@ -63,13 +63,36 @@ describe('formatLogTimesForDisplay', () => {
     expect(out).toMatch(/^\[\d{2}:\d{2}:\d{2}\] stat \t CPU: 0m caller=stat\/usage\.go:61$/);
   });
 
-  it('无行首时间 + 行首裸日期时间 → 去日期留时间并补方括号', () => {
+  it('无行首时间 + 行首裸日期时间 → 去日期留时间并补方括号(毫秒砍掉)', () => {
     const out = formatLogTimesForDisplay('2026-07-29 06:55:19,811 scheduler.py - msg');
-    expect(out).toBe('[06:55:19,811] scheduler.py - msg');
+    expect(out).toBe('[06:55:19] scheduler.py - msg');
   });
 
-  it('行首 60 字符之外的日期时间不动(防误伤正文)', () => {
-    const padding = 'x'.repeat(65);
+  // 【续 83】moviepilot 实测漏网格式:行首裸 ISO(docker --timestamps,无方括号、纳秒、UTC)
+  // + 应用内嵌日期时间 —— 两个都要处理:前缀转本地 [HH:MM:SS],内嵌整条删除;
+  // 正文里的纯日期(今日 2026-07-29)必须保留
+  it('裸 ISO 前缀 + autosignin 内嵌日期时间 → 前缀转本地时间,内嵌删除,正文纯日期保留', () => {
+    const line =
+      '2026-07-29T01:00:00.047268990Z INFO:     [autosignin] 2026-07-29 09:00:00,046 autosignin - 今日 2026-07-29 未签到,开始签到';
+    const out = formatLogTimesForDisplay(line);
+    const d = new Date('2026-07-29T01:00:00.047268990Z');
+    const p2 = (n: number) => String(n).padStart(2, '0');
+    const hh = `${p2(d.getHours())}:${p2(d.getMinutes())}:${p2(d.getSeconds())}`;
+    expect(out).toBe(`[${hh}] INFO:     [autosignin] autosignin - 今日 2026-07-29 未签到,开始签到`);
+  });
+
+  it('裸 ISO 前缀(uvicorn 访问日志,无内嵌)→ 转本地 [HH:MM:SS],纳秒砍掉', () => {
+    const out = formatLogTimesForDisplay(
+      '2026-07-28T22:57:00.177889300Z INFO:     127.0.0.1:54076 - "GET /api/v1/system HTTP/1.1" 200 OK'
+    );
+    const d = new Date('2026-07-28T22:57:00.177889300Z');
+    const p2 = (n: number) => String(n).padStart(2, '0');
+    const hh = `${p2(d.getHours())}:${p2(d.getMinutes())}:${p2(d.getSeconds())}`;
+    expect(out).toBe(`[${hh}] INFO:     127.0.0.1:54076 - "GET /api/v1/system HTTP/1.1" 200 OK`);
+  });
+
+  it('行首锚区(96 字符)之外的日期时间不动(防误伤正文)', () => {
+    const padding = 'x'.repeat(100);
     const line = `[2026-07-29T06:55:19Z] ${padding} 2026-07-29 06:55:19 tail`;
     const out = formatLogTimesForDisplay(line);
     expect(out).toContain('2026-07-29 06:55:19 tail');
