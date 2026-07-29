@@ -9,8 +9,11 @@ FROM --platform=linux/amd64 node:22-alpine AS builder
 WORKDIR /app
 
 # 装依赖（layer cache：package.json 没变就不重装）
+# NPM_REGISTRY 可换镜像源(国内构建传 --build-arg NPM_REGISTRY=https://registry.npmmirror.com)
+ARG NPM_REGISTRY=https://registry.npmjs.org
 COPY package.json package-lock.json ./
-RUN npm ci --no-audit --no-fund
+RUN npm config set registry "${NPM_REGISTRY}" && \
+    npm ci --no-audit --no-fund
 
 # 复制源码 + build
 COPY . .

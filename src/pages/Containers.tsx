@@ -2,7 +2,7 @@
 // 【2026-06-17 续 32-4】容器批量操作(checkbox + 工具条 + 批量 start/stop/restart)
 // 【续 45.7 2026-07-01】加 🔄 头部按钮 + 容器 staleness 提示
 // 【续 48 2026-07-19】Compose 页并入为 compose tab,tab 顺序 docker/compose/vm;/compose 路由重定向到 /containers
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { RefreshCw, Play, Square } from 'lucide-react';
 import { UnraidDockerContainer, UnraidVM } from '../services';
@@ -118,51 +118,58 @@ export default function Containers() {
   }, [highlightName]);
 
   // 查看容器日志
-  const handleViewLogs = async (container: UnraidDockerContainer) => {
-    if (!api) return;
-    setLogsModal({
-      open: true,
-      containerName: container.name,
-      containerId: container.containerId,
-    });
-  };
+  // 【续 78】useCallback 稳定化(memo 行组件 props)
+  const handleViewLogs = useCallback(
+    async (container: UnraidDockerContainer) => {
+      if (!api) return;
+      setLogsModal({
+        open: true,
+        containerName: container.name,
+        containerId: container.containerId,
+      });
+    },
+    [api]
+  );
 
-  const closeLogsModal = () => {
+  const closeLogsModal = useCallback(() => {
     setLogsModal((prev) => ({ ...prev, open: false }));
-  };
+  }, []);
 
   // 【续 32-4】批量操作 handlers(compose tab 无可选列表,返回空 → 批量工具条/全选行自动隐藏)
-  const currentList =
-    activeTab === 'docker'
-      ? containers.map((c) => ({ id: c.containerId, label: c.name, state: c.state }))
-      : activeTab === 'vm'
-        ? vms.map((v) => ({ id: v.vmUuid, label: v.name, state: v.state }))
-        : [];
+  // 【续 78】useMemo 稳定化:配合行组件 memo,避免每次 render 新数组
+  const currentList = useMemo(
+    () =>
+      activeTab === 'docker'
+        ? containers.map((c) => ({ id: c.containerId, label: c.name, state: c.state }))
+        : activeTab === 'vm'
+          ? vms.map((v) => ({ id: v.vmUuid, label: v.name, state: v.state }))
+          : [],
+    [activeTab, containers, vms]
+  );
 
-  const toggleOne = (id: string) => {
+  // 【续 78】以下 handler 全部 useCallback:ContainerItem/VmItem memo 生效前提是 props 稳定
+  const toggleOne = useCallback((id: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
-  };
+  }, []);
 
-  const toggleAll = () => {
-    if (selected.size === currentList.length) {
-      setSelected(new Set());
-    } else {
-      setSelected(new Set(currentList.map((c) => c.id)));
-    }
-  };
+  const toggleAll = useCallback(() => {
+    setSelected((prev) =>
+      prev.size === currentList.length ? new Set() : new Set(currentList.map((c) => c.id))
+    );
+  }, [currentList]);
 
-  const clearSelection = () => setSelected(new Set());
+  const clearSelection = useCallback(() => setSelected(new Set()), []);
 
   // 切换 tab 时清掉选中(容器 id 跟 VM id 是不同 namespace,但保险起见)
-  const switchTab = (tab: TabType) => {
+  const switchTab = useCallback((tab: TabType) => {
     setActiveTab(tab);
     setSelected(new Set());
-  };
+  }, []);
 
   // 批量执行容器/VM action
   const handleBatch = async (action: ContainerAction | VmAction) => {

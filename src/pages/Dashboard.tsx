@@ -33,6 +33,7 @@ import ContainerSummaryCard from '../components/dashboard/ContainerSummaryCard';
 import DraggableCard from '../components/dashboard/DraggableCard';
 import { ConfigRequiredState } from '../components/dashboard/EmptyState';
 import ServerHeroCard from '../components/dashboard/ServerHeroCard';
+import OtherServersCard from '../components/dashboard/OtherServersCard';
 import Icon from '../components/ui/Icon';
 import { useDashboardOrder, type DashboardCardKey } from '../hooks/useDashboardOrder';
 import { useContainersData } from '../hooks/useContainersData';
@@ -322,6 +323,9 @@ export default function Dashboard() {
           </DraggableCard>
         );
       })}
+
+      {/* 【续 78】多服务器聚合卡(Pro,≥2 台才渲染):固定卡片流末尾,不进拖拽排序 */}
+      <OtherServersCard />
 
       {/* 重置按钮 */}
       <div className="flex justify-end">

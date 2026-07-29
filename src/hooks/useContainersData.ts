@@ -9,6 +9,34 @@ import {
 } from '../services/unraidApi/cache';
 import { markRefreshed } from '../utils/lastRefresh';
 
+// 【续 78】渲染相关字段逐元素比较:无变化复用旧对象/数组引用,
+// 配合 ContainerItem/VmItem 的 React.memo,每轮 poll 未变行不触发重渲
+function mergeList<T>(
+  prev: T[],
+  next: T[],
+  keyOf: (x: T) => string,
+  sameFields: (a: T, b: T) => boolean
+): T[] {
+  const prevByKey = new Map(prev.map((x) => [keyOf(x), x]));
+  const merged = next.map((n) => {
+    const p = prevByKey.get(keyOf(n));
+    return p && sameFields(p, n) ? p : n;
+  });
+  const unchanged = prev.length === merged.length && merged.every((m, i) => prev[i] === m);
+  return unchanged ? prev : merged;
+}
+
+const sameContainer = (a: UnraidDockerContainer, b: UnraidDockerContainer) =>
+  a.containerId === b.containerId &&
+  a.name === b.name &&
+  a.image === b.image &&
+  a.state === b.state &&
+  a.status === b.status &&
+  a.isUpdateAvailable === b.isUpdateAvailable;
+
+const sameVm = (a: UnraidVM, b: UnraidVM) =>
+  a.vmUuid === b.vmUuid && a.name === b.name && a.state === b.state;
+
 export function useContainersData(api: UnraidApiService | null, enabled: boolean) {
   const [containers, setContainers] = useState<UnraidDockerContainer[]>([]);
   const [vms, setVMs] = useState<UnraidVM[]>([]);
@@ -35,8 +63,9 @@ export function useContainersData(api: UnraidApiService | null, enabled: boolean
 
     try {
       const [containerData, vmData] = await Promise.all([api.getDockerContainers(), api.getVMs()]);
-      setContainers(containerData);
-      setVMs(vmData);
+      // 【续 78】引用保持:渲染字段无变化 → 复用旧引用,memo 行不重渲
+      setContainers((prev) => mergeList(prev, containerData, (c) => c.containerId, sameContainer));
+      setVMs((prev) => mergeList(prev, vmData, (v) => v.vmUuid, sameVm));
       setError(null);
       setHasFetched(true);
       // 【续 74】真实刷新成功 → 更新全局「上次刷新」时间

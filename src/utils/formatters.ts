@@ -6,17 +6,55 @@
 const LOG_LINE_TS_RE =
   /^\[(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?)\]/;
 
-/** 仅显示层:把每行行首的 [ISO8601] 转成本地 [HH:MM:SS];解析失败的行原样保留 */
+// 【续 79 2026-07-29】nginx/apache 风格内嵌时间戳 [29/Jul/2026:08:01:07 +0800]:
+// docker 行自带 ISO 前缀 + 应用日志又内嵌一个,一行三个时间戳,手机端太挤。
+// 规则:行首时间戳已转换的行 → 内嵌的整条删除(去重);无行首时间戳的行 → 转 [HH:MM:SS](去日期留时间)
+const NGINX_TS_RE = /\[\d{2}\/[A-Za-z]{3}\/\d{4}:(\d{2}:\d{2}:\d{2}) [+-]\d{4}\] ?/g;
+
+// 【续 79c】应用内嵌日期时间(Python logging `2026-07-29 06:55:19,811` / Go `2026-07-29 08:17:58`,
+// moviepilot/msgo 实测):同上语义 —— 有前缀删整条,无前缀去日期留时间(毫秒保留)。
+// 防误伤:只在行首 60 字符内处理(应用时间戳都在消息头),正文里的日期时间不动;
+// 纯日期 YYYY-MM-DD 不匹配(误伤风险高)。顺带兼容裸 ISO 前缀(无方括号,去日期留时间)
+const EMBEDDED_DT_RE =
+  /\d{4}[-/]\d{2}[-/]\d{2}[ T]\d{2}:\d{2}:\d{2}(?:[.,]\d+)?(?:Z|[+-]\d{2}:?\d{2})?/;
+const EMBEDDED_ANCHOR_LEN = 60;
+
+/** 仅显示层:行首 [ISO8601] 转本地 [HH:MM:SS];内嵌 nginx 时间戳去重/去日期;
+ *  应用内嵌日期时间(行首 60 字符内)去重/去日期;解析失败的行原样保留 */
 export function formatLogTimesForDisplay(logs: string): string {
   const p = (n: number) => String(n).padStart(2, '0');
   return logs
     .split('\n')
     .map((line) => {
       const m = line.match(LOG_LINE_TS_RE);
-      if (!m) return line;
-      const d = new Date(m[1]);
-      if (isNaN(d.getTime())) return line;
-      return `[${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}]${line.slice(m[0].length)}`;
+      let out = line;
+      let hadPrefix = false;
+      if (m) {
+        const d = new Date(m[1]);
+        if (!isNaN(d.getTime())) {
+          out = `[${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}]${line.slice(m[0].length)}`;
+          hadPrefix = true;
+        }
+      }
+      return out.replace(NGINX_TS_RE, hadPrefix ? '' : '[$1] ');
+    })
+    .map((line) => {
+      // 【续 79c】应用内嵌日期时间:只在行首 EMBEDDED_ANCHOR_LEN 字符内处理
+      const hadPrefix = /^\[\d{2}:\d{2}:\d{2}\]/.test(line);
+      const head = line.slice(0, EMBEDDED_ANCHOR_LEN);
+      const tail = line.slice(EMBEDDED_ANCHOR_LEN);
+      const hm = head.match(EMBEDDED_DT_RE);
+      if (!hm || hm.index === undefined) return line;
+      const idx = hm.index;
+      if (hadPrefix) {
+        // 有行首时间 → 内嵌整条删除(连同后随空格/制表符)
+        const after = head.slice(idx + hm[0].length).replace(/^[ \t]+/, '');
+        return head.slice(0, idx) + after + tail;
+      }
+      // 无行首时间 → 去日期留时间(毫秒保留;行首裸 ISO 顺手补方括号统一风格)
+      const tm = hm[0].match(/\d{2}:\d{2}:\d{2}(?:[.,]\d+)?/);
+      const t = tm ? tm[0] : hm[0];
+      return head.slice(0, idx) + (idx === 0 ? `[${t}]` : t) + head.slice(idx + hm[0].length) + tail;
     })
     .join('\n');
 }

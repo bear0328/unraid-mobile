@@ -116,6 +116,13 @@ export function getActiveServerId(): string | null {
   return localStorage.getItem(ACTIVE_KEY);
 }
 
+// 【续 78】读指定服务器的 apiKey(多服务器聚合卡用)。
+// key 只存在于 unraid-mobile-api-key-{id},绝不铺进 server 对象(续 50 A4)
+export function getServerApiKey(id: string): string | null {
+  if (typeof localStorage === 'undefined') return null;
+  return localStorage.getItem(`${API_KEY_KEY}-${id}`);
+}
+
 function setActiveServerId(id: string | null): void {
   if (typeof localStorage === 'undefined') return;
   if (id) localStorage.setItem(ACTIVE_KEY, id);

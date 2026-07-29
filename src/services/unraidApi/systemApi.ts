@@ -48,17 +48,20 @@ export async function checkOnline(
 export async function getSystemInfo(
   baseUrl: string,
   apiKey: string,
-  useProxy: boolean
+  useProxy: boolean,
+  options?: { namespace?: string | null; skipCpuTemp?: boolean }
 ): Promise<UnraidSystemInfo | null> {
+  // 【续 78】options(多服务器聚合卡用):
+  // - namespace:null → 不带缓存直连(非 active 服务器数据不能污染共享 'systemInfo' 缓存)
+  // - skipCpuTemp → 跳过 compose-api(agent 只代理 active 服务器,跨服务器调会串数据)
+  const namespace = options?.namespace === undefined ? 'systemInfo' : options.namespace;
   const endpoint = buildGraphqlEndpoint(baseUrl, useProxy);
   const result = await graphqlRequest<SystemInfoResponse>(
     endpoint,
     apiKey,
     SYSTEM_INFO_QUERY,
     undefined,
-    {
-      namespace: 'systemInfo',
-    }
+    namespace ? { namespace } : undefined
   );
 
   if (result.success && result.data) {
@@ -71,7 +74,7 @@ export async function getSystemInfo(
     // 【续 57 2026-07-22】CPU 温度归 Pro:非 Pro 直接回退 0,不调 compose-api
     // (免费版零宿主改动,也避免自装 agent 绕过门控),CpuCard 显示 🔒 占位。
     let cpuTemp = 0;
-    if (isPro()) {
+    if (isPro() && !options?.skipCpuTemp) {
       try {
         const temp = await getCpuTemp();
         if (typeof temp.celsius === 'number' && temp.celsius > 0) {

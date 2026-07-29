@@ -31,6 +31,54 @@ describe('formatLogTimesForDisplay', () => {
     expect(lines[1]).toBe('no ts');
     expect(lines[2]).toMatch(/^\[\d{2}:\d{2}:\d{2}\] b$/);
   });
+
+  // 【续 79】内嵌 nginx/apache 时间戳去重/去日期(真实格式来自 unraid-mobile-dev 访问日志)
+  it('有行首 ISO + 内嵌 nginx 时间戳 → 内嵌整条删除(一行一个时间)', () => {
+    const line =
+      '[2026-07-29T00:01:07.584833505Z] 192.168.6.140 - - [29/Jul/2026:08:01:07 +0800] "GET /graphql HTTP/1.1" 200';
+    const out = formatLogTimesForDisplay(line);
+    expect(out).toMatch(/^\[\d{2}:\d{2}:\d{2}\] 192\.168\.6\.140 - - "GET \/graphql HTTP\/1\.1" 200$/);
+    expect(out).not.toContain('Jul');
+  });
+
+  it('无行首时间戳 + 内嵌 nginx 时间戳 → 转 [HH:MM:SS](去日期留时间)', () => {
+    const out = formatLogTimesForDisplay('192.168.6.140 - - [29/Jul/2026:08:01:07 +0800] "GET /"');
+    expect(out).toBe('192.168.6.140 - - [08:01:07] "GET /"');
+  });
+
+  // 【续 79c】应用内嵌日期时间去重/去日期(真实格式:moviepilot Python logging / msgo Go log)
+  it('moviepilot 格式:有行首时间 → 内嵌日期时间整条删除', () => {
+    const line =
+      '[2026-07-29T06:55:19Z] INFO: [moviepilot] 2026-07-29 06:55:19,811 scheduler.py - 主动内存回收完成';
+    const out = formatLogTimesForDisplay(line);
+    expect(out).not.toContain('2026-07-29');
+    expect(out).toMatch(/^\[\d{2}:\d{2}:\d{2}\] INFO: \[moviepilot\] scheduler\.py - 主动内存回收完成$/);
+  });
+
+  it('msgo 格式:行首 ISO(纳秒)+ 内嵌日期时间 → 内嵌删除', () => {
+    const line =
+      '[2026-07-29T00:17:58.701668291Z] 2026-07-29 08:17:58\t stat \t CPU: 0m caller=stat/usage.go:61';
+    const out = formatLogTimesForDisplay(line);
+    expect(out).not.toContain('2026-07-29');
+    expect(out).toMatch(/^\[\d{2}:\d{2}:\d{2}\] stat \t CPU: 0m caller=stat\/usage\.go:61$/);
+  });
+
+  it('无行首时间 + 行首裸日期时间 → 去日期留时间并补方括号', () => {
+    const out = formatLogTimesForDisplay('2026-07-29 06:55:19,811 scheduler.py - msg');
+    expect(out).toBe('[06:55:19,811] scheduler.py - msg');
+  });
+
+  it('行首 60 字符之外的日期时间不动(防误伤正文)', () => {
+    const padding = 'x'.repeat(65);
+    const line = `[2026-07-29T06:55:19Z] ${padding} 2026-07-29 06:55:19 tail`;
+    const out = formatLogTimesForDisplay(line);
+    expect(out).toContain('2026-07-29 06:55:19 tail');
+  });
+
+  it('纯日期 YYYY-MM-DD 不匹配,原样保留', () => {
+    const line = '[2026-07-29T06:55:19Z] 备份日期 2026-07-29 完成';
+    expect(formatLogTimesForDisplay(line)).toContain('备份日期 2026-07-29 完成');
+  });
 });
 
 describe('LogsModal', () => {
@@ -55,5 +103,36 @@ describe('LogsModal', () => {
   it('无日志时显示 error 或 无日志', () => {
     render(<LogsModal {...base} logs="" error="获取日志失败" />);
     expect(screen.getByText('获取日志失败')).toBeInTheDocument();
+  });
+
+  // 【续 79】ANSI 颜色码渲染成彩色 span(moviepilot 真实日志格式),
+  // 不再显示 [32m [0m 等转义残留文本
+  it('ANSI 颜色日志:转义码不显示,INFO 染绿色', () => {
+    const logs =
+      '[2026-07-29T06:32:27Z] \x1b[32mINFO\x1b[0m:     127.0.0.1:41898 - "\x1b[1mGET /api/v1/system\x1b[0m" \x1b[32m200 OK\x1b[0m';
+    const { container } = render(<LogsModal {...base} logs={logs} />);
+    const logBox = container.querySelector('.whitespace-pre-wrap')!;
+    expect(logBox.textContent).not.toContain('[32m');
+    expect(logBox.textContent).not.toContain('[0m');
+    expect(logBox.textContent).toContain('INFO');
+    const green = logBox.querySelector('span.text-green-400');
+    expect(green).not.toBeNull();
+    expect(green!.textContent).toContain('INFO');
+    const bold200 = logBox.querySelectorAll('span.text-green-400');
+    expect([...bold200].some((s) => s.textContent?.includes('200 OK'))).toBe(true);
+  });
+
+  // 【续 80】弹层 z-overlay(高于 z-sticky 的底部导航)
+  // 【续 81】移动端底部抽屉:items-end + 定高 h-[85dvh],footer 钉在视口底部,
+  // footer 自身带 safe-area 底部 padding —— iOS 上不再被导航/工具栏挡住
+  it('移动端底部抽屉:z-overlay + items-end + 定高,footer 带 safe-area padding', () => {
+    const { container } = render(<LogsModal {...base} logs="x" />);
+    const overlay = container.querySelector('.fixed.inset-0')! as HTMLElement;
+    expect(overlay.className).toContain('z-overlay');
+    expect(overlay.className).toContain('items-end');
+    const dlg = container.querySelector('[role=dialog]')!;
+    expect(dlg.className).toContain('h-[85dvh]');
+    const footer = dlg.querySelector('label')!.parentElement as HTMLElement;
+    expect(footer.style.paddingBottom).toContain('safe-area-inset-bottom');
   });
 });

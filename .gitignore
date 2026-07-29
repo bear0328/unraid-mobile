@@ -45,6 +45,7 @@ nginx/.logpasswd
 
 # 【续 49.4】内部开发文档,不进公开仓库(本地继续维护)
 DEV_PROGRESS.md
+DEV_PROGRESS.archive.md
 SESSION_RECOVERY.md
 COMPOSE_PLAN.md
 DEVELOPMENT_PLAN.md

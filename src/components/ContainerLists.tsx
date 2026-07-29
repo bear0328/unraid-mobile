@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { memo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Lock,
@@ -136,7 +136,11 @@ export function VmList({
   );
 }
 
-function ContainerItem({
+// 【续 78】memo:配合 useContainersData 引用保持 + Containers 稳定 handler,
+// 每轮 poll 数据未变的行整行跳过重渲(33 容器 × 60s tick,移动端省 CPU)
+// 前提:父组件传稳定 props —— boolean 原语(loading/restarting/isSelected/highlighted)+
+// useCallback 稳定 handler + 引用保持的 container 对象
+const ContainerItem = memo(function ContainerItem({
   container,
   loading,
   restarting,
@@ -246,9 +250,10 @@ function ContainerItem({
       </div>
     </div>
   );
-}
+});
 
-function VmItem({
+// 【续 78】memo 同 ContainerItem
+const VmItem = memo(function VmItem({
   vm,
   loading,
   rebooting,
@@ -347,7 +352,7 @@ function VmItem({
       </div>
     </div>
   );
-}
+});
 
 function getVMStateTone(state: string): PillTone {
   const normalized = state.toLowerCase();

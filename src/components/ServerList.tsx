@@ -199,7 +199,7 @@ export default function ServerList() {
       {/* 编辑/新增 modal-lite */}
       {editing && (
         <div
-          className="fixed inset-0 z-sticky bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 anim-fade"
+          className="fixed inset-0 z-overlay bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 anim-fade"
           onClick={(e) => {
             if (e.target === e.currentTarget) setEditing(null);
           }}

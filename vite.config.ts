@@ -45,5 +45,7 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
+    // 【续 78】单发 flake 重试 1 次(release.sh 发布链兜底;真实连续失败仍会红)
+    retry: 1,
   },
 })

@@ -8,28 +8,17 @@
 //   - 删 useEffect 里 active.loadOptions 调用分支(死代码)
 //   - 删 render 里 Stack: 下拉 UI(active.loadOptions 永假)
 //   - 保留 LogFile.loadOptions? 字段定义(配置 schema,未来扩展用) + 保留 !active.loadOptions 分支
+// 【续 78】关键字告警拆到 hooks/useLogAlerts.ts,导出过滤结果拆到 utils/logExport.ts(纯结构移动)
 import { memo, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { FixedSizeList, type ListChildComponentProps } from 'react-window';
 import { Bell, Hourglass, Inbox, Monitor, RefreshCw, Save, Search, XCircle, type LucideIcon } from 'lucide-react';
 import { parseSyslogLine, colorizeLine, renderHighlightedWithAnsi } from '../utils/logParser';
 import { useToast } from '../hooks/useToast';
+import { useLogAlerts } from '../hooks/useLogAlerts';
+import { exportLogLines } from '../utils/logExport';
 import Icon from '../components/ui/Icon';
 import LastRefreshText from '../components/ui/LastRefreshText';
 import { markRefreshed } from '../utils/lastRefresh';
-
-// 【续 33-2】告警关键字(大小写不敏感),正则字面量
-const ALERT_KEYWORDS = [
-  /\berror\b/i,
-  /\bfatal\b/i,
-  /\bpanic\b/i,
-  /\bexception\b/i,
-  /\bcritical\b/i,
-  /\bsegfault\b/i,
-  /\boom[\s-]/i,
-  /\bkilled\b/i,
-];
-// 60s 内同关键字只告警 1 次(去重)
-const ALERT_COOLDOWN_MS = 60_000;
 
 const LOG_USER = 'loguser';
 const LOG_PASSWORD_KEY = 'unraid-mobile-log-password';
@@ -109,11 +98,10 @@ const LogLine = memo(function LogLine({
               之前用 sm:flex 在 <640px 屏 4 段 stack 超出 ROW_HEIGHT=18,行间重叠 */}
           {/* 【2026-07-19 续 50.9】手机端恢复短格式时间(只 HH:MM:SS),
               单行 18px 不重叠;host/proc 手机端仍隐藏(当初重叠主因) */}
-          <span className="sm:hidden shrink-0 tabular-nums text-[10px] text-gray-500 dark:text-gray-400">
+          {/* 【续 79】所有日志去日期:桌面端也只显示 HH:MM:SS(原 "Jul 29 08:01:07"),
+              与容器日志弹窗一致;w-[140px] 收窄到 w-[60px] 腾出行宽 */}
+          <span className="shrink-0 w-[60px] tabular-nums text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">
             {p.time.split(/\s+/).pop()}
-          </span>
-          <span className="hidden sm:inline shrink-0 w-[140px] tabular-nums text-[10px] sm:text-xs">
-            {p.time}
           </span>
           <span className="hidden sm:inline text-purple-600 dark:text-purple-400 shrink-0 w-[60px] truncate text-[10px] sm:text-xs">
             {p.host}
@@ -176,18 +164,11 @@ export default function Logs() {
   });
   // 【阶段 P2-Logs - 2026-06-17 续 31-4】显示行数切换(100/500/2k/10k,默认 500)
   const [maxLines, setMaxLines] = useState(MAX_LINES_DEFAULT);
-  // 【续 33-2】关键字告警开关(默认关,避免老日志触发)
-  const [alertEnabled, setAlertEnabled] = useState(false);
-  // 【续 50 C5】ref 同步告警开关供 loadLog 读取:loadLog 的 useCallback deps 不能加
-  // alertEnabled(会重建 loadLog → 触发 loadLog effect 整页重拉 + 重置 5s 自动刷新节拍),
-  // 不加则闭包捕获旧值 —— 切开关后自动刷新仍用旧开关。ref 两者都避开
-  const alertEnabledRef = useRef(alertEnabled);
-  useEffect(() => {
-    alertEnabledRef.current = alertEnabled;
-  }, [alertEnabled]);
-  const lastAlertRef = useRef<Map<string, number>>(new Map());
+  // 【续 78】关键字告警(开关 + ref + 扫描)拆到 useLogAlerts,setFilter 传入供 toast「查看」回调
+  const { alertEnabled, setAlertEnabled, alertEnabledRef, scanAlerts } = useLogAlerts(setFilter);
   const listRef = useRef<FixedSizeList>(null);
   const logContainerRef = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
   const toast = useToast();
   // 【阶段 P1-4 - 2026-06-16 续 10】日志区高度自适应
   // 用 ResizeObserver 监听 flex-1 容器的实际高度,替代硬编码 calc(100vh - 260px)
@@ -285,41 +266,6 @@ export default function Logs() {
     return () => clearInterval(t);
   }, [autoRefresh, loadLog]);
 
-  // 【续 33-2】扫描行命中关键字 → toast(60s 冷却去重)
-  const scanAlerts = useCallback(
-    (lines: string[]) => {
-      const now = Date.now();
-      const lastMap = lastAlertRef.current;
-      for (const line of lines) {
-        // 取每行第一个命中的关键字
-        for (const re of ALERT_KEYWORDS) {
-          const m = line.match(re);
-          if (!m) continue;
-          const keyword = m[0].toLowerCase();
-          const last = lastMap.get(keyword) ?? 0;
-          if (now - last < ALERT_COOLDOWN_MS) break; // 此关键字冷却中,跳过
-          lastMap.set(keyword, now);
-          // 取行尾摘要(80 字符)
-          const snippet = line.trim().length > 80 ? line.trim().slice(0, 77) + '...' : line.trim();
-          toast.warning(`🔔 日志告警 [${m[0]}]: ${snippet}`, 6000, {
-            label: '查看',
-            onClick: () => {
-              // 跳到 /logs 并触发过滤
-              if (typeof window !== 'undefined') {
-                const url = new URL(window.location.href);
-                url.searchParams.set('filter', m[0]);
-                window.history.pushState({}, '', url);
-                setFilter(m[0]);
-              }
-            },
-          });
-          break; // 一行只告警一次
-        }
-      }
-    },
-    [toast]
-  );
-
   // 自动滚到顶（最新在最上面）
   useEffect(() => {
     if (autoScroll && listRef.current) {
@@ -327,10 +273,34 @@ export default function Logs() {
     }
   }, [content, autoScroll]);
 
+  // 【续 82】根容器高度实测:视口底(visualViewport,自动跟随 iOS 工具栏/键盘)
+  //   - 容器顶(getBoundingClientRect,相对可视视口) - 导航条实测高 - 8px 间隙
+  // 【续 82b】deps 必须含 active:首渲染 active=null → return null 无 DOM,ref 拿不到元素
+  //   直接 return;空 deps 永不重试 → 监听永远挂不上(logHeight 卡初始 300,列表只填上半截)
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    const vv = window.visualViewport;
+    const update = () => {
+      const top = el.getBoundingClientRect().top;
+      const navH = document.querySelector('nav')?.getBoundingClientRect().height ?? 0;
+      const viewH = vv ? vv.height : window.innerHeight;
+      el.style.height = `${Math.max(200, Math.floor(viewH - top - navH - 8))}px`;
+    };
+    update();
+    vv?.addEventListener('resize', update);
+    window.addEventListener('scroll', update, { passive: true });
+    return () => {
+      vv?.removeEventListener('resize', update);
+      window.removeEventListener('scroll', update);
+    };
+  }, [active]);
+
   // ResizeObserver:日志容器尺寸变化(旋转屏幕/键盘弹起/字号变化)实时更新
+  // 【续 82b】同上 deps 含 active(否则永远挂不上);ResizeObserver 不存在时兜底(jsdom/老浏览器)
   useEffect(() => {
     const el = logContainerRef.current;
-    if (!el) return;
+    if (!el || typeof ResizeObserver === 'undefined') return;
     const update = (entry: ResizeObserverEntry) => {
       // contentRect.height 不含 padding/border,直接用作 FixedSizeList 的 height
       const h = entry.contentRect.height;
@@ -341,7 +311,7 @@ export default function Logs() {
     });
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
+  }, [active]);
 
   // 过滤行（仅在有 filter 时启用过滤）
   const allLines = content.split('\n');
@@ -365,7 +335,13 @@ export default function Logs() {
   if (!active) return null;
 
   return (
-    <div className="h-dvh flex flex-col p-3 sm:p-4">
+    // 【续 82】高度铺满:不用魔法数字 calc(100dvh-顶栏-pb-20)(iPhone 安全区/浏览器
+    //   工具栏下对不上),改为运行时实测:容器顶(相对可视视口)→ 视口底 - 导航条实测高。
+    //   visualViewport resize(iOS 工具栏显隐/键盘)+ 页面滚动时重算;class 仅作首帧兜底
+    <div
+      ref={rootRef}
+      className="h-[calc(100dvh-132px)] sm:h-[calc(100dvh-140px)] flex flex-col p-3 sm:p-4"
+    >
       {/* Tabs -  sticky 顶部避免被压上：手机只剩图标，桌面看完整文字 */}
       <div className="sticky top-[52px] sm:top-[60px] z-40 -mx-3 sm:mx-0 px-3 sm:px-0 py-2 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur">
         <div className="flex gap-1.5 sm:gap-2 overflow-x-auto">
@@ -545,17 +521,7 @@ export default function Logs() {
         {filteredLines.length > 0 && (
           <button
             onClick={() => {
-              const txt = filteredLines.join('\n');
-              const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-              const blob = new Blob([txt], { type: 'text/plain;charset=utf-8' });
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement('a');
-              a.href = url;
-              a.download = `${active.key}-${filter ? 'filtered' : 'all'}-${stamp}.log`;
-              document.body.appendChild(a);
-              a.click();
-              document.body.removeChild(a);
-              URL.revokeObjectURL(url);
+              exportLogLines(filteredLines, active.key, filter);
               toast.success(`已导出 ${filteredLines.length} 行`);
             }}
             className="px-2 py-0.5 bg-white dark:bg-[#273244] border border-gray-200 dark:border-gray-700 rounded text-xs text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"

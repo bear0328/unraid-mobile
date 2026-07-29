@@ -1,15 +1,17 @@
 // 【续 47 2026-07-19】Compose 栈详情弹窗
 // 功能: 状态展示 / up·down·restart(同步) / pull·rebuild(异步,轮询日志)
 //       autostart 开关 / compose.yaml 查看 + 编辑保存(后端校验失败自动回滚)
+// 【续 78】日志区块拆到 StackLogSection.tsx,yaml 区块拆到 StackYamlSection.tsx(纯结构移动)
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { RefreshCw, Repeat, AlertTriangle, Check, X, Pencil, Save, ChevronRight, ChevronDown } from 'lucide-react';
+import { RefreshCw, Repeat, AlertTriangle, Check, X } from 'lucide-react';
 import { Modal, ModalHeader } from '../Modal';
 import Icon from '../ui/Icon';
+import StackLogSection from './StackLogSection';
+import StackYamlSection from './StackYamlSection';
 import { useToast } from '../../hooks/useToast';
 import {
   getStack,
   getStackLog,
-  saveComposeYaml,
   setAutostart,
   stackAction,
   ComposeApiError,
@@ -58,11 +60,6 @@ export default function StackDetailModal({ stackName, onClose, onChanged }: Prop
   const [detail, setDetail] = useState<ComposeStackDetail | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busyOp, setBusyOp] = useState<ComposeOp | null>(null);
-  const [editing, setEditing] = useState(false);
-  const [editYaml, setEditYaml] = useState('');
-  // 【续 68.1】compose.yaml 默认折叠(日志对用户更有用,挪到上面;yaml 按需展开)
-  const [yamlOpen, setYamlOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [autostartBusy, setAutostartBusy] = useState(false);
   // 【续 47.2 2026-07-19】持久确认条:点破坏性操作 → 弹确认横幅,不自动消失,
   // 点「确认执行」或「取消」才结束。取代 47.1 的 3s 两段式 — 计时窗口对自动化
@@ -93,12 +90,12 @@ export default function StackDetailModal({ stackName, onClose, onChanged }: Prop
   }, []);
 
   // 打开时加载;关闭时清理所有状态
+  // 【续 78】editing/yamlOpen 移入 StackYamlSection:stackName 变 → setDetail(null)
+  //   → 子组件卸载,状态自然重置,与原先手动 setEditing(false)/setYamlOpen(false) 等价
   useEffect(() => {
     if (stackName) {
       setDetail(null);
       setLoadError(null);
-      setEditing(false);
-      setYamlOpen(false);
       setBusyOp(null);
       clearConfirm();
       void load(stackName);
@@ -233,21 +230,6 @@ export default function StackDetailModal({ stackName, onClose, onChanged }: Prop
     }
   }, [stackName, detail, autostartBusy, onChanged, toast]);
 
-  const handleSave = useCallback(async () => {
-    if (!stackName || saving) return;
-    setSaving(true);
-    try {
-      await saveComposeYaml(stackName, editYaml);
-      toast.success('compose.yaml 已保存(校验通过)');
-      setEditing(false);
-      void load(stackName);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : '保存失败');
-    } finally {
-      setSaving(false);
-    }
-  }, [stackName, saving, editYaml, load, toast]);
-
   const stack = detail?.stack;
   const opRunning = detail?.opRunning ?? false;
 
@@ -377,90 +359,16 @@ export default function StackDetailModal({ stackName, onClose, onChanged }: Prop
             </div>
           )}
 
-          {/* 【续 68.1】操作日志挪到 yaml 上面(用户看日志远多于改 yaml) */}
-          <div>
-            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5">
-              操作日志{opRunning ? '(执行中…)' : ''}
-            </h4>
-            <pre className="max-h-40 overflow-auto font-mono text-[11px] p-2.5 rounded-lg bg-gray-900 text-gray-200 whitespace-pre-wrap break-all">
-              {detail.lastCmdLog || '(暂无日志)'}
-            </pre>
-          </div>
+          {/* 【续 68.1】操作日志挪到 yaml 上面(用户看日志远多于改 yaml) — 【续 78】拆到 StackLogSection */}
+          <StackLogSection log={detail.lastCmdLog} opRunning={opRunning} />
 
-          {/* compose.yaml 查看 / 编辑 — 【续 68.1】默认折叠,点标题展开 */}
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <button
-                onClick={() => setYamlOpen(!yamlOpen)}
-                className="inline-flex items-center gap-1 text-sm font-medium text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white"
-                aria-expanded={yamlOpen}
-              >
-                <Icon icon={yamlOpen ? ChevronDown : ChevronRight} size={14} />
-                compose.yaml
-              </button>
-              {yamlOpen &&
-                (!editing ? (
-                  <button
-                    onClick={() => {
-                      setEditYaml(detail.composeYaml);
-                      setEditing(true);
-                    }}
-                    className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-                  >
-                    <Icon icon={Pencil} size={12} />
-                    编辑
-                  </button>
-                ) : (
-                  <div className="flex gap-1.5">
-                    <button
-                      onClick={() => setEditing(false)}
-                      disabled={saving}
-                      className="text-xs px-2 py-1 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300"
-                    >
-                      取消
-                    </button>
-                    <button
-                      onClick={() => void handleSave()}
-                      disabled={saving}
-                      className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
-                    >
-                      {saving ? (
-                        '保存中…'
-                      ) : (
-                        <>
-                          <Icon icon={Save} size={12} />
-                          保存
-                        </>
-                      )}
-                    </button>
-                  </div>
-                ))}
-            </div>
-            {yamlOpen &&
-              (editing ? (
-                <textarea
-                  value={editYaml}
-                  onChange={(e) => setEditYaml(e.target.value)}
-                  spellCheck={false}
-                  className="w-full h-56 font-mono text-xs p-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  aria-label="编辑 compose.yaml"
-                />
-              ) : (
-                <pre className="max-h-48 overflow-auto font-mono text-xs p-2.5 rounded-lg bg-gray-50 dark:bg-gray-900 text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-all">
-                  {detail.composeYaml || '(空)'}
-                </pre>
-              ))}
-            {yamlOpen && detail.overrideYaml && !editing && (
-              <details className="mt-1.5">
-                <summary className="text-xs text-gray-500 dark:text-gray-400 cursor-pointer">
-                  override 文件
-                </summary>
-                <pre className="mt-1 max-h-32 overflow-auto font-mono text-xs p-2.5 rounded-lg bg-gray-50 dark:bg-gray-900 text-gray-600 dark:text-gray-400 whitespace-pre-wrap break-all">
-                  {detail.overrideYaml}
-                </pre>
-              </details>
-            )}
-          </div>
+          {/* compose.yaml 查看 / 编辑 — 【续 68.1】默认折叠,点标题展开 — 【续 78】拆到 StackYamlSection */}
+          <StackYamlSection
+            stackName={stackName ?? ''}
+            composeYaml={detail.composeYaml}
+            overrideYaml={detail.overrideYaml}
+            onSaved={() => stackName && void load(stackName)}
+          />
         </>
       )}
     </Modal>

@@ -1,6 +1,8 @@
 // 【阶段 P1-搜索 - 2026-06-17 续 32-3】全局搜索 modal
 // Ctrl/Cmd+K 唤起,搜索导航项 + 收藏项(预留扩展容器/分享)
 // Esc 关闭,点击结果 navigate + 关闭
+// 【续 78】扩展全容器:读 'containers' namespace 现有缓存(getCache),绝不主动发请求
+// —— 无缓存静默不出容器结果(守不唤盘红线);点击跳 /containers?focus=<name> 深链
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -16,6 +18,9 @@ import {
 } from 'lucide-react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { useFavorites } from '../hooks/useFavorites';
+import { getCache, getCacheKey } from '../services/unraidApi/cache';
+import { normalizeDockerState } from '../services/unraidApi/normalizers';
+import type { DockerContainersResponse } from '../services/graphqlTypes';
 import Icon from './ui/Icon';
 
 interface SearchItem {
@@ -28,7 +33,7 @@ interface SearchItem {
   /** 图标 */
   icon: LucideIcon;
   /** 类型标签 */
-  kind: 'page' | 'favorite' | 'path';
+  kind: 'page' | 'favorite' | 'path' | 'container';
   /** 点击跳的路径(react-router path 或 share 路径) */
   to: string;
   /** 是否是外部(unraid 路径用 ?share=/xxx 跳 /shares) */
@@ -97,9 +102,39 @@ export default function GlobalSearch({ open, onClose }: { open: boolean; onClose
     }));
   }, [favorites]);
 
-  // 合并 + 过滤 + 排序
+  // 【续 78】容器缓存 → 搜索条目:只读现有 graphql 缓存,不主动发请求。
+  // open 变化时重读(每次打开拿到最新缓存);无缓存/过期 → 空数组静默不出
+  const containerItems: SearchItem[] = useMemo(() => {
+    if (!open) return [];
+    const entry = getCache<DockerContainersResponse>(getCacheKey('containers'));
+    const list = entry?.data?.docker?.containers;
+    if (!Array.isArray(list)) return [];
+    const stateText = { running: '运行中', paused: '已暂停', restarting: '重启中', stopped: '已停止' };
+    return list.map((c) => {
+      const name = Array.isArray(c.names)
+        ? (c.names[0]?.replace(/^\//, '') ?? 'Unknown')
+        : c.names?.replace(/^\//, '') || 'Unknown';
+      const state = normalizeDockerState(c.state || '', c.status || '');
+      return {
+        id: `ct-${c.id || name}`,
+        title: name,
+        subtitle: `容器 · ${stateText[state]}`,
+        icon: Boxes,
+        kind: 'container' as const,
+        to: `/containers?focus=${encodeURIComponent(name)}`,
+      };
+    });
+  }, [open]);
+
+  // 合并 + 过滤 + 排序(容器排最后:同分时 stable sort 保持 page/favorite 优先;
+  // 收藏的容器与容器条目 to 相同,按 to 去重,收藏优先)
   const results: SearchItem[] = useMemo(() => {
-    const all = [...NAV_ITEMS, ...favItems];
+    const seen = new Set<string>();
+    const all = [...NAV_ITEMS, ...favItems, ...containerItems].filter((it) => {
+      if (seen.has(it.to)) return false;
+      seen.add(it.to);
+      return true;
+    });
     if (!q.trim()) return all.slice(0, 8);
     const lq = q.toLowerCase();
     return all
@@ -108,7 +143,7 @@ export default function GlobalSearch({ open, onClose }: { open: boolean; onClose
       .sort((a, b) => b.s - a.s)
       .slice(0, 8)
       .map((x) => x.it);
-  }, [q, favItems]);
+  }, [q, favItems, containerItems]);
 
   // 打开时聚焦 + 重置
   useEffect(() => {
@@ -211,7 +246,13 @@ export default function GlobalSearch({ open, onClose }: { open: boolean; onClose
                   </div>
                 </div>
                 <span className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400 shrink-0">
-                  {it.kind === 'page' ? '页面' : it.kind === 'favorite' ? '收藏' : '路径'}
+                  {it.kind === 'page'
+                    ? '页面'
+                    : it.kind === 'favorite'
+                      ? '收藏'
+                      : it.kind === 'container'
+                        ? '容器'
+                        : '路径'}
                 </span>
               </li>
             ))

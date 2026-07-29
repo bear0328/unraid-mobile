@@ -4,6 +4,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import GlobalSearch from './GlobalSearch';
 import { addFavorite, clearFavorites } from '../hooks/useFavorites';
+import { getCacheKey, setCache } from '../services/unraidApi/cache';
 
 // 读当前 location,断言跳转目标
 function LocationProbe() {
@@ -144,6 +145,69 @@ describe('GlobalSearch', () => {
     );
     fireEvent.click(screen.getByText('Nginx'));
     expect(screen.getByTestId('loc').textContent).toBe('/containers?focus=nginx');
+  });
+
+  // 【续 78】容器搜索:读 'containers' namespace 现有缓存,不主动发请求
+  function seedContainersCache(containers: unknown[]) {
+    setCache(getCacheKey('containers'), { docker: { containers } });
+  }
+
+  it('有缓存 → 容器可搜到 → 点击跳 /containers?focus=<name>', () => {
+    seedContainersCache([
+      { id: 'abc123', names: ['/jellyfin'], state: 'running', status: 'Up 2 hours' },
+    ]);
+    render(
+      <MemoryRouter>
+        <GlobalSearch open={true} onClose={() => {}} />
+        <LocationProbe />
+      </MemoryRouter>
+    );
+    fireEvent.change(screen.getByPlaceholderText(/搜索/), { target: { value: 'jelly' } });
+    const item = screen.getByText('jellyfin');
+    expect(item).toBeInTheDocument();
+    expect(screen.getByText('容器 · 运行中')).toBeInTheDocument();
+    fireEvent.click(item);
+    expect(screen.getByTestId('loc').textContent).toBe('/containers?focus=jellyfin');
+  });
+
+  it('无缓存 → 不出现容器结果', () => {
+    render(
+      <MemoryRouter>
+        <GlobalSearch open={true} onClose={() => {}} />
+      </MemoryRouter>
+    );
+    fireEvent.change(screen.getByPlaceholderText(/搜索/), { target: { value: 'jelly' } });
+    expect(screen.getByText('无匹配结果')).toBeInTheDocument();
+  });
+
+  it('停止的容器也搜得到(状态副标题已停止)', () => {
+    seedContainersCache([
+      { id: 'def456', names: ['/postgres'], state: 'exited', status: 'Exited (0) 3 days ago' },
+    ]);
+    render(
+      <MemoryRouter>
+        <GlobalSearch open={true} onClose={() => {}} />
+      </MemoryRouter>
+    );
+    fireEvent.change(screen.getByPlaceholderText(/搜索/), { target: { value: 'post' } });
+    expect(screen.getByText('postgres')).toBeInTheDocument();
+    expect(screen.getByText('容器 · 已停止')).toBeInTheDocument();
+  });
+
+  it('收藏容器与缓存容器重名 → 按 to 去重只出一条(收藏优先)', () => {
+    addFavorite({ kind: 'container', value: 'jellyfin', label: 'MyJelly' });
+    seedContainersCache([
+      { id: 'abc123', names: ['/jellyfin'], state: 'running', status: 'Up 2 hours' },
+    ]);
+    render(
+      <MemoryRouter>
+        <GlobalSearch open={true} onClose={() => {}} />
+      </MemoryRouter>
+    );
+    fireEvent.change(screen.getByPlaceholderText(/搜索/), { target: { value: 'jelly' } });
+    // 收藏的 MyJelly 优先(to 相同,缓存条目被去重)
+    expect(screen.getByText('MyJelly')).toBeInTheDocument();
+    expect(screen.queryByText('jellyfin')).not.toBeInTheDocument();
   });
 });
 

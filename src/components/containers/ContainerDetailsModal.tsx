@@ -10,24 +10,22 @@
 //   条件渲染;蓝色提示框"GraphQL 不支持端口"已过时,删除该说法
 // 【续 53 2026-07-19】删底部"关闭"按钮(内容变长沉底按不到,右上角 × 即可);
 //   非 running 容器 stats 区显示友好提示(docker stats 仅运行中有数据),不再 ❌ 报错
+// 【续 78】stats 区块拆到 ContainerStatsSection.tsx,挂载区块拆到 ContainerMountsSection.tsx(纯结构移动)
 import { useEffect, useState } from 'react';
 import {
   Bell,
   Star,
-  RefreshCw,
-  AlertTriangle,
   Check,
   X,
   Link as LinkIcon,
   ExternalLink,
   Globe,
-  ChevronDown,
-  ChevronRight,
 } from 'lucide-react';
 import { UnraidApiService, UnraidDockerContainer, ContainerDetailInfo } from '../../services';
 import { useFavorites } from '../../hooks/useFavorites';
 import { useApiConfig } from '../../hooks/useUnraidApi';
-import MiniSparkline from '../dashboard/MiniSparkline';
+import ContainerStatsSection, { type Stats } from './ContainerStatsSection';
+import ContainerMountsSection from './ContainerMountsSection';
 import { Modal, ModalHeader } from '../Modal';
 import Icon from '../ui/Icon';
 import { containerStateLabel, formatDate, formatBytes } from '../../utils/formatters';
@@ -37,14 +35,6 @@ interface ContainerDetailsModalProps {
   /** 来自 useUnraidApi(),用于拉 stats */
   api: UnraidApiService | null;
   onClose: () => void;
-}
-
-// 【续 46.4】stats 改订阅源(containerStatsStream):memUsage/memLimit 数字 → memPercent + memUsageText
-interface Stats {
-  cpuPercent: number;
-  memPercent: number;
-  /** 原始字符串(如 "726.1MiB / 31.1GiB") */
-  memUsageText: string;
 }
 
 export default function ContainerDetailsModal({
@@ -57,7 +47,6 @@ export default function ContainerDetailsModal({
   const [statsLoading, setStatsLoading] = useState(false);
   // 【续 52】静态详情(端口/挂载/网络/磁盘占用等),打开时拉一次,失败静默(基本区仍可用)
   const [detail, setDetail] = useState<ContainerDetailInfo | null>(null);
-  const [showMounts, setShowMounts] = useState(false);
   // 【续 35-7】每容器 CPU/MEM 实时曲线(5s polling,保留 60 个点 ≈ 5min 历史)
   const HISTORY_POINTS = 60;
   const [cpuHistory, setCpuHistory] = useState<number[]>([]);
@@ -135,7 +124,6 @@ export default function ContainerDetailsModal({
   }, [api, container.name]);
 
   const state = containerStateLabel(container.state);
-  const memPct = stats?.memPercent ?? 0;
 
   return (
     <Modal open onClose={onClose} title={container.name} maxWidthClass="max-w-md">
@@ -168,77 +156,15 @@ export default function ContainerDetailsModal({
         </button>
       </ModalHeader>
 
-      {/* Stats 区块 */}
-      <section>
-        <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
-          实时资源
-        </h4>
-        {statsLoading ? (
-          <div className="inline-flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400 py-2">
-            <Icon icon={RefreshCw} size={14} className="animate-spin" />
-            加载 stats...
-          </div>
-        ) : container.state !== 'running' ? (
-          // 【续 53】docker stats 仅运行中容器有数据,停止的容器不再显示 ❌ 报错
-          <div className="text-sm text-gray-500 dark:text-gray-400 py-2">
-            容器未运行,无实时资源数据(CPU/内存统计仅运行中可用)
-          </div>
-        ) : statsError ? (
-          <div className="flex items-center gap-1 text-sm text-red-500 py-2">
-            <Icon icon={AlertTriangle} size={14} />
-            {statsError}
-          </div>
-        ) : stats ? (
-          <div className="space-y-2.5">
-            <div>
-              <div className="flex justify-between text-xs mb-1">
-                <span className="text-gray-600 dark:text-gray-400">CPU</span>
-                <span className="font-mono font-medium">{stats.cpuPercent.toFixed(1)}%</span>
-              </div>
-              <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-blue-500 transition-all"
-                  style={{ width: `${Math.min(stats.cpuPercent, 100)}%` }}
-                />
-              </div>
-              {cpuHistory.length > 0 && (
-                <MiniSparkline
-                  data={cpuHistory}
-                  color="#3b82f6"
-                  fillColor="rgba(59, 130, 246, 0.15)"
-                  height={36}
-                  emptyText=""
-                />
-              )}
-            </div>
-            <div>
-              <div className="flex justify-between text-xs mb-1">
-                <span className="text-gray-600 dark:text-gray-400">内存</span>
-                <span className="font-mono font-medium">
-                  {stats.memUsageText || '—'} ({memPct.toFixed(1)}%)
-                </span>
-              </div>
-              <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-purple-500 transition-all"
-                  style={{ width: `${Math.min(memPct, 100)}%` }}
-                />
-              </div>
-              {memHistory.length > 0 && (
-                <MiniSparkline
-                  data={memHistory}
-                  color="#a855f7"
-                  fillColor="rgba(168, 85, 247, 0.15)"
-                  height={36}
-                  emptyText=""
-                />
-              )}
-            </div>
-          </div>
-        ) : (
-          <div className="text-sm text-gray-500 dark:text-gray-400 py-2">无数据</div>
-        )}
-      </section>
+      {/* Stats 区块 — 【续 78】拆到 ContainerStatsSection */}
+      <ContainerStatsSection
+        stats={stats}
+        statsLoading={statsLoading}
+        statsError={statsError}
+        containerState={container.state}
+        cpuHistory={cpuHistory}
+        memHistory={memHistory}
+      />
 
       {/* 基本信息 */}
       <section className="space-y-2 text-sm">
@@ -364,46 +290,8 @@ export default function ContainerDetailsModal({
         </section>
       )}
 
-      {/* 【续 52】挂载(可折叠,默认收起) */}
-      {detail && detail.mounts.length > 0 && (
-        <section>
-          <button
-            type="button"
-            onClick={() => setShowMounts((v) => !v)}
-            className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2 hover:text-gray-700 dark:hover:text-gray-200"
-            aria-expanded={showMounts}
-          >
-            <Icon icon={showMounts ? ChevronDown : ChevronRight} size={12} />
-            挂载
-            <span className="normal-case font-normal">({detail.mounts.length})</span>
-          </button>
-          {showMounts && (
-            <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
-              {detail.mounts.map((m, i) => (
-                <div key={i} className="py-0.5">
-                  <div className="flex items-start justify-between gap-2">
-                    <span
-                      className="font-mono text-[11px] text-gray-700 dark:text-gray-300 break-all"
-                      title={`${m.source} → ${m.destination}`}
-                    >
-                      {m.source} → {m.destination}
-                    </span>
-                    <span
-                      className={`shrink-0 text-[10px] px-1 rounded ${
-                        m.rw
-                          ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
-                          : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'
-                      }`}
-                    >
-                      {m.rw ? 'rw' : 'ro'}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-      )}
+      {/* 【续 52】挂载(可折叠,默认收起) — 【续 78】拆到 ContainerMountsSection */}
+      {detail && detail.mounts.length > 0 && <ContainerMountsSection mounts={detail.mounts} />}
 
       {/* 【续 52】磁盘占用 */}
       {detail && (detail.sizeRootFs != null || detail.sizeRw != null || detail.sizeLog != null) && (
