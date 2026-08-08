@@ -2,17 +2,29 @@
 // B7:unhealthy 不再一律误判"鉴权失败" — 仅 graphql 端点 401 才 dispatch unraid-auth-error,
 //     断网/超时等其他 unhealthy 停留 4 端点诊断屏(UnhealthyState),不被路由抢走
 // D2:未知 URL 命中 path="*" 渲染 NotFound,不再白屏
+// 【续 88 2026-08-08】绑机竞态:license 状态异步翻 'active' 后 App 必须重跑 checkServerBinding
 // mock 说明:useApiHealth 直接给状态/报告(不真发 fetch);Layout/全局挂件/页面组件全部
 // 打桩,聚焦 App 的门禁与路由逻辑(Layout 里 RouteErrorBoundary 的接线在
 // components/RouteErrorBoundary.test.tsx 单独覆盖)
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, act } from '@testing-library/react';
 import App from './App';
 import { useApiHealth } from './hooks/useApiHealth';
+import { checkServerBinding } from './services/licenseBinding';
+import {
+  __setLicenseStateForTest,
+  __resetLicenseForTest,
+  type LicenseInfo,
+} from './services/license';
 import type { HealthReport } from './services/unraidApi/healthCheck';
 
 vi.mock('./hooks/useApiHealth', () => ({
   useApiHealth: vi.fn(),
+}));
+
+// 【续 88】绑机检查打桩:这里只验证 App 的调用时机,检查逻辑本身在 services/licenseBinding.test.ts 覆盖
+vi.mock('./services/licenseBinding', () => ({
+  checkServerBinding: vi.fn(() => Promise.resolve(true)),
 }));
 
 // 全局挂件打桩:避免 fetch/订阅等副作用,本文件只测 App 门禁 + 路由
@@ -41,6 +53,7 @@ vi.mock('./pages/Debug', () => ({ default: () => <div>调试页</div> }));
 vi.mock('./pages/Notifications', () => ({ default: () => <div>通知页</div> }));
 
 const mockUseApiHealth = vi.mocked(useApiHealth);
+const mockCheckServerBinding = vi.mocked(checkServerBinding);
 
 function makeReport(graphqlOverride: Partial<HealthReport['endpoints']['graphql']>): HealthReport {
   return {
@@ -129,5 +142,54 @@ describe('App (B7/D2)', () => {
     render(<App />);
     expect(await screen.findByText('容器页')).toBeInTheDocument();
     expect(screen.queryByText('页面不存在')).not.toBeInTheDocument();
+  });
+});
+
+// 【续 88 2026-08-08】绑机竞态:main.tsx 是 void initLicense() 不等待,mount 时那次
+// checkServerBinding 大概率在 license 仍是 'none' 时跑(直接放行);App 订阅 subscribeLicense,
+// 状态异步翻 'active' 后必须重跑绑机检查,否则绑了他机的 key cold start 后整会话 Pro 误解锁
+describe('App 绑机竞态(续 88)', () => {
+  const boundInfo: LicenseInfo = {
+    email: 'u@e.com',
+    tier: 'pro',
+    iat: 1,
+    exp: null,
+    guid: '346D-5678-4681-113486419445',
+  };
+
+  beforeEach(() => {
+    localStorage.setItem('unraid-mobile-server-url', 'http://nas.local');
+    localStorage.setItem('unraid-mobile-api-key', 'test-key');
+    window.history.pushState({}, '', '/containers');
+    mockCheckServerBinding.mockClear();
+    mockHealth('healthy', null);
+  });
+
+  afterEach(() => {
+    __resetLicenseForTest();
+    window.history.pushState({}, '', '/');
+  });
+
+  it('mount 时跑 1 次绑机检查(此时 license 为 none,真实路径直接放行)', () => {
+    render(<App />);
+    expect(mockCheckServerBinding).toHaveBeenCalledTimes(1);
+  });
+
+  it('license 异步翻 active → 重跑绑机检查(修 cold start 竞态)', () => {
+    render(<App />);
+    expect(mockCheckServerBinding).toHaveBeenCalledTimes(1);
+    // 模拟 main.tsx void initLicense() 异步验签晚完成,把 stored key 置 'active'
+    act(() => {
+      __setLicenseStateForTest({ status: 'active', info: boundInfo });
+    });
+    expect(mockCheckServerBinding).toHaveBeenCalledTimes(2);
+  });
+
+  it('license 翻 mismatch → 不重跑(mismatch 是检查结果本身,防无谓循环)', () => {
+    render(<App />);
+    act(() => {
+      __setLicenseStateForTest({ status: 'mismatch', info: boundInfo });
+    });
+    expect(mockCheckServerBinding).toHaveBeenCalledTimes(1);
   });
 });

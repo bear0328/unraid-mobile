@@ -29,6 +29,7 @@ import ContainerMountsSection from './ContainerMountsSection';
 import { Modal, ModalHeader } from '../Modal';
 import Icon from '../ui/Icon';
 import { containerStateLabel, formatDate, formatBytes } from '../../utils/formatters';
+import { safeUrl } from '../../utils/safeUrl';
 
 interface ContainerDetailsModalProps {
   container: UnraidDockerContainer;
@@ -124,6 +125,12 @@ export default function ContainerDetailsModal({
   }, [api, container.name]);
 
   const state = containerStateLabel(container.state);
+
+  // 【续 88 2026-08-08】webUiUrl/projectUrl/supportUrl 来自 GraphQL 模板数据(不可信),
+  // 过 safeUrl 白名单:仅 http/https 作 href,javascript: 等一律不渲染链接
+  const webUiUrl = safeUrl(detail?.webUiUrl);
+  const projectUrl = safeUrl(detail?.projectUrl);
+  const supportUrl = safeUrl(detail?.supportUrl);
 
   return (
     <Modal open onClose={onClose} title={container.name} maxWidthClass="max-w-md">
@@ -324,10 +331,10 @@ export default function ContainerDetailsModal({
 
       {/* 【续 52】链接区:WebUI(有则醒目)+ 项目/支持链接 + WebGUI 兜底 */}
       <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-lg p-3 text-xs text-blue-700 dark:text-blue-300 space-y-1.5">
-        {detail?.webUiUrl && (
+        {webUiUrl && (
           <div>
             <a
-              href={detail.webUiUrl}
+              href={webUiUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium"
@@ -338,11 +345,11 @@ export default function ContainerDetailsModal({
             </a>
           </div>
         )}
-        {(detail?.projectUrl || detail?.supportUrl) && (
+        {(projectUrl || supportUrl) && (
           <div className="flex flex-wrap gap-3">
-            {detail?.projectUrl && (
+            {projectUrl && (
               <a
-                href={detail.projectUrl}
+                href={projectUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1 text-primary-600 dark:text-primary-400 hover:underline"
@@ -351,9 +358,9 @@ export default function ContainerDetailsModal({
                 <Icon icon={ExternalLink} size={12} />
               </a>
             )}
-            {detail?.supportUrl && (
+            {supportUrl && (
               <a
-                href={detail.supportUrl}
+                href={supportUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1 text-primary-600 dark:text-primary-400 hover:underline"

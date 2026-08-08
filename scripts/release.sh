@@ -47,6 +47,19 @@ log()  { printf "%s %s\n" "[release]" "$*"; }
 die()  { printf "%s %s\n" "[release] ERROR:" "$*" >&2; exit 1; }
 run()  { if [ "${DRY_RUN}" = true ]; then log "DRY: $*"; else eval "$@"; fi; }
 
+# 【续 88 2026-08-08】push 类网络操作重试:最多 3 次,失败间隔 10s(v1.0.8 实证
+# docker registry EOF 抖动需手动重跑)。与 run() 同 eval 风格;dry-run 下 run 恒成功,
+# 天然只打印一次不真重试
+run_retry() {
+  local n
+  for n in 1 2 3; do
+    if run "$@"; then return 0; fi
+    [ "${n}" -lt 3 ] || die "重试 3 次仍失败: $*"
+    log "第 ${n} 次失败,10s 后重试(第 $((n + 1))/3 次): $*"
+    sleep 10
+  done
+}
+
 # ---------- 参数 ----------
 [ $# -ge 2 ] || die "用法: $0 <版本号> \"<commit 摘要>\" [--yes] [--dry-run] [--skip-deploy]"
 VERSION="$1"; shift
@@ -110,16 +123,21 @@ fi
 # ---------- 4. git ----------
 log "=== 4/8 git commit + tag + push ==="
 run "git add -A"
-run "git commit -m 'v${VERSION}: ${MESSAGE}'"
+# 【续 88 2026-08-08】commit message 不走 run/eval(message 含单引号即语法错误),双引号直接调用
+if [ "${DRY_RUN}" = true ]; then
+  log "DRY: git commit -m \"v${VERSION}: ${MESSAGE}\""
+else
+  git commit -m "v${VERSION}: ${MESSAGE}"
+fi
 run "git tag ${TAG}"
-run "git push origin master"
-run "git push origin ${TAG}"
+run_retry "git push origin master"
+run_retry "git push origin ${TAG}"
 
 # ---------- 5. docker build + push ----------
 log "=== 5/8 docker build + push(${IMAGE_REPO}:latest + :${VERSION}) ==="
 run "docker build --platform=linux/amd64 --build-arg NPM_REGISTRY=${NPM_REGISTRY} -t ${IMAGE_REPO}:latest -t ${IMAGE_REPO}:${VERSION} ."
-run "docker push ${IMAGE_REPO}:${VERSION}"
-run "docker push ${IMAGE_REPO}:latest"
+run_retry "docker push ${IMAGE_REPO}:${VERSION}"
+run_retry "docker push ${IMAGE_REPO}:latest"
 
 # ---------- 6/7. 部署 ----------
 if [ "${SKIP_DEPLOY}" = true ]; then
@@ -140,15 +158,21 @@ fi
 log "=== 8/8 冒烟验证 ==="
 LOCAL_BUNDLE=$(grep -o 'index-[A-Za-z0-9_-]*\.js' dist/index.html | head -1)
 if [ "${DRY_RUN}" = false ]; then
-  sleep 5
-  for port in ${DEV_PORT} ${PROD_PORT}; do
-    [ "${SKIP_DEPLOY}" = true ] && [ "${port}" = "${DEV_PORT}" ] && continue
-    code=$(curl -s -o /dev/null -w '%{http_code}' "http://${SSH_HOST}:${port}/")
-    [ "${code}" = "200" ] || die "端口 ${port} 返回 ${code}(期望 200)"
-    bundle=$(curl -s "http://${SSH_HOST}:${port}/" | grep -o 'index-[A-Za-z0-9_-]*\.js' | head -1)
-    [ "${bundle}" = "${LOCAL_BUNDLE}" ] || die "端口 ${port} bundle=${bundle} != 本地 ${LOCAL_BUNDLE}"
-    log "端口 ${port}: 200 + bundle ${bundle} ✓"
-  done
+  if [ "${SKIP_DEPLOY}" = true ]; then
+    # 【续 88 2026-08-08】--skip-deploy 未部署任何端,整个冒烟循环跳过
+    # (原只 continue DEV_PORT,PROD_PORT 仍拿旧部署校验本地新 bundle,必 die)
+    log "跳过冒烟(--skip-deploy)"
+  else
+    sleep 5
+    for port in ${DEV_PORT} ${PROD_PORT}; do
+      # 【续 88 2026-08-08】curl 加 --max-time 15,冒烟不无限挂起
+      code=$(curl -s --max-time 15 -o /dev/null -w '%{http_code}' "http://${SSH_HOST}:${port}/")
+      [ "${code}" = "200" ] || die "端口 ${port} 返回 ${code}(期望 200)"
+      bundle=$(curl -s --max-time 15 "http://${SSH_HOST}:${port}/" | grep -o 'index-[A-Za-z0-9_-]*\.js' | head -1)
+      [ "${bundle}" = "${LOCAL_BUNDLE}" ] || die "端口 ${port} bundle=${bundle} != 本地 ${LOCAL_BUNDLE}"
+      log "端口 ${port}: 200 + bundle ${bundle} ✓"
+    done
+  fi
 else
   log "DRY: 验证 ${DEV_PORT}/${PROD_PORT} 200 + bundle=${LOCAL_BUNDLE}"
 fi

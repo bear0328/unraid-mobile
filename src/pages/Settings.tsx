@@ -601,8 +601,11 @@ function BackupSection() {
     a.download = `unraid-mobile-backup-${new Date().toISOString().slice(0, 10)}.json`;
     document.body.appendChild(a);
     a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    // 【续 88 2026-08-08】延迟 revoke:iOS Safari 立即 revoke 会静默取消下载(同 FavoritesCard 教训)
+    setTimeout(() => {
+      if (a.parentNode) document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 1000);
     // 【续 50 D6a】备份内容补上 Webhook 设置(key 名修好后导出不再恒 null,token 类密钥仍剔除)
     toast.success('已下载备份文件(含收藏/主题/Dashboard 顺序/Webhook 设置/服务器列表,不含敏感数据)');
   }
@@ -1179,16 +1182,6 @@ function RemoteReporterSection() {
           />
         </label>
       </div>
-
-      <label className="flex items-center gap-2 mb-3 cursor-pointer text-xs">
-        <input
-          type="checkbox"
-          checked={cfg.omitStack}
-          onChange={(e) => update('omitStack', e.target.checked)}
-          className="w-4 h-4"
-        />
-        <span>不推送错误 stack(只推 message+来源,防泄漏)</span>
-      </label>
 
       <div className="flex gap-2">
         <button

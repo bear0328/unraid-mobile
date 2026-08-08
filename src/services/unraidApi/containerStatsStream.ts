@@ -95,6 +95,10 @@ export function startContainerStatsStream(serverUrl: string, apiKey: string, use
     connectionParams: { 'x-api-key': apiKey },
     retryAttempts: Infinity,
     shouldRetry: () => true,
+    // 【续 88 2026-08-08】重连退避封顶 30s:graphql-ws 默认 2^n 秒无上限,
+    // 服务端宕机约 1 小时后重连间隔膨胀到小时级,stats 静默死亡
+    retryWait: (retries) =>
+      new Promise((resolve) => setTimeout(resolve, Math.min(2 ** retries * 1000, 30_000))),
   });
 
   const sub = client.iterate({ query: STATS_SUBSCRIPTION });

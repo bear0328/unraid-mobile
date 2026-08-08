@@ -21,7 +21,6 @@ export default function RemoteReporter() {
     errorWindowMs: 5 * 60 * 1000,
     cooldownMs: 30 * 60 * 1000,
     intervalMs: 30 * 1000,
-    omitStack: true,
   });
   usePolledTask({
     enabled: cfg.enabled,

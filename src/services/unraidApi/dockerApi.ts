@@ -87,8 +87,11 @@ export async function startContainer(
     id: containerId,
   });
   // 【续 50 B1】mutation 成功后失效 containers 的 30min cache,防操作后 UI 显示旧状态
+  // 【续 88 2026-08-08】一并失效 'containerDetails':详情查询(状态/端口/挂载等)
+  // 独立缓存 30min,否则操作后详情弹窗字段最长陈旧 30min
   if (result.success) {
     invalidateNamespace('containers');
+    invalidateNamespace('containerDetails');
     return { success: true };
   }
   return { success: false, error: result.error || '启动失败' };
@@ -110,8 +113,11 @@ export async function stopContainer(
     id: containerIdWithPrefix,
   });
   // 【续 50 B1】mutation 成功后失效 containers 的 30min cache,防操作后 UI 显示旧状态
+  // 【续 88 2026-08-08】一并失效 'containerDetails':详情查询(状态/端口/挂载等)
+  // 独立缓存 30min,否则操作后详情弹窗字段最长陈旧 30min
   if (result.success) {
     invalidateNamespace('containers');
+    invalidateNamespace('containerDetails');
     return { success: true };
   }
   return { success: false, error: result.error || '停止失败' };
@@ -146,8 +152,11 @@ export async function pauseContainer(
     id: containerId,
   });
   // 【续 50 B1】mutation 成功后失效 containers 的 30min cache,防操作后 UI 显示旧状态
+  // 【续 88 2026-08-08】一并失效 'containerDetails':详情查询(状态/端口/挂载等)
+  // 独立缓存 30min,否则操作后详情弹窗字段最长陈旧 30min
   if (result.success) {
     invalidateNamespace('containers');
+    invalidateNamespace('containerDetails');
     return { success: true };
   }
   return { success: false, error: result.error || '暂停失败' };
@@ -164,8 +173,11 @@ export async function resumeContainer(
     id: containerId,
   });
   // 【续 50 B1】mutation 成功后失效 containers 的 30min cache,防操作后 UI 显示旧状态
+  // 【续 88 2026-08-08】一并失效 'containerDetails':详情查询(状态/端口/挂载等)
+  // 独立缓存 30min,否则操作后详情弹窗字段最长陈旧 30min
   if (result.success) {
     invalidateNamespace('containers');
+    invalidateNamespace('containerDetails');
     return { success: true };
   }
   return { success: false, error: result.error || '恢复失败' };
@@ -195,20 +207,60 @@ export async function getContainerLogs(
       headers['x-api-key'] = apiKey;
     }
 
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        query: DOCKER_LOGS_QUERY,
-        // 【续 50 B8】since 为可空参数,null 与缺省同义(首拉全量 tail)
-        variables: { id: containerId, tail: lines, since: since ?? null },
-      }),
-      signal: controller.signal,
-    });
+    // 【续 88 2026-08-08】自造 fetch 与 graphqlRequest 行为对齐:
+    // ①clearTimeout 挪进 finally(原来响应头一到就清,慢速挂流响应 json() 阶段可
+    //   无限挂起;fetch 抛错的 catch 分支也不清)
+    // ②补 response.ok 检查:401 广播 unraid-auth-error 事件(原实现绕过统一错误处理,
+    //   401 只当普通失败,AuthErrorListener 无感知)
+    // ③JSON 解析容错:非 JSON 错误页(nginx 5xx HTML)抛带状态码的业务错误,
+    //   不再漏原始解析异常
+    let response: Response;
+    let data: {
+      errors?: Array<{ message?: string }>;
+      data?: {
+        docker?: {
+          logs?: {
+            lines?: Array<{ timestamp?: string; message?: string }>;
+            cursor?: string | null;
+          };
+        };
+      };
+    };
+    try {
+      response = await fetch(endpoint, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          query: DOCKER_LOGS_QUERY,
+          // 【续 50 B8】since 为可空参数,null 与缺省同义(首拉全量 tail)
+          variables: { id: containerId, tail: lines, since: since ?? null },
+        }),
+        signal: controller.signal,
+      });
 
-    clearTimeout(timeoutId);
+      if (!response.ok) {
+        // 401 鉴权失败:广播事件让 AuthErrorListener 跳设置(同 graphql.ts)
+        if (response.status === 401) {
+          window.dispatchEvent(
+            new CustomEvent('unraid-auth-error', {
+              detail: { reason: 'invalid-api-key', source: endpoint },
+            })
+          );
+        }
+        return { success: false, error: `HTTP ${response.status}` };
+      }
 
-    const data = await response.json();
+      try {
+        data = await response.json();
+      } catch (_e) {
+        // body 阶段被 abort(慢速挂流超时) → 抛给外层 catch 报超时;其余按非 JSON 容错
+        if ((_e as { name?: string } | null)?.name === 'AbortError') throw _e;
+        void _e;
+        return { success: false, error: `HTTP ${response.status} 响应非 JSON` };
+      }
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     if (data.errors) {
       return { success: false, error: data.errors[0]?.message || '获取日志失败' };
@@ -228,6 +280,11 @@ export async function getContainerLogs(
 
     return { success: false, error: '未找到日志' };
   } catch (err) {
+    // 【续 88 2026-08-08】AbortError 归一为超时信息(与 graphqlRequest 的 Endpoint timeout 对齐)
+    const anyErr = err as { name?: string; message?: string } | null | undefined;
+    if (anyErr?.name === 'AbortError') {
+      return { success: false, error: '获取日志超时 (15000ms)' };
+    }
     return { success: false, error: (err as Error).message || '获取日志失败' };
   }
 }

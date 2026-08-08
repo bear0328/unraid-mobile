@@ -6,7 +6,13 @@ import { NETWORK_INFO_QUERY, NETWORK_INFO_QUERY_NO_METRICS } from './queries';
 
 // 【续 66】速率差分采样:metrics.network 只给累积字节(bytesReceived/bytesSent),
 // 两次采样求 delta/dt 得 rxSec/txSec;模块级记忆,与 Dashboard 磁盘读写差分同套路
-let prevNetSample: { ts: number; bytes: Map<string, { rx: number; tx: number }> } | null = null;
+// 【续 88 2026-08-08】采样按 serverUrl key 化:切服务器后旧 prev 不重置的话,
+// 首轮会用两台机器的累积计数器差分,产生虚假速率尖峰
+let prevNetSample: {
+  serverUrl: string;
+  ts: number;
+  bytes: Map<string, { rx: number; tx: number }>;
+} | null = null;
 
 export async function getNetworkInfo(
   baseUrl: string,
@@ -53,13 +59,13 @@ export async function getNetworkInfo(
       metricsMap.set(m.name, m);
     });
 
-    // 本轮采样(用于下一轮差分)
+    // 本轮采样(用于下一轮差分);serverUrl 变了说明切了服务器,旧 prev 作废(防跨机差分)
     const now = Date.now();
     const curSample = new Map<string, { rx: number; tx: number }>();
     metricsNetwork.forEach((m) => {
       curSample.set(m.name, { rx: Number(m.bytesReceived) || 0, tx: Number(m.bytesSent) || 0 });
     });
-    const prev = prevNetSample;
+    const prev = prevNetSample && prevNetSample.serverUrl === baseUrl ? prevNetSample : null;
     const dt = prev ? (now - prev.ts) / 1000 : 0;
 
     // 合并数据
@@ -84,7 +90,7 @@ export async function getNetworkInfo(
       });
     });
 
-    prevNetSample = { ts: now, bytes: curSample };
+    prevNetSample = { serverUrl: baseUrl, ts: now, bytes: curSample };
   }
 
   return networks;

@@ -10,7 +10,7 @@
 # ⚠️ 风险说明(续 57,运行前必读):
 #   本脚本会修改 unRAID 开机脚本 /boot/config/go —— 它是系统启动时执行的核心
 #   脚本,改错可能导致开机异常。保障措施:修改前自动备份为 go.unraid-mobile-bak,
-#   追加内容仅 3 行(带【unraid-mobile】标记),卸载时按标记删除即可恢复。
+#   追加内容仅 6 行(带【unraid-mobile】标记),卸载时按标记删除即可恢复。
 #   脚本执行时会要求输入 YES 确认知悉此风险(-y 跳过)。
 #
 # 它做什么:
@@ -58,8 +58,8 @@ if [ "$ASSUME_YES" != "1" ]; then
 本脚本会修改 unRAID 开机脚本 /boot/config/go(系统启动核心脚本),
 用于重启后恢复 compose-api。保障措施:
   · 修改前自动备份为 /boot/config/go.unraid-mobile-bak
-  · 仅追加 3 行(带【unraid-mobile】标记),不改动你已有的任何行
-  · 卸载: 删除 /boot/config/plugins/unraid-mobile/ 及 go 里标记的 3 行即可完全还原
+  · 仅追加 6 行(带【unraid-mobile】标记),不改动你已有的任何行
+  · 卸载: 删除 /boot/config/plugins/unraid-mobile/ 及 go 里标记的 6 行即可完全还原
 EOF
     read -r -p "已知晓上述风险,确认继续? 输入 YES 继续,其他任意输入中止: " CONFIRM
     [ "$CONFIRM" = "YES" ] || die "用户未确认,已中止(未做任何修改)"
@@ -121,17 +121,21 @@ fi
 
 # ---------- 4. go 钩子(幂等:先清旧行再追加) ----------
 # 清掉历史版本钩子行(续 47/49 旧布局 + 本脚本以往安装)
+# 【续 88 2026-08-08】.op-running 清理行也纳入模式删除,否则重复安装会累积
 sed -i.unraid-mobile-bak \
     -e '/【unraid-mobile/d' \
     -e '/tmpfs,重启后 api\.php 丢失/d' \
     -e '/compose\.manager\/api\.php/d' \
     -e '/compose\.manager\/update-status\.php/d' \
+    -e '/\.op-running/d' \
     "$GO_FILE"
 cat >> "$GO_FILE" << 'EOF'
 # 【unraid-mobile】compose-api 恢复钩子(install-compose-api.sh 安装)
 # /usr/local/emhttp 是 tmpfs,重启后 api.php 丢失,从 flash 正本恢复
-cp /boot/config/plugins/unraid-mobile/api.php /usr/local/emhttp/plugins/compose.manager/api.php
+cp /boot/config/plugins/unraid-mobile/api.php /usr/local/emhttp/plugins/compose.manager/api.php 2>/dev/null || true
 cp /boot/config/plugins/unraid-mobile/update-status.php /usr/local/emhttp/plugins/compose.manager/update-status.php 2>/dev/null || true
+# 清 .op-running 残留锁(续 88 2026-08-08):projects 在 flash 盘持久,宿主重启/进程被杀后残留会让该栈永久 409
+rm -f /boot/config/plugins/compose.manager/projects/*/.op-running
 EOF
 info "go 钩子已更新(旧备份: $GO_FILE.unraid-mobile-bak)"
 
@@ -147,5 +151,5 @@ cat << 'EOF'
 go 文件备份: /boot/config/go.unraid-mobile-bak(如需还原直接覆盖回去)
 卸载: 删掉 /boot/config/plugins/unraid-mobile/、
       /usr/local/emhttp/plugins/compose.manager/api.php 和 update-status.php、
-      以及 /boot/config/go 里【unraid-mobile】标记的四行。
+      以及 /boot/config/go 里【unraid-mobile】标记的六行。
 EOF

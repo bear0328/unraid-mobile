@@ -43,22 +43,29 @@ export async function graphqlRequest<T>(
       headers['x-api-key'] = apiKey;
     }
 
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ query, variables }),
-      signal: controller.signal,
-    });
-
-    clearTimeout(timeoutId);
-
-    // 读取响应体
+    // 【续 88 2026-08-08】clearTimeout 挪进 finally:原来响应头一到就清,慢速挂流
+    // 响应的 text() 阶段失去超时保护可无限挂起;且 fetch 抛错的 catch 分支也不清
+    let response: Response;
     let responseText = '';
     try {
-      responseText = await response.text();
-    } catch (_e) {
-      void _e;
-      return { success: false, error: 'Failed to read response' };
+      response = await fetch(endpoint, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ query, variables }),
+        signal: controller.signal,
+      });
+
+      // 读取响应体(body 阶段仍受 timeout 保护)
+      try {
+        responseText = await response.text();
+      } catch (_e) {
+        // body 阶段被 abort(慢速挂流超时) → 抛给外层 catch 统一报 'Endpoint timeout'
+        if ((_e as { name?: string } | null)?.name === 'AbortError') throw _e;
+        void _e;
+        return { success: false, error: 'Failed to read response' };
+      }
+    } finally {
+      clearTimeout(timeoutId);
     }
 
     if (!response.ok) {

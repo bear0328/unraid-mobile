@@ -30,7 +30,6 @@ import { FileItem } from './davAuth';
 import { formatBytes } from '../../utils/formatters';
 import { isImageFile, isVideoFile, isAudioFile, isArchiveFile } from '../../utils/fileTypes';
 import { isTextFile } from './textFileTypes';
-import { useFavorites } from '../../hooks/useFavorites';
 import { useShare } from '../../hooks/useShare';
 import { useApiConfig } from '../../hooks/useUnraidApi';
 import { usePro } from '../../hooks/usePro';
@@ -54,6 +53,10 @@ interface FileRowProps {
   onPreview?: (item: FileItem) => void;
   // 【续 34-8】文本文件编辑
   onEdit?: (item: FileItem) => void;
+  // 【续 88 2026-08-08】收藏状态由父列表统一下发:原来每行各自 useFavorites() 订阅,
+  // N 行 = N 订阅 + N 份 state,任一收藏增删全部行重渲(memo 挡不住 hook 内 setState)
+  faved: boolean;
+  onToggleFavorite: (item: FileItem) => void;
 }
 
 function FileRow({
@@ -70,6 +73,8 @@ function FileRow({
   onSelectChange,
   onPreview,
   onEdit,
+  faved,
+  onToggleFavorite,
 }: FileRowProps) {
   const isImage = !item.isDir && isImageFile(item.name);
   // 【续 34-8】文本文件(< 1MB 限制在 editor 内,这里只判断扩展名)
@@ -88,9 +93,7 @@ function FileRow({
             : canEdit
               ? FileText
               : File;
-  // 【续 32-6】目录可收藏
-  const { toggle: toggleFav, isFavorite: isFav } = useFavorites();
-  const faved = item.isDir && isFav('path', item.path);
+  // 【续 32-6】目录可收藏(状态/toggle 均由父列表下发,见 props 注释)
   // 【续 33-6】分享链接
   const { share } = useShare();
   const { config } = useApiConfig();
@@ -191,7 +194,7 @@ function FileRow({
         <div className="flex items-center gap-1 ml-2 shrink-0">
           {item.isDir && (
             <button
-              onClick={() => toggleFav({ kind: 'path', value: item.path, label: item.name })}
+              onClick={() => onToggleFavorite(item)}
               className={`px-1.5 py-1 text-base leading-none rounded ${
                 faved
                   ? 'text-yellow-500 hover:text-yellow-600'

@@ -17,6 +17,16 @@ function mergeIncrementalLogs(prev: string, batch: string, cursor: string, tailC
   return lines.length ? `${prev}\n${lines.join('\n')}` : prev;
 }
 
+// 【续 88 2026-08-08】live 日志上限:长开后 logs 字符串无限增长,LogsModal 每次渲染
+// 全量 split+parseAnsiToSpans 会拖垮渲染;合并后只保留最近 500 行(截头部留尾部)
+const MAX_LOG_LINES = 500;
+
+function truncateLogLines(logs: string): string {
+  const lines = logs.split('\n');
+  if (lines.length <= MAX_LOG_LINES) return logs;
+  return lines.slice(lines.length - MAX_LOG_LINES).join('\n');
+}
+
 // 【续 50 B8】数 logs 末尾有多少行时间戳等于 cursor(即下次 --since 会被重复返回的行数)
 function countCursorTail(logs: string, cursor: string): number {
   if (!logs) return 0;
@@ -105,7 +115,10 @@ export function useContainerLogs(
         // prev+'\n'+batch 拼接,每 5s 把同样的 tail-100 重复追加,内容无限膨胀
         if (batch) setLogs(batch);
       } else if (batch) {
-        setLogs((prev) => mergeIncrementalLogs(prev, batch, prevCursor, cursorTailCountRef.current));
+        // 【续 88 2026-08-08】合并后截断到最近 500 行,防 live 长开无限增长
+        setLogs((prev) =>
+          truncateLogLines(mergeIncrementalLogs(prev, batch, prevCursor, cursorTailCountRef.current))
+        );
       }
       // batch 为空(无新行)时服务端原样回显 since,游标不动
       if (result.cursor && batch) {

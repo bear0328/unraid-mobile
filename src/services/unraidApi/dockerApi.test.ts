@@ -128,30 +128,37 @@ describe('dockerApi', () => {
   // 【续 50 B1】mutation 成功后必须失效 containers cache(30min TTL),
   // 否则操作后 getDockerContainers 命中旧 cache,UI 显示旧状态
   describe('mutation 后 cache 失效(续 50 B1)', () => {
-    it('startContainer 成功 → containers cache 清除,vms cache 不受影响', async () => {
+    it('startContainer 成功 → containers + containerDetails cache 清除,vms cache 不受影响', async () => {
       setCache(getCacheKey('containers'), { stale: true });
+      setCache(getCacheKey('containerDetails'), { stale: true });
       setCache(getCacheKey('vms'), { stale: true });
       fetchSpy.mockResolvedValueOnce(mockFetchOnce({ data: {} }));
       const r = await startContainer(BASE, KEY, PROXY, 'c:1');
       expect(r.success).toBe(true);
       expect(getCache(getCacheKey('containers'))).toBeNull();
+      // 【续 88】详情独立 namespace 也随 mutation 失效,防详情弹窗字段陈旧 30min
+      expect(getCache(getCacheKey('containerDetails'))).toBeNull();
       expect(getCache(getCacheKey('vms'))).not.toBeNull();
     });
 
-    it('stopContainer 成功 → containers cache 清除', async () => {
+    it('stopContainer 成功 → containers + containerDetails cache 清除', async () => {
       setCache(getCacheKey('containers'), { stale: true });
+      setCache(getCacheKey('containerDetails'), { stale: true });
       fetchSpy.mockResolvedValueOnce(mockFetchOnce({ data: {} }));
       const r = await stopContainer(BASE, KEY, PROXY, 'c:1');
       expect(r.success).toBe(true);
       expect(getCache(getCacheKey('containers'))).toBeNull();
+      expect(getCache(getCacheKey('containerDetails'))).toBeNull();
     });
 
     it('mutation 失败 → cache 保留(不清)', async () => {
       setCache(getCacheKey('containers'), { stale: true });
+      setCache(getCacheKey('containerDetails'), { stale: true });
       fetchSpy.mockResolvedValueOnce(mockFetchOnce({ errors: [{ message: 'boom' }] }));
       const r = await pauseContainer(BASE, KEY, PROXY, 'c:1');
       expect(r.success).toBe(false);
       expect(getCache(getCacheKey('containers'))).not.toBeNull();
+      expect(getCache(getCacheKey('containerDetails'))).not.toBeNull();
     });
   });
 
@@ -253,6 +260,74 @@ describe('dockerApi', () => {
       const r = await getContainerLogs(BASE, KEY, PROXY, 'c:1');
       expect(r.success).toBe(false);
       expect(r.error).toBe('NetworkError');
+    });
+
+    // 【续 88 2026-08-08】与 graphqlRequest 行为对齐:401 广播 unraid-auth-error 事件
+    it('HTTP 401 → 广播 unraid-auth-error,返 HTTP 401(不解析 body)', async () => {
+      const listener = vi.fn();
+      window.addEventListener('unraid-auth-error', listener);
+      try {
+        fetchSpy.mockResolvedValueOnce(mockFetchOnce({ errors: [{ message: 'x' }] }, 401));
+        const r = await getContainerLogs(BASE, KEY, PROXY, 'c:1');
+        expect(r).toEqual({ success: false, error: 'HTTP 401' });
+        expect(listener).toHaveBeenCalledTimes(1);
+        expect(listener.mock.calls[0]?.[0]).toMatchObject({
+          detail: { reason: 'invalid-api-key', source: '/graphql' },
+        });
+      } finally {
+        window.removeEventListener('unraid-auth-error', listener);
+      }
+    });
+
+    // 【续 88 2026-08-08】非 JSON 错误页(nginx 5xx HTML)不再漏原始解析异常
+    it('HTTP 500 + HTML 错误页 → 返带状态码的业务错误 HTTP 500', async () => {
+      fetchSpy.mockResolvedValueOnce(
+        new Response('<html><body>502 Bad Gateway</body></html>', {
+          status: 500,
+          headers: { 'Content-Type': 'text/html' },
+        })
+      );
+      const r = await getContainerLogs(BASE, KEY, PROXY, 'c:1');
+      expect(r).toEqual({ success: false, error: 'HTTP 500' });
+    });
+
+    it('HTTP 200 但 body 非 JSON → 返带状态码的业务错误(不抛解析异常)', async () => {
+      fetchSpy.mockResolvedValueOnce(new Response('not json', { status: 200 }));
+      const r = await getContainerLogs(BASE, KEY, PROXY, 'c:1');
+      expect(r.success).toBe(false);
+      expect(r.error).toContain('响应非 JSON');
+      expect(r.error).toContain('200');
+    });
+
+    // 【续 88 2026-08-08】回归:clearTimeout 挪进 finally 后,慢速挂流响应的
+    // json() 阶段仍受 15s 超时保护(旧实现响应头一到就清,可无限挂起)
+    it('慢速挂流响应:body 读取阶段超时 → 报获取日志超时', async () => {
+      vi.useFakeTimers();
+      try {
+        fetchSpy.mockImplementationOnce((_url, init) => {
+          const signal = (init as RequestInit).signal!;
+          // body 永远不出来,只在 abort 时 reject(模拟慢速挂流)
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () =>
+              new Promise<unknown>((_resolve, reject) => {
+                signal.addEventListener('abort', () =>
+                  reject(
+                    Object.assign(new Error('The operation was aborted'), { name: 'AbortError' })
+                  )
+                );
+              }),
+          } as unknown as Response);
+        });
+        const p = getContainerLogs(BASE, KEY, PROXY, 'c:1');
+        await vi.advanceTimersByTimeAsync(15000);
+        const r = await p;
+        expect(r.success).toBe(false);
+        expect(r.error).toBe('获取日志超时 (15000ms)');
+      } finally {
+        vi.useRealTimers();
+      }
     });
   });
 

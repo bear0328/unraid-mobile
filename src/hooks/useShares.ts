@@ -40,6 +40,15 @@ export interface UseSharesResult {
 const FILES_PATH_SUFFIX = '/files/user';
 const DAV_PATH_SUFFIX = '/dav';
 
+// 【续 88 2026-08-08】导航 URL 逐段 encodeURIComponent:encodeURI 不转义 # ? %,
+// 目录名含这些字符时路由截断(hash/search)/解码错;空段(开头/连续/结尾斜杠)滤掉
+const encodePathSegments = (p: string): string =>
+  p
+    .split('/')
+    .filter(Boolean)
+    .map(encodeURIComponent)
+    .join('/');
+
 export function useShares(): UseSharesResult {
   // 路径是相对于 /user/ 的。例如 'photos/bear/'。空串表示 user 共享根
   // 【续 42.5 2026-06-19】path 完全由 URL pathname 推导(去掉 /shares/ 前缀)
@@ -81,14 +90,20 @@ export function useShares(): UseSharesResult {
     [filesUrl, davUrl]
   );
 
+  // 【续 88 2026-08-08】fetchDir 竞态防护:快速 A→B 导航时 A 的响应晚到会覆盖 B 的列表。
+  // 每次调用自增 seq,只有最后一次调用允许落 state(items/error/loading)
+  const fetchSeqRef = useRef(0);
   const fetchDir = useCallback(
     async (dirPath: string) => {
+      const seq = ++fetchSeqRef.current;
+      const isLatest = () => seq === fetchSeqRef.current;
       setLoading(true);
       setError(null);
       try {
         // 根目录 = unRAID 全部 share（从 GraphQL 获取）
         if (dirPath === '') {
           const result = await api.getShares();
+          if (!isLatest()) return;
           if (!result || result.length === 0) {
             throw new Error('未获取到共享列表');
           }
@@ -111,19 +126,24 @@ export function useShares(): UseSharesResult {
         // 子目录 = nginx autoindex（解析逻辑在 parseAutoindexHtml）
         // 【续 50】/files 已加 auth_basic,走 davFetch 自动带 Authorization(401 有友好提示)
         const response = await davFetch(paths.toFilesPath(dirPath));
+        if (!isLatest()) return;
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}`);
         }
 
         const text = await response.text();
+        if (!isLatest()) return;
         setItems(parseAutoindexHtml(text, dirPath));
         // 【续 74】真实刷新成功 → 更新全局「上次刷新」时间
         markRefreshed();
       } catch (err) {
+        if (!isLatest()) return;
         const msg = err instanceof Error ? err.message : String(err);
         setError(msg);
       } finally {
-        setLoading(false);
+        if (isLatest()) {
+          setLoading(false);
+        }
       }
     },
     [api, paths]
@@ -146,7 +166,8 @@ export function useShares(): UseSharesResult {
     (item: FileItem) => {
       if (item.isDir) {
         // 【续 42.5 2026-06-19】改 URL → 触发 router re-render → useShares 重读 pathname
-        navigate('/shares/' + encodeURI(item.path.replace(/\/+$/, '')));
+        // 【续 88 2026-08-08】逐段 encodeURIComponent(原 encodeURI 不转义 # ? %)
+        navigate('/shares/' + encodePathSegments(item.path));
       }
     },
     [navigate]
@@ -158,7 +179,8 @@ export function useShares(): UseSharesResult {
     parts.pop();
     const parent = parts.length > 0 ? parts.join('/') + '/' : '';
     // 【续 42.5】改 URL
-    const newPath = parent ? '/shares/' + encodeURI(parent.replace(/\/+$/, '')) : '/shares';
+    // 【续 88 2026-08-08】逐段 encodeURIComponent(原 encodeURI 不转义 # ? %)
+    const newPath = parent ? '/shares/' + encodePathSegments(parent) : '/shares';
     navigate(newPath);
   }, [path, navigate]);
 
@@ -166,8 +188,9 @@ export function useShares(): UseSharesResult {
   // 之后 refresh() 会拉错目录)
   const navigateToPath = useCallback(
     (p: string) => {
-      const clean = p.replace(/\/+$/, '');
-      navigate(clean ? '/shares/' + encodeURI(clean) : '/shares');
+      // 【续 88 2026-08-08】逐段 encodeURIComponent(原 encodeURI 不转义 # ? %)
+      const encoded = encodePathSegments(p);
+      navigate(encoded ? '/shares/' + encoded : '/shares');
     },
     [navigate]
   );

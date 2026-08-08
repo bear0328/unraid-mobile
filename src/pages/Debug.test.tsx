@@ -106,6 +106,31 @@ describe('Debug 页面', () => {
     expect(http500s.length).toBeGreaterThanOrEqual(4);
   });
 
+  // 【续 88 2026-08-08】shares 查询只留 name comment:带 size/free 会 shfs stat
+  // share 根目录唤醒休眠盘(见 healthCheck.ts checkFiles 注释)
+  it('shares 查询不带 size/free 字段(防唤盘)', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(
+      async () =>
+        new Response(JSON.stringify({ data: { ok: true } }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+    );
+    render(<Debug />);
+    await waitFor(() => {
+      expect(screen.getByText('API 诊断工具 (GraphQL)')).toBeInTheDocument();
+    });
+    const sharesCall = fetchSpy.mock.calls.find(([, init]) =>
+      String((init as RequestInit | undefined)?.body ?? '').includes('shares')
+    );
+    expect(sharesCall).toBeDefined();
+    const body = String((sharesCall![1] as RequestInit).body);
+    expect(body).toContain('name');
+    expect(body).toContain('comment');
+    expect(body).not.toContain('size');
+    expect(body).not.toContain('free');
+  });
+
   it('无错误日志(count=0) → 显示"暂无错误"提示 + 注入测试按钮', async () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(
       async () => new Response('{}', { status: 200 })

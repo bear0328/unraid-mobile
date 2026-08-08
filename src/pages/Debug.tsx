@@ -151,12 +151,12 @@ export default function Debug() {
       },
       {
         name: 'shares',
+        // 【续 88 2026-08-08】去掉 size/free 字段:带这两个字段时 shfs 会 stat 每个 share
+        // 根目录,唤醒休眠的机械盘(实测结论,见 services/unraidApi/healthCheck.ts checkFiles 注释)
         query: `query {
           shares {
             name
             comment
-            size
-            free
           }
         }`,
       },

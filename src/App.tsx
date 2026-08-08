@@ -12,6 +12,7 @@ import { lazy, Suspense, useEffect, useState } from 'react';
 import { ThemeProvider } from './context/ThemeContext';
 import { getApiConfig, loadConfigFromFile, saveApiConfig, subscribeApiConfigChange } from './services/unraidApi';
 import { checkServerBinding } from './services/licenseBinding';
+import { getLicenseState, subscribeLicense } from './services/license';
 import { useApiHealth } from './hooks/useApiHealth';
 
 // Code splitting: 5 个 tab 拆 chunk(续 27 删 /vms,容器和 VM 合并到 /containers)
@@ -91,6 +92,18 @@ function App() {
     return subscribeApiConfigChange(() => {
       if (getApiConfig()) setNeedsSetup(false);
       checkServerBinding();
+    });
+  }, []);
+
+  // 【续 88 2026-08-08】修绑机竞态:main.tsx 是 void initLicense() 不等待,上面启动检查跑时
+  // license 大概率仍是 'none'(crypto.subtle 验签异步未完成),checkServerBinding 对 'none'
+  // 直接放行;之后 initLicense 把绑了他机的 key 置 'active' 却再无重查 → 整会话 Pro 误解锁。
+  // 订阅 license 状态:变 'active' 即重跑绑机检查,与上面 subscribeApiConfigChange 订阅并存。
+  // 只对 'active' 反应:mismatch 由 checkServerBinding 自己翻转(结果已是最新,无需重查),
+  // 检查通过时 setServerMismatch 不改状态不再通知,两条路都收敛、不会循环。
+  useEffect(() => {
+    return subscribeLicense(() => {
+      if (getLicenseState().status === 'active') checkServerBinding();
     });
   }, []);
 

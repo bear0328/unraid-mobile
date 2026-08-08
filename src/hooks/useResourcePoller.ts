@@ -107,6 +107,10 @@ export function useResourcePoller<T extends ResourceItem>(opts: Options<T>): voi
       if (stateRef.current.missedTicks > 0) {
         stateRef.current.missedTicks = 0;
         stateRef.current.tick?.();
+      } else {
+        // 【续 88 2026-08-08】补 else:tab 隐藏时挂起 timer 被 visibility 处理器清掉但
+        // missedTicks 未加,切回 30s 内活跃时必须重新调度,否则轮询永久停(与 onIdle 对齐)
+        stateRef.current.scheduleNext?.();
       }
     },
   });

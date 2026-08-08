@@ -200,4 +200,25 @@ describe('ContainerDetailsModal', () => {
     // 仅 header 的 ×(aria-label=关闭)一个关闭控件,不再有额外按钮
     expect(screen.getAllByRole('button', { name: '关闭' })).toHaveLength(1);
   });
+
+  // ==================== 【续 88】链接 scheme 白名单 ====================
+
+  it('【续 88】危险 scheme(javascript:)的模板链接不渲染,合法 https 正常渲染', async () => {
+    const api = makeApi({
+      success: true,
+      data: {
+        ...detailPayload,
+        webUiUrl: 'javascript:alert(1)',
+        projectUrl: 'javascript:alert(2)',
+        supportUrl: 'https://example.com/support',
+      },
+    });
+    render(<ContainerDetailsModal container={container} api={api} onClose={() => {}} />);
+    // 等详情区渲染到位(合法 https 的 supportUrl 应出现)
+    const supportLink = await screen.findByRole('link', { name: /支持/ });
+    expect(supportLink).toHaveAttribute('href', 'https://example.com/support');
+    // javascript: 的 WebUI 按钮 / 项目主页链接不渲染
+    expect(screen.queryByRole('link', { name: /打开 Web UI/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /项目主页/ })).not.toBeInTheDocument();
+  });
 });

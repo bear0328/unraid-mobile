@@ -97,7 +97,9 @@ export default function ComposeStacks({ refreshSignal = 0, onLoadingChange }: Co
   const handleRefresh = useCallback(async () => {
     setLoading(true);
     // 【续 68.2】刷新同时重算容器更新状态(失效 30min 缓存)
+    // 【续 88 2026-08-08】一并失效 'containerDetails':更新徽章也是详情字段
     invalidateNamespace('containers');
+    invalidateNamespace('containerDetails');
     // 【续 50 C10】成功才弹"已刷新";失败弹错误,不再无条件报成功
     const ok = await load();
     if (ok) {

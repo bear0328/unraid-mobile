@@ -25,6 +25,10 @@ export function useWebVitals(): Vitals {
   useEffect(() => {
     if (typeof window === 'undefined' || typeof PerformanceObserver === 'undefined') return;
 
+    // 【续 88 2026-08-08】收集 observer 引用,unmount 统一 disconnect
+    // (原来从不 disconnect,且只在 Chromium memory 分支 return cleanup → 3 个 observer 泄漏)
+    const observers: PerformanceObserver[] = [];
+
     // FCP / LCP
     let lcpValue = 0;
     try {
@@ -38,6 +42,8 @@ export function useWebVitals(): Vitals {
           }
         }
       });
+      // 创建后立即入列:即便后续 observe 抛错,cleanup 也会 disconnect
+      observers.push(po);
       po.observe({ type: 'largest-contentful-paint', buffered: true });
       po.observe({ type: 'paint', buffered: true });
     } catch {
@@ -56,6 +62,7 @@ export function useWebVitals(): Vitals {
           }
         }
       });
+      observers.push(clsObserver);
       clsObserver.observe({ type: 'layout-shift', buffered: true });
     } catch {
       // 忽略
@@ -73,6 +80,7 @@ export function useWebVitals(): Vitals {
           }
         }
       });
+      observers.push(inpObserver);
       inpObserver.observe({
         type: 'event',
         buffered: true,
@@ -86,12 +94,13 @@ export function useWebVitals(): Vitals {
     const memory = (
       performance as Performance & { memory?: { usedJSHeapSize: number; totalJSHeapSize: number } }
     ).memory;
+    let memoryTimer: ReturnType<typeof setInterval> | undefined;
     if (memory) {
       setVitals((v) => ({
         ...v,
         memory: { usedJSHeapSize: memory.usedJSHeapSize, totalJSHeapSize: memory.totalJSHeapSize },
       }));
-      const t = setInterval(() => {
+      memoryTimer = setInterval(() => {
         setVitals((v) => ({
           ...v,
           memory: memory.usedJSHeapSize
@@ -99,9 +108,13 @@ export function useWebVitals(): Vitals {
             : null,
         }));
       }, 5000);
-      // cleanup
-      return () => clearInterval(t);
     }
+
+    // 【续 88 2026-08-08】统一 cleanup:disconnect 全部 observer + 清 memory interval
+    return () => {
+      for (const po of observers) po.disconnect();
+      if (memoryTimer) clearInterval(memoryTimer);
+    };
   }, []);
 
   return vitals;

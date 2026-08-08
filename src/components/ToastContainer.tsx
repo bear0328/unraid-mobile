@@ -2,7 +2,7 @@
 // 挂在 App 顶层(Layout 之外,fixed top-right)
 // 监听 useToast 的事件总线,自动消失
 // 支持可选 action 按钮(用于 "撤销" 等交互)
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import { CheckCircle2, XCircle, Info, AlertTriangle, X, type LucideIcon } from 'lucide-react';
 import { useToastList, type ToastItem, type ToastType } from '../hooks/useToast';
 import Icon from './ui/Icon';
@@ -21,7 +21,11 @@ const COLOR: Record<ToastType, string> = {
   warning: 'bg-yellow-500 text-white',
 };
 
-function ToastView({ toast, onClose }: { toast: ToastItem; onClose: () => void }) {
+function ToastView({ toast, onRemove }: { toast: ToastItem; onRemove: (id: string) => void }) {
+  // 【续 88 2026-08-08】onClose 在内部用 useCallback 组装稳定引用:
+  // 旧写法父级传行内箭头 () => remove(t.id),容器每次重渲染都是新引用,
+  // 下面 effect 重跑 → 所有现存 toast 的自动消失计时被重置
+  const onClose = useCallback(() => onRemove(toast.id), [onRemove, toast.id]);
   // 自动消失
   useEffect(() => {
     if (toast.duration <= 0) return;
@@ -73,7 +77,7 @@ export default function ToastContainer() {
     >
       {toasts.map((t) => (
         <div key={t.id} style={{ pointerEvents: 'auto' }}>
-          <ToastView toast={t} onClose={() => remove(t.id)} />
+          <ToastView toast={t} onRemove={remove} />
         </div>
       ))}
     </div>

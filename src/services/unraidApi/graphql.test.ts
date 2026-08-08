@@ -114,6 +114,37 @@ describe('graphqlRequest', () => {
     expect(result.error).toBe('NetworkError');
   });
 
+  // 【续 88 2026-08-08】回归:超时保护覆盖到响应体读取阶段(clearTimeout 挪进 finally)。
+  // 旧实现响应头一到就 clearTimeout,慢速挂流响应的 text() 可无限挂起
+  it('慢速挂流响应:body 读取阶段超时 → 报 Endpoint timeout', async () => {
+    vi.useFakeTimers();
+    try {
+      fetchSpy.mockImplementationOnce((_url, init) => {
+        const signal = (init as RequestInit).signal!;
+        // body 永远不出来,只在 abort 时 reject(模拟慢速挂流)
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          text: () =>
+            new Promise<string>((_resolve, reject) => {
+              signal.addEventListener('abort', () =>
+                reject(
+                  Object.assign(new Error('The operation was aborted'), { name: 'AbortError' })
+                )
+              );
+            }),
+        } as unknown as Response);
+      });
+      const p = graphqlRequest('/graphql', 'k', 'query', undefined, { timeoutMs: 5000 });
+      await vi.advanceTimersByTimeAsync(5000);
+      const result = await p;
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Endpoint timeout (5000ms)');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('成功响应时写入 cache(namespace 传了)', async () => {
     fetchSpy.mockResolvedValueOnce(makeResponse({ data: { v: 1 } }));
     await graphqlRequest('/graphql', 'k', 'q', undefined, { namespace: 'test-ns' });

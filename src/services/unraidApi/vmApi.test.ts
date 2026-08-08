@@ -85,15 +85,18 @@ describe('vmApi', () => {
   // 【续 50 B1】VM mutation 成功后必须失效 vms cache(30min TTL),containers 不受影响
   describe('mutation 后 cache 失效(续 50 B1)', () => {
     it.each(['startVm', 'stopVm', 'pauseVm', 'resumeVm', 'rebootVm'])(
-      '%s 成功 → vms cache 清除,containers cache 不受影响',
+      '%s 成功 → vms + vmDetails cache 清除,containers cache 不受影响',
       async (fn) => {
         setCache(getCacheKey('vms'), { stale: true });
+        setCache(getCacheKey('vmDetails'), { stale: true });
         setCache(getCacheKey('containers'), { stale: true });
         fetchSpy.mockResolvedValueOnce(mockFetchOnce({ data: {} }));
         // @ts-expect-error 动态调用同形式函数
         const r = await vmApi[fn](BASE, KEY, PROXY, 'uuid-x');
         expect(r.success).toBe(true);
         expect(getCache(getCacheKey('vms'))).toBeNull();
+        // 【续 88】详情独立 namespace 也随 mutation 失效(state 是详情字段)
+        expect(getCache(getCacheKey('vmDetails'))).toBeNull();
         expect(getCache(getCacheKey('containers'))).not.toBeNull();
       }
     );
@@ -143,6 +146,32 @@ describe('vmApi', () => {
       );
       const r = await vmApi.getVmDetails(BASE, KEY, PROXY, 'xxx');
       expect(r).toEqual({ success: false, error: '虚拟机不存在' });
+    });
+
+    // 【续 88 2026-08-08】回归:getVmDetails 用独立 'vmDetails' namespace,
+    // 不再与 getVMs 的 'vms' 缓存串形(列表 domains 含 id 无 uuid,
+    // 旧实现先列表后详情必返「虚拟机不存在」)
+    it('先 getVMs 后 getVmDetails 不串缓存(独立 namespace)', async () => {
+      // getVMs 写入 'vms' 缓存:domains 只有 id,无 uuid 字段
+      fetchSpy.mockResolvedValueOnce(
+        mockFetchOnce({
+          data: {
+            vms: { domains: [{ id: 'srv-1:uuid-aaa', name: 'win11', state: 'RUNNING' }] },
+          },
+        })
+      );
+      await vmApi.getVMs(BASE, KEY, PROXY);
+
+      // getVmDetails 应绕过 'vms' 缓存真实发请求,按 uuid 命中详情
+      fetchSpy.mockResolvedValueOnce(
+        mockFetchOnce({
+          data: { vms: { domains: [{ name: 'win11', uuid: 'uuid-aaa', state: 'RUNNING' }] } },
+        })
+      );
+      const r = await vmApi.getVmDetails(BASE, KEY, PROXY, 'uuid-aaa');
+      expect(r.success).toBe(true);
+      expect(r.data).toMatchObject({ uuid: 'uuid-aaa' });
+      expect(fetchSpy).toHaveBeenCalledTimes(2); // 详情没吃列表的旧缓存
     });
   });
 });

@@ -263,8 +263,11 @@ export function useFileActions({
         a.download = item.name;
         document.body.appendChild(a);
         a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        // 【续 88 2026-08-08】延迟 revoke:iOS Safari 立即 revoke 会静默取消下载(同 FavoritesCard 教训)
+        setTimeout(() => {
+          if (a.parentNode) document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }, 1000);
       } catch (err) {
         toast.error(`下载失败: ${(err as Error).message}`);
       }

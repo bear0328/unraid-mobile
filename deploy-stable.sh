@@ -186,9 +186,8 @@ deploy_simple() {
   run_remote "cd ${REMOTE_DIR} && if [ -d dist ]; then cp -a dist dist-prev-\$(date +%Y%m%d-%H%M); fi; ls -1d dist-prev-* 2>/dev/null | sort | head -n -3 | xargs -r rm -rf"
   rsync -avz --delete --partial --progress -e "ssh -i ${SSH_KEY} -p ${SSH_PORT}" ./dist/ "${SSH_USER}@${SSH_HOST}:${REMOTE_DIR}/dist/"
 
-  log "Syncing nginx.conf to remote..."
-  rsync -avz -e "ssh -i ${SSH_KEY} -p ${SSH_PORT}" ./nginx.conf "${SSH_USER}@${SSH_HOST}:${REMOTE_DIR}/"
-
+  # 【续 88 2026-08-08】根目录 nginx.conf 已删(过时的 simple dev 配置),不再同步;
+  # dev 容器 nginx 配置走 appdata 的 bind mount(docker-compose.dev.yml + nginx/nginx.conf)
   log "Restarting remote container '${CONTAINER_NAME}'..."
   # 先 inspect 再 restart:容器不存在时不要假成功(以前用 || true 会掩盖错误)
   if run_remote "docker inspect ${CONTAINER_NAME} >/dev/null 2>&1"; then

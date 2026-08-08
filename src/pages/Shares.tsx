@@ -24,6 +24,7 @@ import { FileListSkeleton, FileListError, EmptyFolder } from '../components/shar
 import { useShares } from '../hooks/useShares';
 import { useFileUpload } from '../hooks/useFileUpload';
 import { useFileActions } from '../hooks/useFileActions';
+import { useFavorites } from '../hooks/useFavorites';
 import { useToast } from '../hooks/useToast';
 import { useDialog } from '../hooks/useDialog';
 import { usePro } from '../hooks/usePro';
@@ -75,6 +76,14 @@ export default function Shares() {
   const dialog = useDialog();
   // 文件操作 hook（handlers + modal state）
   const actions = useFileActions({ path, paths, fetchDir, dialog });
+
+  // 【续 88 2026-08-08】favorites 订阅上提到列表层,只此一份:
+  // 原来每个 FileRow 各自 useFavorites(),N 行 = N 订阅 + N 份 state,收藏增删全表重渲
+  const { toggle: toggleFavorite, isFavorite } = useFavorites();
+  const handleToggleFavorite = useCallback(
+    (item: FileItem) => toggleFavorite({ kind: 'path', value: item.path, label: item.name }),
+    [toggleFavorite]
+  );
 
   // 上传 hook（队列 + 拖拽）
   const toast = useToast();
@@ -269,6 +278,8 @@ export default function Shares() {
                 onMove={actions.openMove}
                 onDelete={actions.handleDelete}
                 onEdit={setEditItem}
+                faved={item.isDir && isFavorite('path', item.path)}
+                onToggleFavorite={handleToggleFavorite}
               />
             ))}
           </div>

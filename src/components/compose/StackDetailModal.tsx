@@ -133,7 +133,10 @@ export default function StackDetailModal({ stackName, onClose, onChanged }: Prop
               stopPolling();
               setBusyOp(null);
               // 【续 68.2】异步 op(pull/rebuild)结束 → 失效容器缓存,重算「更新」徽章
+              // 【续 88 2026-08-08】一并失效 'containerDetails':pull/rebuild 换镜像,
+              // 详情字段(镜像/状态/更新徽章)不能再用旧缓存
               invalidateNamespace('containers');
+              invalidateNamespace('containerDetails');
               // 【续 50 C7】?action=log 只回 {log, running},成败要看 stack.lastResult:
               // 后端异步命令先写 last_result.json 再删 .op-running,故此时读到的必是本次结果。
               // 不再无条件报成功 — pull 失败也弹"完成"的 bug 修这里
@@ -195,7 +198,9 @@ export default function StackDetailModal({ stackName, onClose, onChanged }: Prop
           toast.success(`${OP_LABEL[op]}成功`);
           setBusyOp(null);
           // 【续 68.2】同步 op(up/down/restart)成功 → 失效容器缓存,重算「更新」徽章
+          // 【续 88 2026-08-08】一并失效 'containerDetails':up/down/restart 改容器状态
           invalidateNamespace('containers');
+          invalidateNamespace('containerDetails');
           void load(stackName);
           onChanged();
         } else {

@@ -70,6 +70,8 @@ if ($stored === '') {
 }
 $provided = $_SERVER['HTTP_X_API_KEY'] ?? '';
 if (!is_string($provided) || $provided === '') {
+    // 【续 88 2026-08-08】认证失败也进审计日志(此前只记动作成败,401 无痕迹)
+    audit('auth', '-', 'fail');
     fail(401, '未授权: X-Api-Key 无效');
 }
 // 【续 60】文件格式自描述前缀: `sha256:<64hex>` = 哈希存储(新装),否则 = 旧明文(兼容)。
@@ -81,6 +83,7 @@ if (str_starts_with($stored, 'sha256:')) {
     $ok = hash_equals($stored, $provided);
 }
 if (!$ok) {
+    audit('auth', '-', 'fail');
     fail(401, '未授权: X-Api-Key 无效');
 }
 
@@ -285,20 +288,35 @@ function stackSummary(string $dirName, array $lsMap, array $pcMap = []): array
 function runComposeSync(string $dir, string $op, string $args): array
 {
     set_time_limit(300);
-    $cmd = sprintf('cd %s && %s %s compose %s 2>&1', escapeshellarg($dir), PATH_ENV, DOCKER, $args);
-    $lines = [];
-    $exitCode = 1;
-    exec($cmd, $lines, $exitCode);
-    $output = implode("\n", $lines);
-    file_put_contents($dir . '/last_cmd.log', $output);
-    $result = [
-        'result' => $exitCode === 0 ? 'success' : 'error',
-        'exit_code' => $exitCode,
-        'operation' => $op,
-        'timestamp' => date('c'),
-    ];
-    file_put_contents($dir . '/last_result.json', json_encode($result));
-    return [$exitCode, $output];
+    // 【续 88 2026-08-08】同步操作(up/down/restart)接入与异步同一把 .op-running 锁:
+    // 此前 sync 完全不感知锁,可与进行中的 pull/rebuild 并发跑同一栈,
+    // last_cmd.log/last_result.json 双写互覆。锁存在即 409,执行期间持锁,finally 兜底释放
+    $lockFile = $dir . '/.op-running';
+    $lock = @fopen($lockFile, 'x');
+    if ($lock === false) {
+        audit($op, basename($dir), 'fail');
+        fail(409, '该栈有操作正在进行中,请等待完成');
+    }
+    fwrite($lock, $op);
+    fclose($lock);
+    try {
+        $cmd = sprintf('cd %s && %s %s compose %s 2>&1', escapeshellarg($dir), PATH_ENV, DOCKER, $args);
+        $lines = [];
+        $exitCode = 1;
+        exec($cmd, $lines, $exitCode);
+        $output = implode("\n", $lines);
+        file_put_contents($dir . '/last_cmd.log', $output);
+        $result = [
+            'result' => $exitCode === 0 ? 'success' : 'error',
+            'exit_code' => $exitCode,
+            'operation' => $op,
+            'timestamp' => date('c'),
+        ];
+        file_put_contents($dir . '/last_result.json', json_encode($result));
+        return [$exitCode, $output];
+    } finally {
+        @unlink($lockFile);
+    }
 }
 
 /**

@@ -162,3 +162,51 @@ describe('useResourcePoller (续 50 C12 deps 稳定化)', () => {
     expect(fetcher).toHaveBeenCalledTimes(2); // 正常 poll tick 仍按节拍走
   });
 });
+
+// 【续 88 2026-08-08】onActive else 分支回归:tab 隐藏清掉挂起 timer(missedTicks 未加),
+// 切回后 30s 内活跃必须重新调度轮询(修复前 onActive 什么都不做 → 轮询永久停)
+describe('useResourcePoller (续 88 onActive else 回归)', () => {
+  const setHidden = (hidden: boolean) => {
+    Object.defineProperty(document, 'hidden', { value: hidden, configurable: true });
+    document.dispatchEvent(new Event('visibilitychange'));
+  };
+
+  afterEach(() => {
+    // 恢复 document.hidden,避免污染同文件其他测试
+    Object.defineProperty(document, 'hidden', { value: false, configurable: true });
+  });
+
+  it('tab 隐藏(有挂起 timer)→ 切回 → 30s 内触发活跃 → 轮询继续调度', async () => {
+    const fetcher = vi.fn(async () => [{ id: 'a', state: 'running' }]);
+    renderHook(() =>
+      useResourcePoller({
+        enabled: true,
+        fetcher,
+        keyOf: (i: Item) => i.id,
+        stateOf: (i: Item) => i.state,
+        baselineKey: BASELINE,
+        cooldownKey: COOLDOWN,
+        cooldownMs: 1000,
+        pollMs: 50,
+        resumeDelayMs: 30_000,
+      })
+    );
+    await vi.advanceTimersByTimeAsync(0); // mount tick,此后挂起 50ms 的 poll timer
+    expect(fetcher).toHaveBeenCalledTimes(1);
+
+    // tab 隐藏:visibility 处理器清掉挂起 timer(missedTicks 不增加)
+    setHidden(true);
+    await vi.advanceTimersByTimeAsync(500);
+    expect(fetcher).toHaveBeenCalledTimes(1); // 轮询已停
+
+    // 切回 tab:useResumeActivity 启动 30s 倒计时 + 用户活跃监听
+    setHidden(false);
+    // 30s 内用户操作 → onActive(missedTicks===0 走 else:scheduleNext 重新调度)
+    window.dispatchEvent(new Event('pointerdown'));
+
+    await vi.advanceTimersByTimeAsync(60);
+    expect(fetcher).toHaveBeenCalledTimes(2); // 修复前恒为 1(轮询永久停)
+    await vi.advanceTimersByTimeAsync(60);
+    expect(fetcher).toHaveBeenCalledTimes(3); // 节拍恢复,非只补一次
+  });
+});

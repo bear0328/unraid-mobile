@@ -126,7 +126,16 @@ export function useContainerActions(
     enabled: restartingContainers.size > 0,
     isWaiting: (c) => restartingContainers.has(c.containerId),
     refresh: refreshBypassCache,
-    reached: (c) => c.state === 'running',
+    // 【续 88 2026-08-08】批量结算修正:所有等待容器都回到 running 才算到达
+    // (原只判 find 到的第一个,它一恢复就 onDone(true) 清空整个 restartingContainers,
+    //  其余未恢复的容器被误报"N 个容器已重启完成")
+    reached: () => {
+      for (const id of restartingContainers) {
+        const c = containersRef.current.find((x) => x.containerId === id);
+        if (!c || c.state !== 'running') return false;
+      }
+      return true;
+    },
     find: () => {
       for (const c of containersRef.current) {
         if (restartingContainers.has(c.containerId)) return c;
@@ -135,17 +144,22 @@ export function useContainerActions(
     },
     onDone: (reached) => {
       // 【续 85】重启结束反馈:到达 → success,超时 → warning(对齐 compose 的完成/失败 toast)
-      if (reached) {
-        const ids = Array.from(restartingContainers);
-        if (ids.length <= 1) {
-          toast.success(`「${containerNameOf(ids[0] ?? '')}」重启完成`);
-        } else {
-          toast.success(`${ids.length} 个容器已重启完成`);
-        }
-      } else {
-        toast.warning('重启等待超时,部分容器未恢复运行,请手动确认', 5000);
+      // 【续 88 2026-08-08】超时按实际逐个统计:已恢复 running 的报成功,未恢复的报警告
+      const ids = Array.from(restartingContainers);
+      const recovered = reached
+        ? ids
+        : ids.filter(
+            (id) => containersRef.current.find((c) => c.containerId === id)?.state === 'running'
+          );
+      const pending = ids.length - recovered.length;
+      if (recovered.length === 1 && pending === 0) {
+        toast.success(`「${containerNameOf(recovered[0] ?? '')}」重启完成`);
+      } else if (recovered.length > 0) {
+        toast.success(`${recovered.length} 个容器已重启完成`);
       }
-      // 全部 clear(单资源由 find 返回,此处粗暴清空)
+      if (pending > 0) {
+        toast.warning(`${pending} 个容器重启等待超时,未恢复运行,请手动确认`, 5000);
+      }
       setRestartingContainers(new Set());
     },
   });
@@ -155,7 +169,15 @@ export function useContainerActions(
     enabled: rebootingVms.size > 0,
     isWaiting: (v) => rebootingVms.has(v.vmUuid),
     refresh: refreshBypassCache,
-    reached: (v) => v.state === 'RUNNING',
+    // 【续 88 2026-08-08】与容器 restart 对齐:所有等待 VM 都回到 RUNNING 才算到达,
+    // 超时按实际逐个统计(原 find 到第一个就结算,误报"N 个虚拟机已重启完成")
+    reached: () => {
+      for (const id of rebootingVms) {
+        const v = vmsRef.current.find((x) => x.vmUuid === id);
+        if (!v || v.state !== 'RUNNING') return false;
+      }
+      return true;
+    },
     find: () => {
       for (const v of vmsRef.current) {
         if (rebootingVms.has(v.vmUuid)) return v;
@@ -164,15 +186,20 @@ export function useContainerActions(
     },
     onDone: (reached) => {
       // 【续 85】VM 重启结束反馈,与容器重启对齐
-      if (reached) {
-        const ids = Array.from(rebootingVms);
-        if (ids.length <= 1) {
-          toast.success(`「${vmNameOf(ids[0] ?? '')}」重启完成`);
-        } else {
-          toast.success(`${ids.length} 个虚拟机已重启完成`);
-        }
-      } else {
-        toast.warning('重启等待超时,部分虚拟机未恢复运行,请手动确认', 5000);
+      const ids = Array.from(rebootingVms);
+      const recovered = reached
+        ? ids
+        : ids.filter(
+            (id) => vmsRef.current.find((v) => v.vmUuid === id)?.state === 'RUNNING'
+          );
+      const pending = ids.length - recovered.length;
+      if (recovered.length === 1 && pending === 0) {
+        toast.success(`「${vmNameOf(recovered[0] ?? '')}」重启完成`);
+      } else if (recovered.length > 0) {
+        toast.success(`${recovered.length} 个虚拟机已重启完成`);
+      }
+      if (pending > 0) {
+        toast.warning(`${pending} 个虚拟机重启等待超时,未恢复运行,请手动确认`, 5000);
       }
       setRebootingVms(new Set());
     },

@@ -34,6 +34,8 @@ export default function LicenseSection() {
     }
     const bound = await checkServerBinding();
     if (!bound) {
+      // 【续 88 2026-08-08】绑机不匹配也回滚落盘 key,与下方设备超限分支一致(上面注释自称"任一不过则回滚")
+      clearLicense();
       setBusy(false);
       toast.error('此 key 绑定的是另一台 unRAID 服务器(flashGuid 不匹配),无法在本机使用');
       return;

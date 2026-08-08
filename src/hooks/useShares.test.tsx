@@ -285,4 +285,157 @@ describe('useShares', () => {
     expect(result.current.paths.toDavPath('photos/')).toMatch(/\/dav\/photos\/$/);
     expect(result.current.paths.toDavPath('')).toMatch(/\/dav\/$/);
   });
+
+  // 【续 88 2026-08-08】fetchDir 竞态防护:快速 A→B 导航,A 晚到不得覆盖 B 的列表
+  it('fetchDir 竞态:A→B 连续调用,B 先回 A 晚回 → 只接受 B 的结果', async () => {
+    // autoindex 请求挂起,由测试手动控制两路 resolve 顺序
+    const pending: Array<{ url: string; resolve: (r: Response) => void }> = [];
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/graphql')) {
+        return Promise.resolve(mockJsonResponse(GRAPHQL_SHARES_RESPONSE));
+      }
+      return new Promise<Response>((resolve) => pending.push({ url, resolve }));
+    });
+
+    const { result } = renderHook(() => useShares(), { wrapper });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    // 连续调 A(aaa/) → B(bbb/),两路都 pending
+    let pA!: Promise<void>;
+    let pB!: Promise<void>;
+    act(() => {
+      pA = result.current.fetchDir('aaa/');
+      pB = result.current.fetchDir('bbb/');
+    });
+    expect(pending).toHaveLength(2);
+    expect(pending[0].url).toContain('/files/user/aaa/');
+    expect(pending[1].url).toContain('/files/user/bbb/');
+
+    // B 先回 → items 是 B 的内容,loading 落 false
+    await act(async () => {
+      pending[1].resolve(mockTextResponse(autoindexHtml(['b.txt'])));
+      await pB;
+    });
+    expect(result.current.items.map((i) => i.name)).toEqual(['b.txt']);
+    expect(result.current.loading).toBe(false);
+
+    // A 晚回 → 结果被丢弃:items 不变,loading 不被 A 重新拨动
+    await act(async () => {
+      pending[0].resolve(mockTextResponse(autoindexHtml(['a.txt'])));
+      await pA;
+    });
+    expect(result.current.items.map((i) => i.name)).toEqual(['b.txt']);
+    expect(result.current.loading).toBe(false);
+    expect(result.current.error).toBeNull();
+  });
+
+  it('fetchDir 竞态:旧调用失败也不覆盖新调用的结果(error 不落)', async () => {
+    const pending: Array<{ resolve: (r: Response) => void }> = [];
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/graphql')) {
+        return Promise.resolve(mockJsonResponse(GRAPHQL_SHARES_RESPONSE));
+      }
+      return new Promise<Response>((resolve) => pending.push({ resolve }));
+    });
+
+    const { result } = renderHook(() => useShares(), { wrapper });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    let pA!: Promise<void>;
+    let pB!: Promise<void>;
+    act(() => {
+      pA = result.current.fetchDir('aaa/');
+      pB = result.current.fetchDir('bbb/');
+    });
+    // B 先成功
+    await act(async () => {
+      pending[1].resolve(mockTextResponse(autoindexHtml(['b.txt'])));
+      await pB;
+    });
+    // A 晚到且失败 → error 不得落 state
+    await act(async () => {
+      pending[0].resolve(mockTextResponse('oops', 500));
+      await pA;
+    });
+    expect(result.current.error).toBeNull();
+    expect(result.current.items.map((i) => i.name)).toEqual(['b.txt']);
+  });
+
+  // 【续 88 2026-08-08】导航 URL 逐段 encodeURIComponent:# ? % 空格 不再截断/解码错
+  it('navigateTo 目录名含 # ? % 空格 → URL 逐段编码,path 解码回原名', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/graphql')) {
+        return Promise.resolve(mockJsonResponse(GRAPHQL_SHARES_RESPONSE));
+      }
+      return Promise.resolve(mockTextResponse(autoindexHtml([])));
+    });
+
+    const { result } = renderHook(() => useShares(), { wrapper });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    const dirItem: FileItem = {
+      name: 'a#b?c%d e',
+      path: 'photos/a#b?c%d e/',
+      isDir: true,
+      mtime: 0,
+      date: '',
+      permissions: '',
+    };
+    await act(async () => {
+      result.current.navigateTo(dirItem);
+    });
+    // encodeURI 时代 '#' 会把 URL 截成 pathname='/shares/photos/a',path 只剩 'photos/a/';
+    // 逐段编码后完整往返
+    expect(result.current.path).toBe('photos/a#b?c%d e/');
+  });
+
+  it('navigateToPath 含特殊字符 → 逐段编码;空串 → /shares 根', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/graphql')) {
+        return Promise.resolve(mockJsonResponse(GRAPHQL_SHARES_RESPONSE));
+      }
+      return Promise.resolve(mockTextResponse(autoindexHtml([])));
+    });
+
+    const { result } = renderHook(() => useShares(), { wrapper });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await act(async () => {
+      result.current.navigateToPath('photos/we #1/100%/');
+    });
+    expect(result.current.path).toBe('photos/we #1/100%/');
+
+    await act(async () => {
+      result.current.navigateToPath('');
+    });
+    expect(result.current.path).toBe('');
+  });
+
+  it('navigateUp 父路径含特殊字符 → 逐级回退且编码正确', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/graphql')) {
+        return Promise.resolve(mockJsonResponse(GRAPHQL_SHARES_RESPONSE));
+      }
+      return Promise.resolve(mockTextResponse(autoindexHtml([])));
+    });
+
+    const { result } = renderHook(() => useShares(), { wrapper });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    // 先进到 'photos/a#b/'(navigateToPath 编码),再 up 回 'photos/'
+    await act(async () => {
+      result.current.navigateToPath('photos/a#b/');
+    });
+    expect(result.current.path).toBe('photos/a#b/');
+
+    await act(async () => {
+      result.current.navigateUp();
+    });
+    expect(result.current.path).toBe('photos/');
+  });
 });

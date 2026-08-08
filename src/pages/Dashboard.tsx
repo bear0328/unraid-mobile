@@ -231,14 +231,14 @@ export default function Dashboard() {
     [api, isConfigured, disks]
   );
 
-  // 【续 45.7 2026-07-01】手动刷新按钮:只清 CPU/内存/网络 cache,**不**清 disks cache
+  // 【续 45.7 2026-07-01】手动刷新按钮:只清 CPU/内存 cache,**不**清 disks cache
   // refreshDashboard 的 includeDisks=false,本次刷新不会发 getDisks → 不唤盘
   // 用户要看磁盘温度→显式点 DiskCard 上的"刷新磁盘"按钮
+  // 【续 88 2026-08-08】删掉原清 getCacheKey('networks') 死代码:networkApi 已不带
+  // namespace cache,该 key 永不存在(network/spin 本就不带 cache,见下方 polling 注释)
   const handleManualRefresh = useCallback(async () => {
     try {
       localStorage.removeItem(getCacheKey('systemInfo'));
-      // 【续 50 C9】namespace 是 'networks'(networkApi.ts),原 'networkInfo' 清的是不存在的 key
-      localStorage.removeItem(getCacheKey('networks'));
     } catch {
       /* LS 不可用忽略 */
     }

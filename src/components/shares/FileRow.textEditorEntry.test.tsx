@@ -17,13 +17,9 @@ import type { FileItem } from './davAuth';
 // 【续 55 商业化】FileRow 用了 useNavigate(🔒 菜单项跳设置);pro 态恢复"编辑"原入口
 import { __setLicenseStateForTest, __resetLicenseForTest } from '../../services/license';
 
-// FileRow 用到 3 个 hook,先 mock 掉(避免触发真 LS / 真 fetch)
-vi.mock('../../hooks/useFavorites', () => ({
-  useFavorites: () => ({
-    toggle: vi.fn(),
-    isFavorite: () => false,
-  }),
-}));
+// FileRow 用到 2 个 hook,先 mock 掉(避免触发真 LS / 真 fetch)
+// 【续 88 2026-08-08】useFavorites 已不上行内订阅,改由父组件传 faved/onToggleFavorite,
+// 这里不再 mock useFavorites,直接传 props
 vi.mock('../../hooks/useShare', () => ({
   useShare: () => ({
     share: vi.fn(),
@@ -59,6 +55,8 @@ const renderRow = (file: FileItem, onEdit: (item: FileItem) => void) =>
         onMove={noop}
         onDelete={noop}
         onEdit={onEdit}
+        faved={false}
+        onToggleFavorite={noop}
       />
     </MemoryRouter>
   );

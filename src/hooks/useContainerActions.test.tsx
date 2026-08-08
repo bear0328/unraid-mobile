@@ -381,4 +381,157 @@ describe('useContainerActions', () => {
       )
     ).toBe(true);
   });
+
+  // ==== 【续 88 2026-08-08】批量 restart 结算修正 ====
+  // 原 find 只返回第一个等待容器,它一 running 就 onDone(true) 清空整个 set,
+  // 其余未恢复的容器被误报"N 个容器已重启完成"
+
+  const TWO_CONTAINERS: UnraidDockerContainer[] = [
+    {
+      id: 'c1',
+      name: 'nginx',
+      containerId: 'nginx',
+      image: 'nginx:latest',
+      state: 'stopped',
+      status: 'Exited',
+      created: '2026-06-15T12:00:00Z',
+      ports: [],
+    },
+    {
+      id: 'c2',
+      name: 'web',
+      containerId: 'web',
+      image: 'web:latest',
+      state: 'stopped',
+      status: 'Exited',
+      created: '2026-06-15T12:00:00Z',
+      ports: [],
+    },
+  ];
+
+  it('批量 restart:所有等待容器都 running 才结算成功(部分恢复不清算)', async () => {
+    const api = makeApi();
+    const ref = {
+      current: TWO_CONTAINERS.map((c) => ({ ...c })),
+    } as React.MutableRefObject<UnraidDockerContainer[]>;
+    // action 内的 refresh(第 1、2 次)不改状态;wait 轮询第 1 次 nginx 恢复、第 2 次 web 恢复
+    let calls = 0;
+    const refresh = vi.fn().mockImplementation(async () => {
+      calls++;
+      ref.current = ref.current.map((c) => {
+        if (c.containerId === 'nginx' && calls >= 3) return { ...c, state: 'running' as const };
+        if (c.containerId === 'web' && calls >= 4) return { ...c, state: 'running' as const };
+        return c;
+      });
+    });
+    const toasts = renderHook(() => useToastList());
+    const { result } = renderHook(() => useContainerActions(api, refresh, ref, vmsRefObj));
+    await act(async () => {
+      await result.current.handleContainerAction('nginx', 'restart', { silent: true });
+      await result.current.handleContainerAction('web', 'restart', { silent: true });
+    });
+    expect(result.current.restartingContainers.size).toBe(2);
+
+    // 轮询第 1 次:nginx running / web 还 stopped → 不结算(修复前此处已清空 + 误报成功)
+    await act(async () => {
+      vi.advanceTimersByTime(1100);
+    });
+    expect(result.current.restartingContainers.size).toBe(2);
+    expect(toasts.result.current.toasts.some((t) => t.type === 'success')).toBe(false);
+
+    // 轮询第 2 次:web 也 running → 全部到达 → 结算成功
+    await act(async () => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(result.current.restartingContainers.size).toBe(0);
+    expect(
+      toasts.result.current.toasts.some(
+        (t) => t.type === 'success' && t.message === '2 个容器已重启完成'
+      )
+    ).toBe(true);
+  });
+
+  it('批量 restart:部分超时按实际逐个统计(已恢复报成功,未恢复报警告)', async () => {
+    const api = makeApi();
+    const ref = {
+      current: TWO_CONTAINERS.map((c) => ({ ...c })),
+    } as React.MutableRefObject<UnraidDockerContainer[]>;
+    // 只有 nginx 恢复 running,web 一直 stopped
+    const refresh = vi.fn().mockImplementation(async () => {
+      ref.current = ref.current.map((c) =>
+        c.containerId === 'nginx' ? { ...c, state: 'running' as const } : c
+      );
+    });
+    const toasts = renderHook(() => useToastList());
+    const { result } = renderHook(() => useContainerActions(api, refresh, ref, vmsRefObj));
+    await act(async () => {
+      await result.current.handleContainerAction('nginx', 'restart', { silent: true });
+      await result.current.handleContainerAction('web', 'restart', { silent: true });
+    });
+    expect(result.current.restartingContainers.size).toBe(2);
+
+    // 30s 超时:nginx 已恢复 / web 未恢复 → 1 成功 + 1 超时警告
+    await act(async () => {
+      vi.advanceTimersByTime(30500);
+    });
+    expect(result.current.restartingContainers.size).toBe(0);
+    expect(
+      toasts.result.current.toasts.some(
+        (t) => t.type === 'success' && t.message === '1 个容器已重启完成'
+      )
+    ).toBe(true);
+    expect(
+      toasts.result.current.toasts.some(
+        (t) => t.type === 'warning' && t.message === '1 个容器重启等待超时,未恢复运行,请手动确认'
+      )
+    ).toBe(true);
+  });
+
+  // 【续 88 2026-08-08】VM reboot 同款批量结算修正(与容器 restart 对齐)
+  const TWO_VMS: UnraidVM[] = [
+    { id: 'v1', name: 'win11', vmUuid: 'win11', state: 'STOPPED', uuid: 'win11' } as unknown as UnraidVM,
+    { id: 'v2', name: 'ubuntu', vmUuid: 'ubuntu', state: 'STOPPED', uuid: 'ubuntu' } as unknown as UnraidVM,
+  ];
+
+  it('批量 reboot:所有等待 VM 都 RUNNING 才结算成功(部分恢复不清算)', async () => {
+    const api = makeApi();
+    const vref = {
+      current: TWO_VMS.map((v) => ({ ...v })),
+    } as React.MutableRefObject<UnraidVM[]>;
+    // action 内的 refresh(第 1、2 次)不改状态;wait 轮询第 1 次 win11 恢复、第 2 次 ubuntu 恢复
+    let calls = 0;
+    const refresh = vi.fn().mockImplementation(async () => {
+      calls++;
+      vref.current = vref.current.map((v) => {
+        if (v.vmUuid === 'win11' && calls >= 3) return { ...v, state: 'RUNNING' };
+        if (v.vmUuid === 'ubuntu' && calls >= 4) return { ...v, state: 'RUNNING' };
+        return v;
+      });
+    });
+    const toasts = renderHook(() => useToastList());
+    const { result } = renderHook(() => useContainerActions(api, refresh, containersRefObj, vref));
+    await act(async () => {
+      await result.current.handleVmAction('win11', 'reboot', { silent: true });
+      await result.current.handleVmAction('ubuntu', 'reboot', { silent: true });
+    });
+    expect(result.current.rebootingVms.size).toBe(2);
+
+    // 轮询第 1 次:win11 RUNNING / ubuntu 还 STOPPED → 不结算(修复前此处已清空 + 误报成功)
+    await act(async () => {
+      vi.advanceTimersByTime(1100);
+    });
+    expect(result.current.rebootingVms.size).toBe(2);
+    expect(toasts.result.current.toasts.some((t) => t.type === 'success')).toBe(false);
+
+    // 轮询第 2 次:ubuntu 也 RUNNING → 全部到达 → 结算成功
+    await act(async () => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(result.current.rebootingVms.size).toBe(0);
+    expect(
+      toasts.result.current.toasts.some(
+        (t) => t.type === 'success' && t.message === '2 个虚拟机已重启完成'
+      )
+    ).toBe(true);
+  });
 });

@@ -14,6 +14,7 @@
 //   原因:某些 headless 沙箱(Browserbase)patch 了 addEventListener
 import { ApiConfig } from '../types';
 import { clearAllGraphqlCache } from './cache';
+import { stopContainerStatsStream } from './containerStatsStream';
 
 const SERVER_URL_KEY = 'unraid-mobile-server-url'; // 旧格式,继续兼容读取
 const API_KEY_KEY = 'unraid-mobile-api-key'; // 旧格式,继续兼容读取
@@ -28,6 +29,9 @@ const HEALTH_CACHE_KEY = 'unraid-mobile-health-cache';
 /** 清所有服务器维度的 cache(切服务器、active 服务器地址变更时调用) */
 function clearServerScopedCaches(): void {
   clearAllGraphqlCache();
+  // 【续 88 2026-08-08】停掉旧服务器的 stats 订阅流:原来无人调 stop,切服务器后
+  // 旧流常驻 retry(新流要等下次 getStats 才按新 key 重建),白占一条 WS 连接
+  stopContainerStatsStream();
   try {
     localStorage.removeItem(DASHBOARD_CACHE_KEY);
     localStorage.removeItem(HEALTH_CACHE_KEY);

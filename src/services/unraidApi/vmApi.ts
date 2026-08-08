@@ -54,8 +54,11 @@ export async function startVm(
   const endpoint = buildGraphqlEndpoint(baseUrl, useProxy);
   const result = await graphqlRequest(endpoint, apiKey, START_VM_MUTATION, { id: prefixedId });
   // 【续 50 B1】mutation 成功后失效 vms 的 30min cache,防操作后 UI 显示旧状态
+  // 【续 88 2026-08-08】一并失效 'vmDetails':VM_DETAILS_QUERY 含 state,
+  // 否则操作后详情弹窗命中旧缓存,字段最长陈旧 30min
   if (result.success) {
     invalidateNamespace('vms');
+    invalidateNamespace('vmDetails');
     return { success: true };
   }
   return { success: false, error: result.error || '启动失败' };
@@ -71,8 +74,11 @@ export async function stopVm(
   const endpoint = buildGraphqlEndpoint(baseUrl, useProxy);
   const result = await graphqlRequest(endpoint, apiKey, STOP_VM_MUTATION, { id: prefixedId });
   // 【续 50 B1】mutation 成功后失效 vms 的 30min cache,防操作后 UI 显示旧状态
+  // 【续 88 2026-08-08】一并失效 'vmDetails':VM_DETAILS_QUERY 含 state,
+  // 否则操作后详情弹窗命中旧缓存,字段最长陈旧 30min
   if (result.success) {
     invalidateNamespace('vms');
+    invalidateNamespace('vmDetails');
     return { success: true };
   }
   return { success: false, error: result.error || '停止失败' };
@@ -88,8 +94,11 @@ export async function pauseVm(
   const endpoint = buildGraphqlEndpoint(baseUrl, useProxy);
   const result = await graphqlRequest(endpoint, apiKey, PAUSE_VM_MUTATION, { id: prefixedId });
   // 【续 50 B1】mutation 成功后失效 vms 的 30min cache,防操作后 UI 显示旧状态
+  // 【续 88 2026-08-08】一并失效 'vmDetails':VM_DETAILS_QUERY 含 state,
+  // 否则操作后详情弹窗命中旧缓存,字段最长陈旧 30min
   if (result.success) {
     invalidateNamespace('vms');
+    invalidateNamespace('vmDetails');
     return { success: true };
   }
   return { success: false, error: result.error || '暂停失败' };
@@ -105,8 +114,11 @@ export async function resumeVm(
   const endpoint = buildGraphqlEndpoint(baseUrl, useProxy);
   const result = await graphqlRequest(endpoint, apiKey, RESUME_VM_MUTATION, { id: prefixedId });
   // 【续 50 B1】mutation 成功后失效 vms 的 30min cache,防操作后 UI 显示旧状态
+  // 【续 88 2026-08-08】一并失效 'vmDetails':VM_DETAILS_QUERY 含 state,
+  // 否则操作后详情弹窗命中旧缓存,字段最长陈旧 30min
   if (result.success) {
     invalidateNamespace('vms');
+    invalidateNamespace('vmDetails');
     return { success: true };
   }
   return { success: false, error: result.error || '恢复失败' };
@@ -122,8 +134,11 @@ export async function rebootVm(
   const endpoint = buildGraphqlEndpoint(baseUrl, useProxy);
   const result = await graphqlRequest(endpoint, apiKey, REBOOT_VM_MUTATION, { id: prefixedId });
   // 【续 50 B1】mutation 成功后失效 vms 的 30min cache,防操作后 UI 显示旧状态
+  // 【续 88 2026-08-08】一并失效 'vmDetails':VM_DETAILS_QUERY 含 state,
+  // 否则操作后详情弹窗命中旧缓存,字段最长陈旧 30min
   if (result.success) {
     invalidateNamespace('vms');
+    invalidateNamespace('vmDetails');
     return { success: true };
   }
   return { success: false, error: result.error || '重启失败' };
@@ -155,8 +170,11 @@ export async function getVmDetails(
 ): Promise<{ success: boolean; data?: unknown; error?: string }> {
   const endpoint = buildGraphqlEndpoint(baseUrl, useProxy);
   try {
+    // 【续 88 2026-08-08】namespace 改独立 'vmDetails':VM_DETAILS_QUERY(domains 含 uuid)
+    // 与 VMS_QUERY(domains 含 id)字段集不同,共用 'vms' 缓存会串形 — 先列表后详情必返
+    // 「虚拟机不存在」(同 dockerApi 详情用独立 'containerDetails' 的防串形套路)
     const result = await graphqlRequest(endpoint, apiKey, VM_DETAILS_QUERY, undefined, {
-      namespace: 'vms',
+      namespace: 'vmDetails',
     });
 
     if (

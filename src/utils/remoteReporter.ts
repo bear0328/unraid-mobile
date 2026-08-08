@@ -2,6 +2,7 @@
 // 复用 webhook 通道,LS 配置 + 阈值 + 冷却
 // 监测项:LCP/CLS/INP 越界 + 错误密度 spike
 // 触发时 sendWebhook(WebhookConfig=global),同一类告警 cooldownMs 内不重发
+// 【续 88 2026-08-08】删 omitStack 死配置(三元两分支完全相同),error-spike 明细恒不含 stack
 import { getWebhookConfig, sendWebhook, type WebhookPayload } from './webhook';
 import { getErrors } from './errorReporter';
 import { getVitalsHistory, type VitalsSnapshot } from './webVitals';
@@ -22,8 +23,6 @@ export interface RemoteReporterConfig {
   cooldownMs: number;
   /** 检测间隔(毫秒),默认 30s */
   intervalMs: number;
-  /** 错误源后端收到推时,只推 message + 数量,不推 stack(防泄漏) */
-  omitStack: boolean;
 }
 
 const STORAGE_KEY = 'unraid-mobile-remote-reporter';
@@ -37,7 +36,6 @@ export const DEFAULT_REPORTER_CONFIG: RemoteReporterConfig = {
   errorWindowMs: 5 * 60 * 1000, // 5min
   cooldownMs: 30 * 60 * 1000, // 30min
   intervalMs: 30 * 1000, // 30s
-  omitStack: true,
 };
 
 function read(): RemoteReporterConfig {
@@ -182,9 +180,7 @@ export async function runReporterCheck(): Promise<void> {
   }
   const spike = checkErrorSpike(cfg);
   if (spike) {
-    const detail = cfg.omitStack
-      ? `窗口 ${Math.round(cfg.errorWindowMs / 60000)}min 内 ${spike.count} 个错误\n${spike.msgs.join('\n')}`
-      : `窗口 ${Math.round(cfg.errorWindowMs / 60000)}min 内 ${spike.count} 个错误\n${spike.msgs.join('\n')}`;
+    const detail = `窗口 ${Math.round(cfg.errorWindowMs / 60000)}min 内 ${spike.count} 个错误\n${spike.msgs.join('\n')}`;
     await dispatch('error-spike', `前端错误 spike ×${spike.count}`, detail);
   }
 }

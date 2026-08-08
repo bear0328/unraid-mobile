@@ -103,4 +103,30 @@ describe('useContainerLogs(续 50 B8 liveRefresh 增量)', () => {
     });
     expect(result.current.logs).toBe('L2\nL3'); // 再次刷新不增长
   });
+
+  // 【续 88 2026-08-08】live 合并上限:追加超过 500 行后只留尾部 500 行
+  it('增量合并超过 500 行 → 截头部只保留尾部 500 行', async () => {
+    const newLines = Array.from({ length: 600 }, (_, i) => `[t${i + 1}] line${i + 1}`);
+    const { api } = makeApi([
+      { success: true, logs: '[t0] init', cursor: 't0' },
+      // 首批增量重复返回边界行 [t0] init(tailCount=1 去重),净增 600 行
+      { success: true, logs: ['[t0] init', ...newLines].join('\n'), cursor: 't600' },
+    ]);
+
+    const { result } = renderHook(() => useContainerLogs(api, 'container:abc', true));
+    await flush();
+    expect(result.current.logs.split('\n')).toHaveLength(1);
+
+    act(() => {
+      result.current.setLiveRefresh(true);
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1300);
+    });
+
+    const lines = result.current.logs.split('\n');
+    expect(lines).toHaveLength(500); // 合并后 601 行 → 截到 500
+    expect(lines[0]).toBe('[t101] line101'); // 头部 101 行被截掉
+    expect(lines[499]).toBe('[t600] line600'); // 尾部是最新行
+  });
 });

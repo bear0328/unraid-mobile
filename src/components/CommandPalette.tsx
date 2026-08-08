@@ -162,8 +162,11 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
           a.download = `unraid-mobile-backup-${new Date().toISOString().slice(0, 10)}.json`;
           document.body.appendChild(a);
           a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
+          // 【续 88 2026-08-08】iOS Safari:必须 setTimeout 延迟 revoke,否则下载未触发就清掉 URL(同 FavoritesCard 教训)
+          setTimeout(() => {
+            if (a.parentNode) a.parentNode.removeChild(a);
+            URL.revokeObjectURL(url);
+          }, 1000);
           toast.success('已下载备份');
         },
       },

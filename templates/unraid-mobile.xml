@@ -17,7 +17,8 @@
 不需要这两个功能可删除对应配置行。Compose/CPU 温度(Pro)还需在宿主安装 compose-api
 (README「Pro 宿主后端」一节,会改 /boot/config/go,有风险提示)。</Overview>
   <Category>Tools:Utilities</Category>
-  <WebUI>http://[IP]:[PORT:3999]/</WebUI>
+  <!-- 【续 88 2026-08-08】[PORT:x] 按容器端口(Config 的 Target)替换,本模板 Target 是 80 -->
+  <WebUI>http://[IP]:[PORT:80]/</WebUI>
   <TemplateURL>https://raw.githubusercontent.com/bear0328/unraid-mobile/master/templates/unraid-mobile.xml</TemplateURL>
   <Icon>https://raw.githubusercontent.com/bear0328/unraid-mobile/master/public/icon.svg</Icon>
   <ExtraParams/>
