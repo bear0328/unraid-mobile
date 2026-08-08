@@ -117,10 +117,20 @@ describe('DiskCard', () => {
     expect(screen.getByText(/55°C/)).toBeInTheDocument();
   });
 
-  it('boot 磁盘显示"系统"标签', () => {
+  it('boot 磁盘显示"启动盘"标签', () => {
     const disks = [makeDisk({ name: 'flash', type: 'boot' })];
     render(<DiskCard disks={disks} />);
-    expect(screen.getByText('系统')).toBeInTheDocument();
+    expect(screen.getByText('启动盘')).toBeInTheDocument();
+  });
+
+  it('cache/parity 磁盘显示"缓存池"/"校验盘"标签', () => {
+    const disks = [
+      makeDisk({ name: 'cache', type: 'cache' }),
+      makeDisk({ name: 'parity', type: 'parity' }),
+    ];
+    render(<DiskCard disks={disks} />);
+    expect(screen.getByText('缓存池')).toBeInTheDocument();
+    expect(screen.getByText('校验盘')).toBeInTheDocument();
   });
 
   it('温度 > 50 → 红色样式 class', () => {

@@ -154,7 +154,6 @@ function DiskCard({ disks, cacheAgeMs, onRefreshDisks, isRefreshing, spinMap }: 
 }
 
 function DiskRow({ disk, spinning }: { disk: UnraidDisk; spinning?: boolean }) {
-  const isBootOrFlash = disk.type === 'boot';
   const sleeping = spinning === false;
   const usagePercent = getDiskUsage(disk);
   const sizeBytes = Number(disk.size) || 0;
@@ -170,14 +169,25 @@ function DiskRow({ disk, spinning }: { disk: UnraidDisk; spinning?: boolean }) {
   const history = useDiskHistory(disk.name);
   const tempSeries = history.map((s) => s.temp).filter((v): v is number => typeof v === 'number');
 
+  // 【续 89】类型徽章说清各盘角色(boot=unRAID 启动设备挂载 /boot;
+  // cache=btrfs 缓存池;parity=校验盘;data 盘名 DISK1-N 自明不加)
+  const typeBadge =
+    disk.type === 'boot'
+      ? { text: '启动盘', cls: 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400' }
+      : disk.type === 'cache'
+        ? { text: '缓存池', cls: 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' }
+        : disk.type === 'parity'
+          ? { text: '校验盘', cls: 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400' }
+          : null;
+
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between">
         <span className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center min-w-0">
           <span className="mr-2">{disk.name.toUpperCase()}</span>
-          {isBootOrFlash && (
-            <span className="px-1.5 py-0.5 text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded flex-shrink-0">
-              系统
+          {typeBadge && (
+            <span className={`px-1.5 py-0.5 text-xs rounded flex-shrink-0 ${typeBadge.cls}`}>
+              {typeBadge.text}
             </span>
           )}
           {sleeping && <SleepBadge />}

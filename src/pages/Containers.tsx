@@ -102,6 +102,15 @@ export default function Containers() {
   const focusName = searchParams.get('focus');
   const [highlightName, setHighlightName] = useState<string | null>(null);
 
+  // 【续 89】深链 ?tab=docker|compose|vm(Dashboard VM 卡「管理 →」跳 /containers?tab=vm):
+  // tab 参数有效时同步 activeTab;focus 流程清 query 后 tab=null,不强制回 docker
+  const tabParam = searchParams.get('tab');
+  useEffect(() => {
+    if (tabParam === 'docker' || tabParam === 'compose' || tabParam === 'vm') {
+      setActiveTab(tabParam);
+    }
+  }, [tabParam]);
+
   useEffect(() => {
     if (!focusName) return;
     if (!containers.some((c) => c.name === focusName)) return;

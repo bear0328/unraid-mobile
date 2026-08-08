@@ -173,7 +173,7 @@ describe('MemoryCard', () => {
     expect(container.innerHTML).toMatch(/text-green-600/);
   });
 
-  it('点击展开 + memoryTotal>0 → 显示"已用/总计/空闲"分段条', async () => {
+  it('点击展开 + memoryTotal>0 → 显示"已用/总计/可用"分段条', async () => {
     const user: UserEvent = userEvent.setup();
     const info = makeSystem({
       memoryTotal: 16 * 1024 * 1024 * 1024,
@@ -182,10 +182,11 @@ describe('MemoryCard', () => {
     });
     render(<MemoryCard systemInfo={info} />);
     await user.click(screen.getByRole('button', { name: /展开/ }));
-    // 已用/总计/空闲 在 副标题 + 分段条 各显示一次,getAllByText 断言 ≥ 2
+    // 【续 89】available 口径:「空闲」文案改「可用」
+    // 已用/总计/可用 在 副标题 + 分段条 各显示一次,getAllByText 断言 ≥ 2
     expect(screen.getAllByText(/已用/).length).toBeGreaterThanOrEqual(2);
     expect(screen.getAllByText(/总计/).length).toBeGreaterThanOrEqual(2);
-    expect(screen.getAllByText(/空闲/).length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText(/可用/).length).toBeGreaterThanOrEqual(2);
   });
 
   it('memoryTotal 缺失 → 展开后无分段条', async () => {

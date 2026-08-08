@@ -85,16 +85,25 @@ export async function getSystemInfo(
       }
     }
     const mem = data.metrics?.memory;
+    // 【续 89】GraphQL memory 三字段口径实测(2026-08,对照宿主 free -k):
+    //   used  = total-free,含 buff/cache(如 30.7G/31.1G=98.8%) —— 展示误导
+    //   free  = 裸 free(几百 M),无参考意义
+    //   percentTotal = (total-available)/total —— 与 free 的 used 列吻合的真实占用
+    // 卡片百分比本就取 percentTotal,这里把 used/free 也归一到同一 available 口径,
+    // 消除收起态 63.6% vs 展开态 98.8% 的自相矛盾
+    const memTotal = mem?.total || 0;
+    const memPercent = mem?.percentTotal || 0;
+    const memUsed = Math.round((memTotal * memPercent) / 100);
 
     return {
       name: data.info?.os?.hostname || 'unRAID Server',
       cpu: data.metrics?.cpu?.percentTotal || 0,
       cpuTemp,
-      memory: mem?.percentTotal || 0,
-      memoryUsage: mem?.percentTotal || 0,
-      memoryTotal: mem?.total || 0,
-      memoryUsed: mem?.used || 0,
-      memoryFree: mem?.free || 0,
+      memory: memPercent,
+      memoryUsage: memPercent,
+      memoryTotal: memTotal,
+      memoryUsed: memUsed,
+      memoryFree: memTotal - memUsed,
       uptime: formatUptimeFromDate(data.info?.os?.uptime || null),
       arrayStatus: data.array?.state || 'Unknown',
       cpuInfo: data.info?.cpu

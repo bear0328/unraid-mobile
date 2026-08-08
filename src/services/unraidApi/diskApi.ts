@@ -34,24 +34,22 @@ export async function getDisks(
     if (addedNames.has(name)) return;
     addedNames.add(name);
 
-    // 【续 50 C9b】删 capacity 死分支:真实 schema 无 per-disk capacity(name/cache),
-    // 原 find(c => c.name === name) 永落空;size/used 统一走 disk.size/fsUsed(KB→字节)
-    // 磁盘大小：size 单位是 KB，转换为字节
-    const size = disk.size ? Number(disk.size) * 1024 : 0;
-
-    // 已用空间：fsUsed 单位是 KB，转换为字节
-    const fsUsedKB = disk.fsUsed || 0;
-    const fsUsed =
-      typeof fsUsedKB === 'number' && fsUsedKB > 0
-        ? fsUsedKB * 1024 // KB 转字节
-        : 0;
+    // 【续 89】unraid-api 单位分裂(实测 2026-08):
+    //   size(设备容量) = KiB(1024) —— 与 df 1K-blocks 逐字节一致
+    //   fsSize/fsUsed/fsFree(文件系统口径) = 十进制 kB(1000) —— 与 df Used 比值恰 1.024
+    // 优先 fs 口径(与 webGui/df 用户所见一致,且占比同单位自洽):
+    const fsSizeKB = Number(disk.fsSize) || 0;
+    const fsUsedKB = Number(disk.fsUsed) || 0;
+    const size = fsSizeKB > 0 ? fsSizeKB * 1000 : disk.size ? Number(disk.size) * 1024 : 0;
+    // fsSize 缺失(parity/未挂载/专属启动池)时回退设备容量,used 0
+    const used = fsUsedKB > 0 ? fsUsedKB * 1000 : 0;
 
     allDisks.push({
       name,
       device: disk.device || disk.name || '',
       status: normalizeDiskStatus(disk.status),
       size: size,
-      used: fsUsed,
+      used: used,
       temperature: disk.temp || 0,
       type,
       reads:
@@ -73,9 +71,14 @@ export async function getDisks(
   }
 
   // Cache 盘（如果不存在）
+  // 【续 89】unRAID 7.3 专属启动池(bootPool="dedicated"):array.caches 会多出一条
+  //   与 flash 同设备的 'boot' 池(如 device 同为 nvme1n1,size=1004KiB/fsSize=0),
+  //   与 array.boot 的真实 flash 数据重复且数值无意义 → 按设备去重跳过
+  const bootDevice = result.success ? result.data?.array?.boot?.device : undefined;
   if (result.success && result.data?.array?.caches) {
     const caches = result.data.array.caches;
     caches.forEach((cache) => {
+      if (bootDevice && cache.device === bootDevice) return;
       addDisk(cache, 'cache');
     });
   }

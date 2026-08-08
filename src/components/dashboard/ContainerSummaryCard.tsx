@@ -5,9 +5,9 @@
 // 【续 50 C12b】删掉续 45.5 的 sparkline shouldSkipTick:续 46.4 后 getAllContainerStats
 // 只读本地 containerStatsStream 的 Map(零网络),cache 新鲜期跳 tick 不省任何请求,
 // 只是单纯不采样,会让 Top5 sparkline 冻结 30 分钟
-import { memo, useMemo, useCallback } from 'react';
+import { memo, useMemo, useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Package } from 'lucide-react';
+import { Package, ChevronDown, ChevronRight } from 'lucide-react';
 import { UnraidDockerContainer, UnraidApiService } from '../../services';
 import { useApiConfig, useUnraidApi } from '../../hooks/useUnraidApi';
 import { useMultiContainerStats } from '../../hooks/useMultiContainerStats';
@@ -63,14 +63,16 @@ function ContainerSummaryCard({ containers, loading, api: apiProp, cacheAgeMs }:
   const C = 2 * Math.PI * R;
   const dashOffset = C * (1 - runningPct / 100);
 
-  // Top 5 running(前 5 个 running 容器,sparkline 用)
-  const topRunning = useMemo(
-    () => containers.filter((c) => c.state === 'running').slice(0, 5),
-    [containers]
-  );
+  // 【续 89】展开框:收起默认 Top 5 running,展开列出全部(running 带 sparkline,
+  // 其余状态简化行)。stats fetcher 读本地订阅 Map 零网络,展开后 ids 覆盖全部
+  // running 也无额外请求
+  const [expanded, setExpanded] = useState(false);
+  const runningList = useMemo(() => containers.filter((c) => c.state === 'running'), [containers]);
+  const othersList = useMemo(() => containers.filter((c) => c.state !== 'running'), [containers]);
+  const shownRunning = expanded ? runningList : runningList.slice(0, 5);
 
   // 【续 36-3】多容器 stats 轮询
-  const ids = useMemo(() => topRunning.map((c) => c.name), [topRunning]);
+  const ids = useMemo(() => shownRunning.map((c) => c.name), [shownRunning]);
   const fetcher = useCallback(
     async (curIds: string[]) => {
       if (!apiReady) return {};
@@ -200,10 +202,10 @@ function ContainerSummaryCard({ containers, loading, api: apiProp, cacheAgeMs }:
             </div>
           </div>
 
-          {/* Top 5 运行中 */}
-          {topRunning.length > 0 && (
+          {/* 运行中(收起 Top 5,展开全部) */}
+          {shownRunning.length > 0 && (
             <div className="border-t border-gray-100 dark:border-gray-700 pt-2 space-y-1.5">
-              {topRunning.map((c) => {
+              {shownRunning.map((c) => {
                 const h = historyMap[c.name] || [];
                 const cpuData = h.map((p) => p.cpuPercent);
                 const memData = h.map((p) => p.memPercent);
@@ -248,15 +250,43 @@ function ContainerSummaryCard({ containers, loading, api: apiProp, cacheAgeMs }:
                   </div>
                 );
               })}
-              {runningCount > topRunning.length && (
-                <Link
-                  to="/containers"
-                  className="block text-center text-[10px] text-gray-500 dark:text-gray-400 hover:text-primary-600 pt-1"
-                >
-                  还有 {runningCount - topRunning.length} 个运行中 →
-                </Link>
-              )}
             </div>
+          )}
+
+          {/* 【续 89】展开态:其余状态容器(简化行,无 sparkline) */}
+          {expanded && othersList.length > 0 && (
+            <div
+              className={`space-y-1.5 ${shownRunning.length > 0 ? 'border-t border-gray-100 dark:border-gray-700 pt-2' : ''}`}
+            >
+              {othersList.map((c) => {
+                const m = stateMeta(c.state);
+                return (
+                  <div key={c.containerId} className="flex items-center gap-2 text-xs">
+                    <span
+                      className="w-1.5 h-1.5 rounded-full shrink-0"
+                      style={{ backgroundColor: m.color }}
+                    />
+                    <span className="font-medium text-gray-700 dark:text-gray-200 truncate flex-1">
+                      {c.name}
+                    </span>
+                    <span className="text-gray-400 dark:text-gray-500 text-[10px] shrink-0">
+                      {m.label}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* 【续 89】展开/收起全部(容器数超 Top 5 或有非 running 时才需要) */}
+          {(runningList.length > 5 || othersList.length > 0) && (
+            <button
+              onClick={() => setExpanded(!expanded)}
+              className="flex items-center justify-center gap-1 w-full text-[10px] text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 pt-1 transition-colors"
+            >
+              <Icon icon={expanded ? ChevronDown : ChevronRight} size={12} />
+              {expanded ? '收起' : `展开全部 (${total})`}
+            </button>
           )}
         </>
       )}

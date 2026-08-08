@@ -56,7 +56,7 @@ function MemoryCard({ systemInfo, history, cacheAgeMs }: MemoryCardProps) {
                 {formatBytes(systemInfo.memoryTotal)}
                 {systemInfo?.memoryFree && (
                   <span className="ml-2 text-green-600 dark:text-green-400">
-                    空闲 {formatBytes(systemInfo.memoryFree)}
+                    可用 {formatBytes(systemInfo.memoryFree)}
                   </span>
                 )}
               </p>
@@ -112,7 +112,7 @@ function MemoryCard({ systemInfo, history, cacheAgeMs }: MemoryCardProps) {
                   style={{
                     width: `${((systemInfo.memoryFree || 0) / systemInfo.memoryTotal) * 100}%`,
                   }}
-                  title={`空闲: ${formatBytes(systemInfo.memoryFree || 0)}`}
+                  title={`可用: ${formatBytes(systemInfo.memoryFree || 0)}`}
                 />
               </div>
               <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
@@ -122,7 +122,7 @@ function MemoryCard({ systemInfo, history, cacheAgeMs }: MemoryCardProps) {
                 </span>
                 <span>
                   <span className="inline-block w-2 h-2 bg-green-500 rounded mr-1" />
-                  空闲 {formatBytes(systemInfo.memoryFree || 0)}
+                  可用 {formatBytes(systemInfo.memoryFree || 0)}
                 </span>
                 <span className="text-gray-500 dark:text-gray-400">总计 {formatBytes(systemInfo.memoryTotal)}</span>
               </div>

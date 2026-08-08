@@ -10,6 +10,7 @@ import {
   UnraidDisk,
   UnraidNetworkInfo,
   UnraidDockerContainer,
+  UnraidVM,
 } from '../services';
 import { useApiConfig, useUnraidApi } from '../hooks/useUnraidApi';
 import { usePolling } from '../hooks/usePolling';
@@ -30,6 +31,7 @@ import ArrayCard from '../components/dashboard/ArrayCard';
 import DiskCard from '../components/dashboard/DiskCard';
 import FavoritesCard from '../components/dashboard/FavoritesCard';
 import ContainerSummaryCard from '../components/dashboard/ContainerSummaryCard';
+import VmSummaryCard from '../components/dashboard/VmSummaryCard';
 import DraggableCard from '../components/dashboard/DraggableCard';
 import { ConfigRequiredState } from '../components/dashboard/EmptyState';
 import ServerHeroCard from '../components/dashboard/ServerHeroCard';
@@ -71,7 +73,8 @@ export default function Dashboard() {
   // 【续 34-2】Dashboard 卡片顺序(可拖拽)
   const { order, move, reset } = useDashboardOrder();
   // 【续 34-5】容器数据(给 ContainerSummaryCard 用)
-  const { containers, loading: containersLoading } = useContainersData(api, hasConfig);
+  // 【续 89】同 hook 顺带返回 vms(本就并行拉 getVMs,零新增网络),给 VmSummaryCard 用
+  const { containers, vms, loading: containersLoading } = useContainersData(api, hasConfig);
   // 【续 45.7 2026-06-30】容器数据 cache age(给 ContainerSummaryCard staleness 提示用)
   // 用 cacheAgeMs helper (cache miss 时 null,首次加载不显示 staleness)
   const containersCacheAge = cacheAgeMs('containers');
@@ -310,6 +313,7 @@ export default function Dashboard() {
           isRefreshing,
           disks,
           containers,
+          vms,
           containersLoading,
           containersCacheAge,
           dashboardCacheAge,
@@ -353,6 +357,8 @@ function renderCard(
     isRefreshing: boolean;
     disks: UnraidDisk[];
     containers: UnraidDockerContainer[];
+    /** 【续 89】VM 数据(与 containers 同 hook 同轮拉取),给 VmSummaryCard 用 */
+    vms: UnraidVM[];
     containersLoading: boolean;
     containersCacheAge?: number | null;
     /** 【续 45.7 2026-07-01】dashboard 自身数据 cache age,给 5 个数据卡用 */
@@ -388,6 +394,14 @@ function renderCard(
       return (
         <ContainerSummaryCard
           containers={props.containers}
+          loading={props.containersLoading}
+          cacheAgeMs={props.containersCacheAge}
+        />
+      );
+    case 'vms':
+      return (
+        <VmSummaryCard
+          vms={props.vms}
           loading={props.containersLoading}
           cacheAgeMs={props.containersCacheAge}
         />

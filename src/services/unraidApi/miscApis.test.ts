@@ -193,9 +193,9 @@ describe('systemApi / diskApi / networkApi / shareApi', () => {
   });
 
   describe('getDisks', () => {
-    it('parity / data / cache / boot 各种类型 + 容量 KB 转字节', async () => {
-      // 【续 50 C9b】capacity 死分支已删(真实 schema 无 per-disk capacity),
-      // size/used 统一走 disk.size/fsUsed(KB 转字节)
+    it('parity / data / cache / boot 各种类型 + 容量单位换算', async () => {
+      // 【续 89】unraid-api 单位分裂:size=KiB(1024),fs*=十进制 kB(1000);
+      // 优先 fs 口径,fsSize 缺时回退 disk.size(KiB),used=fsUsed×1000
       fetchSpy.mockResolvedValueOnce(
         mockFetchOnce({
           data: {
@@ -231,15 +231,63 @@ describe('systemApi / diskApi / networkApi / shareApi', () => {
       const d1 = list.find((d) => d.name === 'disk1')!;
       expect(d1.type).toBe('data');
       expect(d1.status).toBe('normal');
-      expect(d1.size).toBe(1000000 * 1024); // disk.size 是 KB,转字节
-      expect(d1.used).toBe(900000 * 1024); // fsUsed 是 KB,转字节
+      expect(d1.size).toBe(1000000 * 1024); // 无 fsSize → 回退 disk.size(KiB 转字节)
+      expect(d1.used).toBe(900000 * 1000); // fsUsed 是十进制 kB,×1000 转字节
       expect(d1.reads).toBe(100);
       expect(d1.writes).toBe(50);
 
       const d2 = list.find((d) => d.name === 'disk2')!;
       expect(d2.type).toBe('parity');
-      expect(d2.size).toBe(800000 * 1024); // disk.size 是 KB
+      expect(d2.size).toBe(800000 * 1024); // disk.size 是 KiB
       expect(d2.used).toBe(0); // 无 fsUsed → 0
+    });
+
+    it('【续 89】fsSize 优先:fs 口径(十进制 kB)与 df/webGui 一致', async () => {
+      fetchSpy.mockResolvedValueOnce(
+        mockFetchOnce({
+          data: {
+            array: {
+              disks: [
+                {
+                  name: 'disk1',
+                  type: 'Data',
+                  status: 'DISK_OK',
+                  size: 3907018584, // KiB 设备容量
+                  fsSize: 4000762032, // 十进制 kB 文件系统容量
+                  fsUsed: 2272663820, // 十进制 kB
+                  fsFree: 1728098212,
+                },
+              ],
+            },
+          },
+        })
+      );
+      const list = await getDisks(BASE, KEY, PROXY);
+      const d1 = list[0];
+      expect(d1.size).toBe(4000762032 * 1000); // 优先 fsSize,不取 size×1024
+      expect(d1.used).toBe(2272663820 * 1000);
+    });
+
+    it('【续 89】专属启动池过滤:caches 中与 boot 同设备的条目跳过', async () => {
+      // unRAID 7.3 专属启动池(bootPool="dedicated"):caches 多出与 flash 同设备的
+      // 'boot' 池(size/fs 数值无意义),与 array.boot 的真实 flash 重复 → 去重
+      fetchSpy.mockResolvedValueOnce(
+        mockFetchOnce({
+          data: {
+            array: {
+              caches: [
+                { name: 'boot', device: 'nvme1n1', status: 'DISK_OK', size: 1004, fsSize: 0, fsUsed: 0 },
+                { name: 'cache', device: 'nvme0n1', status: 'DISK_OK', size: 2000397656, fsSize: 2048407200, fsUsed: 414690603 },
+              ],
+              boot: { name: 'flash', device: 'nvme1n1', status: 'DISK_OK', size: 14064640, fsSize: 12998337, fsUsed: 1634107 },
+            },
+          },
+        })
+      );
+      const list = await getDisks(BASE, KEY, PROXY);
+      expect(list.map((d) => d.name)).toEqual(['cache', 'flash']);
+      expect(list.find((d) => d.name === 'flash')!.type).toBe('boot');
+      expect(list.find((d) => d.name === 'cache')!.size).toBe(2048407200 * 1000);
     });
 
     it('同名 disk 不会重复添加', async () => {

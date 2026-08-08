@@ -229,6 +229,20 @@ describe('Containers 页面', () => {
     expect(screen.getByText('无虚拟机')).toBeInTheDocument();
   });
 
+  // ==== 续 89:?tab= 深链(Dashboard VM 卡「管理 →」跳 /containers?tab=vm) ====
+  it('?tab=vm 深链 → 初始即 VM tab 激活', () => {
+    renderContainers('/containers?tab=vm');
+    expect(screen.getByText('无虚拟机')).toBeInTheDocument();
+    expect(screen.queryByText('无容器')).not.toBeInTheDocument();
+    const vmTab = screen.getByRole('button', { name: '虚拟机' });
+    expect(vmTab.className).toMatch(/border-blue-500/);
+  });
+
+  it('?tab=compose 深链 → 初始即 Compose tab', () => {
+    renderContainers('/containers?tab=compose');
+    expect(screen.getByTestId('compose-stacks')).toBeInTheDocument();
+  });
+
   // ==== 续 48:compose tab(Compose 页并入,顺序 docker/compose/vm) ====
   it('点 Compose tab → 渲染 ComposeStacks,DockerList 卸载', async () => {
     const user: UserEvent = userEvent.setup();

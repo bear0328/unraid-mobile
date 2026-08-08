@@ -64,18 +64,28 @@ describe('useDashboardOrder', () => {
     expect(result.current.order).not.toContain('unknown-card');
   });
 
-  it('LS 缺新 key 时,补全到末尾', () => {
-    // 假设 LS 存的只有旧版本 4 个,新版 DEFAULT_ORDER 有 7 个
+  it('LS 缺新 key 时,补全并迁移到新默认顺序', () => {
+    // 【续 89】存量顺序会触发迁移:network 提到 containers 前、vms 紧随 containers,
+    // 旧 4-key LS 补齐 + 迁移后正好等于新 DEFAULT_ORDER
     const oldKeys = ['favorites', 'cpu', 'memory', 'network'];
     localStorage.setItem(STORAGE_KEY, JSON.stringify(oldKeys));
+    const { result } = renderHook(() => useDashboardOrder());
+    expect(result.current.order).toEqual([...DEFAULT_ORDER]);
+    expect(result.current.order).toContain('vms');
+  });
+
+  it('【续 89】老用户完整旧顺序迁移:network 提前 + vms 插到 containers 后', () => {
+    // 续 89 前的旧默认:containers 在 network 前,无 vms
+    const legacy = ['favorites', 'cpu', 'memory', 'containers', 'network', 'array', 'disk'];
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(legacy));
     const { result } = renderHook(() => useDashboardOrder());
     expect(result.current.order).toEqual([
       'favorites',
       'cpu',
       'memory',
       'network',
-      // 缺失的补到末尾
       'containers',
+      'vms',
       'array',
       'disk',
     ]);
