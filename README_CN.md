@@ -58,7 +58,7 @@ docker run -d \
 
 > apiKey 只存在你自己浏览器的 localStorage,**不会**写到服务器任何文件。
 
-镜像 tag:`latest`(最新稳定) / `1.0.8`(固定版本)。仅 linux/amd64(unRAID 平台)。
+镜像 tag:`latest`(最新稳定) / `1.0.9`(固定版本)。仅 linux/amd64(unRAID 平台)。
 
 ### 方式二:unRAID Docker UI 模板
 
@@ -129,9 +129,9 @@ Compose tab 和 CPU 温度(均为 Pro 功能)依赖一个宿主端小组件(`api
 # 在 unRAID 宿主上以 root 执行
 mkdir -p /tmp/um-install && cd /tmp/um-install
 curl -fsSL -o install-compose-api.sh \
-  https://raw.githubusercontent.com/bear0328/unraid-mobile/v1.0.8/compose-api/install-compose-api.sh
+  https://raw.githubusercontent.com/bear0328/unraid-mobile/v1.0.9/compose-api/install-compose-api.sh
 curl -fsSL -o api.php \
-  https://raw.githubusercontent.com/bear0328/unraid-mobile/v1.0.8/compose-api/api.php
+  https://raw.githubusercontent.com/bear0328/unraid-mobile/v1.0.9/compose-api/api.php
 bash install-compose-api.sh
 ```
 
