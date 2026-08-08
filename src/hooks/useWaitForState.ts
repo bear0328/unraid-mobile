@@ -17,8 +17,8 @@ interface Options<T> {
   timeoutMs?: number;
   /** 轮询间隔(毫秒),默认 1s */
   pollMs?: number;
-  /** 完成后(到达 / 超时)清理等待标记 */
-  onDone: () => void;
+  /** 【续 85】完成后(到达 / 超时)清理等待标记;reached=true 到达目标态,false 超时 */
+  onDone: (reached: boolean) => void;
 }
 
 export function useWaitForState<T>(opts: Options<T>): void {
@@ -52,12 +52,12 @@ export function useWaitForState<T>(opts: Options<T>): void {
       if (cancelled) return;
       const item = ref.current.find();
       if (item && ref.current.reached(item)) {
-        ref.current.onDone();
+        ref.current.onDone(true);
         clearInterval(checkTimer);
         clearTimeout(timeout);
       } else if (Date.now() - startedAt > timeoutMs) {
         // 超时
-        ref.current.onDone();
+        ref.current.onDone(false);
         clearInterval(checkTimer);
         clearTimeout(timeout);
       }
@@ -66,7 +66,7 @@ export function useWaitForState<T>(opts: Options<T>): void {
     const timeout = setTimeout(() => {
       if (cancelled) return;
       clearInterval(checkTimer);
-      ref.current.onDone();
+      ref.current.onDone(false);
     }, timeoutMs);
 
     return () => {

@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# 【续 76】发布脚本:Windows 本地构建 → GitHub / Docker Hub / unRAID(dev+prod)
+# 【续 76】发布脚本:本地构建 → GitHub / Docker Hub / unRAID(dev+prod)
+# 【续 84】构建机从 Windows 迁到 Mac mini:删 DOCKER_BIN(Git Bash 专用)、
+#         sha256sum → shasum、GNU sed -i → BSD sed -i ''(macOS 自带工具)
 # 用法:
 #   ./scripts/release.sh <版本号> "<commit 摘要>" [--yes] [--dry-run] [--skip-deploy]
 # 例:
@@ -20,9 +22,6 @@ set -euo pipefail
 IFS=$'\n\t'
 
 # ---------- 配置 ----------
-DOCKER_BIN="/c/Program Files/Docker/Docker/resources/bin"
-export PATH="${DOCKER_BIN}:${PATH}"
-
 IMAGE_REPO="bear0328/unraid-mobile"
 SSH_USER="root"
 SSH_HOST="192.168.6.140"
@@ -76,7 +75,7 @@ fi
 
 # ---------- 1. 前置检查 ----------
 log "=== 1/8 前置检查 ==="
-command -v docker >/dev/null || die "docker 不在 PATH(${DOCKER_BIN} 不存在?)"
+command -v docker >/dev/null || die "docker 不在 PATH(未安装 Docker Desktop?)"
 docker version --format '{{.Server.Version}}' >/dev/null 2>&1 || die "Docker daemon 未就绪(启动 Docker Desktop)"
 # 登录态检查:credsStore(desktop)或非空 auths 均视为已登录;push 失败会自行中止
 grep -Eq '"credsStore"|"auth": "[^"]+"' "${HOME}/.docker/config.json" 2>/dev/null \
@@ -99,10 +98,10 @@ INSTALL_SH="compose-api/install-compose-api.sh"
 OLD_TAG=$(sed -n 's|.*unraid-mobile/\(v[0-9.]*\)/compose-api/api\.php.*|\1|p' "${INSTALL_SH}" | head -1)
 [ -n "${OLD_TAG}" ] || die "从 ${INSTALL_SH} 提取旧 tag 失败"
 OLD_VER="${OLD_TAG#v}"
-NEW_SHA=$(sha256sum compose-api/api.php | cut -d' ' -f1)
+NEW_SHA=$(shasum -a 256 compose-api/api.php | cut -d' ' -f1)
 log "旧版本 ${OLD_TAG} → ${TAG};api.php sha256=${NEW_SHA:0:8}…"
-run "sed -i 's|/v[0-9]*\\.[0-9]*\\.[0-9]*/compose-api/api.php|/${TAG}/compose-api/api.php|; s|^EXPECTED_API_SHA256=.*|EXPECTED_API_SHA256=\"${NEW_SHA}\"|' ${INSTALL_SH}"
-run "sed -i 's/${OLD_VER//\./\\.}/${VERSION}/g' README.md README_CN.md"
+run "sed -i '' 's|/v[0-9]*\\.[0-9]*\\.[0-9]*/compose-api/api.php|/${TAG}/compose-api/api.php|; s|^EXPECTED_API_SHA256=.*|EXPECTED_API_SHA256=\"${NEW_SHA}\"|' ${INSTALL_SH}"
+run "sed -i '' 's/${OLD_VER//\./\\.}/${VERSION}/g' README.md README_CN.md"
 if [ "${DRY_RUN}" = false ]; then
   grep -q "EXPECTED_API_SHA256=\"${NEW_SHA}\"" "${INSTALL_SH}" || die "sha256 写入未生效"
   grep -q "/${TAG}/compose-api/install-compose-api.sh" README.md || die "README 版本号写入未生效"
@@ -128,7 +127,8 @@ if [ "${SKIP_DEPLOY}" = true ]; then
 else
   log "=== 6/8 部署 dev(${DEV_PORT}) ==="
   SSH_OPT="-i ${SSH_KEY} -o BatchMode=yes -o StrictHostKeyChecking=no -P ${SSH_PORT}"
-  run "cd dist && tar -czf /tmp/um-dist.tar.gz . && cd .."
+  # COPYFILE_DISABLE=1:macOS bsdtar 会把 xattr 打成 ._ AppleDouble 垃圾文件(续 85 实证 33 个)
+  run "cd dist && COPYFILE_DISABLE=1 tar -czf /tmp/um-dist.tar.gz . && cd .."
   run "scp ${SSH_OPT} /tmp/um-dist.tar.gz ${SSH_USER}@${SSH_HOST}:/tmp/"
   run "ssh -i ${SSH_KEY} -p ${SSH_PORT} ${SSH_USER}@${SSH_HOST} 'cd ${DEV_DIR}/dist && find . -mindepth 1 -delete && tar -xzf /tmp/um-dist.tar.gz && chmod -R a+rX . && rm /tmp/um-dist.tar.gz'"
 

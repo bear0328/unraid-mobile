@@ -1,8 +1,10 @@
 // 【阶段 P2-3 - 2026-06-16 续 15】useContainerActions hook 测试
 // 覆盖:handleContainerAction 成功(start/stop/restart)/ 失败 / handleVmAction 成功 / 失败 / 错误 3s 后清
+// 【续 85】重启过程 toast:开始 info / 到达 success / 超时 warning / silent 不刷
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useContainerActions } from './useContainerActions';
+import { useToastList } from './useToast';
 import type { UnraidApiService, UnraidDockerContainer, UnraidVM } from '../services';
 
 function makeApi(overrides: Partial<UnraidApiService> = {}): UnraidApiService {
@@ -282,5 +284,101 @@ describe('useContainerActions', () => {
     await act(async () => {
       expect(await fail.result.current.handleVmAction('win11', 'stop')).toBe(false);
     });
+  });
+
+  // ==== 【续 85】重启过程 toast 反馈 ====
+
+  it('restart 成功发起 → info toast「开始重启」', async () => {
+    const api = makeApi();
+    const toasts = renderHook(() => useToastList());
+    const { result } = renderHook(() =>
+      useContainerActions(api, noopRefresh, containersRefObj, vmsRefObj)
+    );
+    await act(async () => {
+      await result.current.handleContainerAction('nginx', 'restart');
+    });
+    expect(
+      toasts.result.current.toasts.some(
+        (t) => t.type === 'info' && t.message === '开始重启「nginx」…'
+      )
+    ).toBe(true);
+  });
+
+  it('restart + silent → 不发 info toast(批量路径)', async () => {
+    const api = makeApi();
+    const toasts = renderHook(() => useToastList());
+    const { result } = renderHook(() =>
+      useContainerActions(api, noopRefresh, containersRefObj, vmsRefObj)
+    );
+    await act(async () => {
+      await result.current.handleContainerAction('nginx', 'restart', { silent: true });
+    });
+    expect(toasts.result.current.toasts.some((t) => t.type === 'info')).toBe(false);
+    expect(result.current.restartingContainers.has('nginx')).toBe(true);
+  });
+
+  it('restart 后轮询到达 running → success toast + 清空等待', async () => {
+    const api = makeApi();
+    const ref = {
+      current: SAMPLE_CONTAINERS.map((c) => ({ ...c })),
+    } as React.MutableRefObject<UnraidDockerContainer[]>;
+    // refresh 模拟容器已恢复 running
+    const refresh = vi.fn().mockImplementation(async () => {
+      ref.current = ref.current.map((c) =>
+        c.containerId === 'nginx' ? { ...c, state: 'running' as const } : c
+      );
+    });
+    const toasts = renderHook(() => useToastList());
+    const { result } = renderHook(() => useContainerActions(api, refresh, ref, vmsRefObj));
+    await act(async () => {
+      await result.current.handleContainerAction('nginx', 'restart');
+    });
+    expect(result.current.restartingContainers.has('nginx')).toBe(true);
+    // 推 1s+ 触发第一次轮询 → reached → onDone(true)
+    await act(async () => {
+      vi.advanceTimersByTime(1100);
+    });
+    expect(result.current.restartingContainers.size).toBe(0);
+    expect(
+      toasts.result.current.toasts.some(
+        (t) => t.type === 'success' && t.message === '「nginx」重启完成'
+      )
+    ).toBe(true);
+  });
+
+  it('restart 轮询 30s 未恢复 → warning toast', async () => {
+    const api = makeApi();
+    const toasts = renderHook(() => useToastList());
+    const { result } = renderHook(() =>
+      useContainerActions(api, noopRefresh, containersRefObj, vmsRefObj)
+    );
+    await act(async () => {
+      await result.current.handleContainerAction('nginx', 'restart');
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(30500);
+    });
+    expect(result.current.restartingContainers.size).toBe(0);
+    expect(
+      toasts.result.current.toasts.some(
+        (t) => t.type === 'warning' && t.message.includes('超时')
+      )
+    ).toBe(true);
+  });
+
+  it('reboot 成功发起 → info toast「开始重启」', async () => {
+    const api = makeApi();
+    const toasts = renderHook(() => useToastList());
+    const { result } = renderHook(() =>
+      useContainerActions(api, noopRefresh, containersRefObj, vmsRefObj)
+    );
+    await act(async () => {
+      await result.current.handleVmAction('win11', 'reboot');
+    });
+    expect(
+      toasts.result.current.toasts.some(
+        (t) => t.type === 'info' && t.message === '开始重启「win11」…'
+      )
+    ).toBe(true);
   });
 });

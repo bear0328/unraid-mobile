@@ -180,12 +180,13 @@ export default function Containers() {
     let fail = 0;
     // 串行执行,避免 GraphQL 风暴
     // 【续 50 C2】按 handle*Action 返回的真实成败计数(原实现吞掉失败,fail 恒 0)
+    // 【续 85】silent: 批量不刷单条"开始重启"toast,末尾统一汇总
     for (const id of ids) {
       try {
         const ok =
           activeTab === 'docker'
-            ? await handleContainerAction(id, action as ContainerAction)
-            : await handleVmAction(id, action as VmAction);
+            ? await handleContainerAction(id, action as ContainerAction, { silent: true })
+            : await handleVmAction(id, action as VmAction, { silent: true });
         if (ok) {
           success++;
         } else {

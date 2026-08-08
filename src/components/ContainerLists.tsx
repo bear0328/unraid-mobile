@@ -242,7 +242,20 @@ const ContainerItem = memo(function ContainerItem({
                 更新
               </span>
             )}
-            {restarting && <span className="text-xs text-blue-500">重启中...</span>}
+            {/* 【续 85】重启过程行内反馈:mutation 执行期「执行中…」→ 轮询等待期「等待恢复运行…」
+                (开始/结束另走 toast,对齐 compose 体验) */}
+            {restarting && (
+              <span className="inline-flex items-center gap-1 text-xs text-blue-500">
+                <RefreshCw size={12} className="animate-spin" />
+                等待恢复运行…
+              </span>
+            )}
+            {!restarting && loading && (
+              <span className="inline-flex items-center gap-1 text-xs text-blue-500">
+                <RefreshCw size={12} className="animate-spin" />
+                执行中…
+              </span>
+            )}
           </div>
           <p className="text-xs text-gray-500 truncate">{container.image}</p>
         </div>
@@ -339,7 +352,19 @@ const VmItem = memo(function VmItem({
             <span className="font-medium truncate">{vm.name}</span>
             {/* 【续 68】状态 pill(文字+色点),替代裸圆点 + 下行文字 */}
             <StatePill text={stateText} tone={vmPillTone} />
-            {rebooting && <span className="text-xs text-blue-500">重启中...</span>}
+            {/* 【续 85】VM 重启行内反馈,与容器对齐 */}
+            {rebooting && (
+              <span className="inline-flex items-center gap-1 text-xs text-blue-500">
+                <RefreshCw size={12} className="animate-spin" />
+                等待恢复运行…
+              </span>
+            )}
+            {!rebooting && loading && (
+              <span className="inline-flex items-center gap-1 text-xs text-blue-500">
+                <RefreshCw size={12} className="animate-spin" />
+                执行中…
+              </span>
+            )}
           </div>
         </div>
         {/* 【续 68】Chevron 暗示整卡可点(详情) */}

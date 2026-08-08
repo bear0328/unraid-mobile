@@ -246,7 +246,7 @@ describe('DockerList', () => {
     expect(onViewLogs).toHaveBeenCalledWith(container);
   });
 
-  it('restartingContainers 包含 id → 显示"重启中..."标记', () => {
+  it('restartingContainers 包含 id → 显示"等待恢复运行…"标记', () => {
     renderWithRouter(
       <DockerList
         containers={[makeContainer({ state: 'running' })]}
@@ -256,7 +256,20 @@ describe('DockerList', () => {
         onViewLogs={() => {}}
       />
     );
-    expect(screen.getByText('重启中...')).toBeInTheDocument();
+    expect(screen.getByText('等待恢复运行…')).toBeInTheDocument();
+  });
+
+  it('actionLoading 命中但不在 restarting → 显示"执行中…"标记', () => {
+    renderWithRouter(
+      <DockerList
+        containers={[makeContainer({ state: 'running' })]}
+        actionLoading="nginx"
+        restartingContainers={new Set()}
+        onAction={() => {}}
+        onViewLogs={() => {}}
+      />
+    );
+    expect(screen.getByText('执行中…')).toBeInTheDocument();
   });
 
   it('actionLoading 命中 containerId → 菜单项 disabled', async () => {
@@ -444,7 +457,7 @@ describe('VmList', () => {
     expect(onVmClick).not.toHaveBeenCalled();
   });
 
-  it('rebootingVms 包含 uuid → 显示"重启中..."标记', () => {
+  it('rebootingVms 包含 uuid → 显示"等待恢复运行…"标记', () => {
     renderWithRouter(
       <VmList
         vms={[makeVm({ state: 'RUNNING' })]}
@@ -453,7 +466,7 @@ describe('VmList', () => {
         onAction={() => {}}
       />
     );
-    expect(screen.getByText('重启中...')).toBeInTheDocument();
+    expect(screen.getByText('等待恢复运行…')).toBeInTheDocument();
   });
 
   // ==== 续 55 商业化:VM 详情(点卡片) → Pro(动作按钮保持免费) ====
