@@ -17,7 +17,9 @@ export default function StackLogSection({ log, opRunning }: StackLogSectionProps
       <h4 className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5">
         操作日志{opRunning ? '(执行中…)' : ''}
       </h4>
-      <pre className="max-h-40 overflow-auto font-mono text-[11px] p-2.5 rounded-lg bg-gray-900 text-gray-200 whitespace-pre-wrap break-all">
+      {/* 【续 86】日志区 160px → 55vh(用户反馈显示空间太小);超出仍 overflow-auto 滚动,
+          弹窗整体 vertical 布局自带滚动承接,无需改 flex */}
+      <pre className="max-h-[55vh] overflow-auto font-mono text-[11px] p-2.5 rounded-lg bg-gray-900 text-gray-200 whitespace-pre-wrap break-all">
         {log
           ? formatLogTimesForDisplay(log)
               .split('\n')
