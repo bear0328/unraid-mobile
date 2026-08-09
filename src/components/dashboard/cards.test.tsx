@@ -73,6 +73,24 @@ describe('DiskCard', () => {
     expect(screen.getByText('校验盘')).toBeInTheDocument();
   });
 
+  it('【续 91 L13a】parity 盘不渲染用量行(webGui 同款:校验盘无文件系统)', () => {
+    const disks = [
+      makeDisk({ name: 'disk1', type: 'data', size: 999, used: 500 }),
+      makeDisk({ name: 'parity', type: 'parity', size: 888, used: 0 }),
+    ];
+    const { container } = render(<DiskCard disks={disks} />);
+    // data 盘有用量文本("500B / 999B"),parity 行没有(整卡只有 1 条)
+    expect(screen.getAllByText(/\d+B \/ \d+B/)).toHaveLength(1);
+    // parity 行也不渲染 ProgressBar(整卡只有 1 条进度条)
+    expect(container.querySelectorAll('[class*="bg-gray-200"]')).toHaveLength(1);
+  });
+
+  it('【续 91 L13d】temperature null(休眠/未上报)→ 显示 — 而非 0°C', () => {
+    const disks = [makeDisk({ name: 'disk1', temperature: null as unknown as number })];
+    render(<DiskCard disks={disks} />);
+    expect(screen.queryByText(/0°C/)).not.toBeInTheDocument();
+  });
+
   it('温度 > 50 → 红色样式 class', () => {
     const { container } = render(<DiskCard disks={[makeDisk({ name: 'hot', temperature: 55 })]} />);
     expect(container.innerHTML).toMatch(/text-red-500/);

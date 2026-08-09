@@ -293,6 +293,55 @@ export const SHARES_QUERY = `
   }
 `;
 
+// 【续 91 D】parity 校验进度卡:array.parityCheckStatus 是 emhttp 内存态
+// (2026-08-09 目标机实测字段全通,不唤盘);老版本 unraid-api 若无该字段,
+// schema 校验失败 → parityApi 降级返 null,整卡不渲染
+export const ARRAY_PARITY_QUERY = `
+  query {
+    array {
+      state
+      parityCheckStatus {
+        status
+        running
+        paused
+        progress
+        speed
+        errors
+        date
+        duration
+        correcting
+      }
+    }
+  }
+`;
+
+// 【续 91 G】UPS 监控卡(Pro):battery/power 子字段 2026-08-09 目标机 introspect 补齐
+// (UPSBattery: chargeLevel/estimatedRuntime/health;UPSPower: inputVoltage/outputVoltage/
+// loadPercentage/nominalPower/currentPower)。目标机无 UPS 时 upsDevices 报
+// INTERNAL_SERVER_ERROR → upsApi 返 null,整卡不渲染。apcaccess 内存态,不唤盘
+export const UPS_QUERY = `
+  query {
+    upsDevices {
+      id
+      name
+      model
+      status
+      battery {
+        chargeLevel
+        estimatedRuntime
+        health
+      }
+      power {
+        inputVoltage
+        outputVoltage
+        loadPercentage
+        nominalPower
+        currentPower
+      }
+    }
+  }
+`;
+
 export const NETWORK_INFO_QUERY = `
   query {
     info {

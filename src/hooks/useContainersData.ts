@@ -63,13 +63,23 @@ export function useContainersData(api: UnraidApiService | null, enabled: boolean
 
     try {
       const [containerData, vmData] = await Promise.all([api.getDockerContainers(), api.getVMs()]);
-      // 【续 78】引用保持:渲染字段无变化 → 复用旧引用,memo 行不重渲
-      setContainers((prev) => mergeList(prev, containerData, (c) => c.containerId, sameContainer));
-      setVMs((prev) => mergeList(prev, vmData, (v) => v.vmUuid, sameVm));
-      setError(null);
-      setHasFetched(true);
-      // 【续 74】真实刷新成功 → 更新全局「上次刷新」时间
-      markRefreshed();
+      // 【续 91 A2】失败返 null(区别于真空 []):null 的列表保留 prev + 置 error,
+      // 不再把一次失败当空列表清空卡片;两个都成功才清 error/记刷新时间
+      if (containerData) {
+        // 【续 78】引用保持:渲染字段无变化 → 复用旧引用,memo 行不重渲
+        setContainers((prev) => mergeList(prev, containerData, (c) => c.containerId, sameContainer));
+      }
+      if (vmData) {
+        setVMs((prev) => mergeList(prev, vmData, (v) => v.vmUuid, sameVm));
+      }
+      if (containerData && vmData) {
+        setError(null);
+        setHasFetched(true);
+        // 【续 74】真实刷新成功 → 更新全局「上次刷新」时间
+        markRefreshed();
+      } else {
+        setError('无法连接到 unRAID 服务器');
+      }
     } catch (err) {
       console.error('Failed to fetch containers/vms:', err);
       setError('无法连接到 unRAID 服务器');

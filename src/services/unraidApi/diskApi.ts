@@ -9,7 +9,7 @@ export async function getDisks(
   baseUrl: string,
   apiKey: string,
   useProxy: boolean
-): Promise<UnraidDisk[]> {
+): Promise<UnraidDisk[] | null> {
   const endpoint = buildGraphqlEndpoint(baseUrl, useProxy);
   let result = await graphqlRequest<DisksResponse>(endpoint, apiKey, DISKS_QUERY, undefined, {
     namespace: 'disks',
@@ -23,8 +23,14 @@ export async function getDisks(
     });
   }
 
+  // 【续 91 A1】统一"失败返 null"约定:真空(服务器真无盘)返 [] 合法,
+  // 只有请求失败才返 null — 调用方据此区分,失败不再被当空列表清空卡片/缓存
+  if (!result.success) return null;
+
   const allDisks: UnraidDisk[] = [];
   const addedNames = new Set<string>();
+  // 【续 91 L13b】flash/boot 按 device 去重:两者同设备不同名时会双进列表
+  const addedDevices = new Set<string>();
 
   const addDisk = (disk: DiskInfo, type: 'parity' | 'data' | 'cache' | 'ssd' | 'boot') => {
     if (!disk || !disk.name) return;
@@ -33,6 +39,7 @@ export async function getDisks(
     // 避免重复添加同名磁盘
     if (addedNames.has(name)) return;
     addedNames.add(name);
+    if (disk.device) addedDevices.add(disk.device);
 
     // 【续 89】unraid-api 单位分裂(实测 2026-08):
     //   size(设备容量) = KiB(1024) —— 与 df 1K-blocks 逐字节一致
@@ -50,7 +57,8 @@ export async function getDisks(
       status: normalizeDiskStatus(disk.status),
       size: size,
       used: used,
-      temperature: disk.temp || 0,
+      // 【续 91 L13d】temp null 保留(休眠盘),显示层给 —;0 是合法温度不再混淆
+      temperature: typeof disk.temp === 'number' ? disk.temp : null,
       type,
       reads:
         disk.numReads !== undefined && disk.numReads !== null ? Number(disk.numReads) : undefined,
@@ -90,8 +98,10 @@ export async function getDisks(
   }
 
   // Boot 盘（如果 flash 不存在）
+  // 【续 91 L13b】与 flash 同设备(device 相同 name 不同)时跳过,防双进列表
   if (result.success && result.data?.array?.boot) {
     const boot = result.data.array.boot;
+    if (boot.device && addedDevices.has(boot.device)) return allDisks;
     addDisk(boot, 'boot');
   }
 
@@ -100,13 +110,14 @@ export async function getDisks(
 
 /**
  * 【续 66】磁盘休眠状态(name → isSpinning)。SPIN_STATUS_QUERY 只读 emhttp 内存状态,
- * 实测不唤盘,可随 dashboard 常规刷新常拉;失败返回空 Map,不阻塞主数据流。
+ * 实测不唤盘,可随 dashboard 常规刷新常拉。
+ * 【续 91 A1】请求失败返 null(调用方保留旧 spinMap);成功但无数据返空 Map。
  */
 export async function getSpinStatus(
   baseUrl: string,
   apiKey: string,
   useProxy: boolean
-): Promise<Map<string, boolean>> {
+): Promise<Map<string, boolean> | null> {
   const spinMap = new Map<string, boolean>();
   const endpoint = buildGraphqlEndpoint(baseUrl, useProxy);
   // 不传 namespace:休眠状态必须实时,30min 缓存会让徽章长期过期
@@ -117,7 +128,10 @@ export async function getSpinStatus(
     undefined
   );
 
-  if (result.success && result.data?.array) {
+  // 【续 91 A1】失败返 null(原返空 Map,调用方会把休眠徽章全清空)
+  if (!result.success) return null;
+
+  if (result.data?.array) {
     const { disks = [], caches = [] } = result.data.array;
     for (const d of [...disks, ...caches]) {
       if (d?.name && typeof d.isSpinning === 'boolean') {

@@ -3,15 +3,19 @@
 // 【续 90】array 卡删除(并入 DiskCard 标题),DEFAULT_ORDER 去掉 'array';
 // 续 89 迁移修 bug:迁移结果写回 LS + 版本标记(-v2),已迁移跳过,
 // 不再每次 mount 强制重排(原实现会覆盖用户把 network 拖下去的自定义)
+// 【续 91 D/G】DEFAULT_ORDER 加 'ups'('memory' 后,Pro UPS 卡)和 'parity'('disk' 前,
+// parity 校验卡);老用户 LS 由既有 missing-key 补全机制自动出现,无需迁移
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 export const DEFAULT_ORDER = [
   'favorites',
   'cpu',
   'memory',
+  'ups',
   'network',
   'containers',
   'vms',
+  'parity',
   'disk',
 ] as const;
 export type DashboardCardKey = (typeof DEFAULT_ORDER)[number];
@@ -29,7 +33,10 @@ function readOrder(): DashboardCardKey[] {
     if (!Array.isArray(arr)) return [...DEFAULT_ORDER];
     // 过滤掉未知 key(续 90 删除的 'array' 也在此被清掉)
     const known = new Set<string>(DEFAULT_ORDER);
-    const filtered = arr.filter((k: unknown) => typeof k === 'string' && known.has(k));
+    const filtered = arr
+      .filter((k: unknown) => typeof k === 'string' && known.has(k))
+      // 【续 91】脏 LS 去重:重复 key 会导致同卡渲染两次(迁移/v2 信任两路径共用此过滤)
+      .filter((k, i, a) => a.indexOf(k) === i);
     // 补全缺失的(新加的卡片)
     const present = new Set(filtered);
     const missing = DEFAULT_ORDER.filter((k) => !present.has(k));
@@ -78,6 +85,10 @@ export function useDashboardOrder() {
   const move = useCallback((fromIdx: number, toIdx: number) => {
     if (fromIdx === toIdx) return;
     setOrder((prev) => {
+      // 【续 91】越界索引直接忽略,避免 splice 产生 undefined 卡片
+      if (fromIdx < 0 || fromIdx >= prev.length || toIdx < 0 || toIdx >= prev.length) {
+        return prev;
+      }
       const next = [...prev];
       const [item] = next.splice(fromIdx, 1);
       next.splice(toIdx, 0, item);

@@ -28,7 +28,14 @@ export function loadDashboardCache(): DashboardCache | null {
   try {
     const stored = localStorage.getItem(DASHBOARD_CACHE_KEY);
     if (!stored) return null;
-    return JSON.parse(stored) as DashboardCache;
+    const parsed = JSON.parse(stored) as unknown;
+    // 【续 91 L14】parse 后 shape 校验:必须是对象且含已知 key,
+    // 脏数据(手改 LS/跨版本残留)降级 null 走重新拉取,不把垃圾灌进 state
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+    const obj = parsed as Record<string, unknown>;
+    const hasKnownKey = ['systemInfo', 'disks', 'networks', 'serverMeta'].some((k) => k in obj);
+    if (!hasKnownKey) return null;
+    return parsed as DashboardCache;
   } catch {
     return null;
   }
@@ -107,7 +114,9 @@ export function saveDashboardCache(data: DashboardCache, disksUpdated: boolean =
     const payload: DashboardCacheWithTs = {
       ...data,
       timestamp: now,
-      disksTimestamp: disksUpdated ? now : prevDisksTs ?? now,
+      // 【续 91 L8】没拉 disks 且无旧 cache 时写 undefined(JSON 序列化会丢 key),
+      // 而不是 now —— 否则首次轻量刷新就把"磁盘陈旧时间"伪造成刚刚
+      disksTimestamp: disksUpdated ? now : prevDisksTs,
     };
     localStorage.setItem(DASHBOARD_CACHE_KEY, JSON.stringify(payload));
   } catch {

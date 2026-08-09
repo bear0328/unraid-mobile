@@ -60,9 +60,10 @@ export default function ComposeStacks({ refreshSignal = 0, onLoadingChange }: Co
       setError(null);
       setBackendMissing(false);
       // 【续 68】顺带匹配更新状态;失败只丢徽章,不阻塞栈列表
+      // 【续 91 A1】getDockerContainers 失败返 null → 按空列表算(徽章全丢,与旧行为一致)
       try {
         const containers = api ? await api.getDockerContainers() : [];
-        setUpdateStacks(computeStackUpdates(list, containers));
+        setUpdateStacks(computeStackUpdates(list, containers ?? []));
       } catch {
         setUpdateStacks(new Set());
       }

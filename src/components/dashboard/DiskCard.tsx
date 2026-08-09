@@ -181,15 +181,15 @@ function DiskCard({ disks, cacheAgeMs, onRefreshDisks, isRefreshing, spinMap }: 
 
 function DiskRow({ disk, spinning }: { disk: UnraidDisk; spinning?: boolean }) {
   const sleeping = spinning === false;
+  // 【续 91 L13a】parity 盘无文件系统用量,webGui 同款不渲染用量行
+  const isParity = disk.type === 'parity';
   const usagePercent = getDiskUsage(disk);
   const sizeBytes = Number(disk.size) || 0;
   const usedBytes = Number(disk.used) || 0;
+  // 【续 91 L13d】temperature 可 null(休眠/未上报),比较/显示前归 0
+  const temp = disk.temperature ?? 0;
   const tempColor =
-    disk.temperature > 50
-      ? 'text-red-500'
-      : disk.temperature > 40
-        ? 'text-yellow-500'
-        : 'text-gray-500';
+    temp > 50 ? 'text-red-500' : temp > 40 ? 'text-yellow-500' : 'text-gray-500';
   const usageColor = usagePercent > 80 ? 'red' : usagePercent > 60 ? 'yellow' : 'green';
 
   const history = useDiskHistory(disk.name);
@@ -219,11 +219,15 @@ function DiskRow({ disk, spinning }: { disk: UnraidDisk; spinning?: boolean }) {
           {sleeping && <SleepBadge />}
         </span>
         <div className="flex items-center space-x-3">
-          <span className="text-xs text-gray-600 dark:text-gray-300">
-            {formatBytes(usedBytes)} / {formatBytes(sizeBytes)}
-          </span>
-          {/* 【续 66】休眠盘温度显示 —(休眠时 GraphQL temp 为 null,此前会误导显示 0°C) */}
-          {sleeping ? (
+          {/* 【续 91 L13a】parity 盘不渲染用量(webGui 同款:校验盘无文件系统) */}
+          {!isParity && (
+            <span className="text-xs text-gray-600 dark:text-gray-300">
+              {formatBytes(usedBytes)} / {formatBytes(sizeBytes)}
+            </span>
+          )}
+          {/* 【续 66】休眠盘温度显示 —(休眠时 GraphQL temp 为 null,此前会误导显示 0°C)
+              【续 91 L13d】temp null(休眠/未上报)统一显示 — */}
+          {sleeping || disk.temperature === null ? (
             <span className="text-xs text-gray-400 dark:text-gray-500">—</span>
           ) : (
             <span className={`inline-flex items-center gap-1 text-xs font-medium ${tempColor}`}>
@@ -233,8 +237,8 @@ function DiskRow({ disk, spinning }: { disk: UnraidDisk; spinning?: boolean }) {
           )}
         </div>
       </div>
-      <ProgressBar label="" value={usagePercent} color={usageColor} showPercent={true} />
-      {tempSeries.length >= 1 && <DiskTempSparkline data={tempSeries} hot={disk.temperature > 50} />}
+      {!isParity && <ProgressBar label="" value={usagePercent} color={usageColor} showPercent={true} />}
+      {tempSeries.length >= 1 && <DiskTempSparkline data={tempSeries} hot={temp > 50} />}
     </div>
   );
 }

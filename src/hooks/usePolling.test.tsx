@@ -295,6 +295,21 @@ describe('usePolling (续 45 新行为)', () => {
       // 不暂停:照常触发 3 次(原 1 + 3)
       expect(cb).toHaveBeenCalledTimes(4);
     });
+
+    it('【续 91 L7】mount 时 tab 隐藏 → 首次 fire 跳过(后台 tab 打开不立即拉数据)', () => {
+      Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });
+      const cb = vi.fn();
+      renderHook(() => usePolling(cb, 1000, true, NO_JITTER));
+      // 修复前:mount 无条件 fire 一次(后台 tab 也拉数据)
+      expect(cb).not.toHaveBeenCalled();
+
+      // 切回前台后 interval 恢复
+      Object.defineProperty(document, 'hidden', { configurable: true, get: () => false });
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+      expect(cb).toHaveBeenCalledTimes(1);
+    });
   });
 });
 

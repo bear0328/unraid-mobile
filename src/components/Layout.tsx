@@ -18,6 +18,7 @@ import GlobalSearch from './GlobalSearch';
 import ServerSwitcher from './ServerSwitcher';
 import CommandPalette from './CommandPalette';
 import RouteErrorBoundary from './RouteErrorBoundary';
+import UnraidAlertBell from './UnraidAlertBell';
 import { useNotifications } from '../utils/notifications';
 
 const NAV_ITEMS: Array<{
@@ -116,6 +117,9 @@ export default function Layout() {
               </span>
             )}
           </NavLink>
+          {/* 【续 91 E】unRAID 服务器告警徽章(ALERT 红/WARNING 琥珀,点击跳 webGui 通知页;
+              与上方 App 内通知中心铃铛并列,仅在有未读告警时出现) */}
+          <UnraidAlertBell />
           {/* 【续 33-10】多服务器切换下拉(>=2 台时显示) */}
           <ServerSwitcher />
         </div>

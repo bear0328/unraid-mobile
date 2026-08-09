@@ -61,6 +61,22 @@ describe('loadDashboardCache', () => {
     });
     expect(loadDashboardCache()).toBeNull();
   });
+
+  // 【续 91 L14】parse 后 shape 校验:必须是对象且含已知 key,脏数据降级 null
+  it.each([
+    ['"just a string"', 'JSON 字符串'],
+    ['[1,2,3]', 'JSON 数组'],
+    ['{"foo":1}', '无已知 key 的对象'],
+    ['123', 'JSON 数字'],
+  ])('脏数据 %s(%s)→ 返 null', (raw) => {
+    localStorage.setItem(CACHE_KEY, raw);
+    expect(loadDashboardCache()).toBeNull();
+  });
+
+  it('只含 serverMeta 的旧版 cache → 通过校验(已知 key 之一)', () => {
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ serverMeta: { version: '7.3.0' } }));
+    expect(loadDashboardCache()).not.toBeNull();
+  });
 });
 
 describe('saveDashboardCache', () => {
@@ -96,6 +112,23 @@ describe('saveDashboardCache', () => {
     const loaded = loadDashboardCache();
     expect(loaded?.disks[0]?.name).toBe('disk1');
     expect(loaded?.networks[0]?.name).toBe('br0');
+  });
+
+  it('【续 91 L8】disksUpdated=false 且无旧 cache → disksTimestamp 不伪造为 now', () => {
+    // 首次轻量刷新(没拉 disks):修复前 disksTimestamp 写 now,
+    // DiskCard 会谎报"磁盘数据刚刚刷新";修复后该 key 缺失,
+    // getDisksCacheTimestamp 回退主 timestamp 由调用方自行判断
+    saveDashboardCache(makeCache(), false);
+    const parsed = JSON.parse(localStorage.getItem(CACHE_KEY)!);
+    expect('disksTimestamp' in parsed).toBe(false);
+  });
+
+  it('【续 91 L8】disksUpdated=false 且有旧 cache → 沿用旧 disksTimestamp', () => {
+    saveDashboardCache(makeCache()); // 第一次:带 disks 写,disksTimestamp=now
+    const first = JSON.parse(localStorage.getItem(CACHE_KEY)!).disksTimestamp;
+    saveDashboardCache(makeCache(), false); // 第二次:轻量刷新
+    const second = JSON.parse(localStorage.getItem(CACHE_KEY)!).disksTimestamp;
+    expect(second).toBe(first);
   });
 });
 

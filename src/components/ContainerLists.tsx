@@ -9,6 +9,7 @@ import {
   Play,
   Pause,
   ChevronRight,
+  ArrowUpCircle,
 } from 'lucide-react';
 import { UnraidDockerContainer, UnraidVM } from '../services';
 import { ContainerAction, VmAction } from '../services/actionTypes';
@@ -58,6 +59,8 @@ export function DockerList({
   onAction,
   onViewLogs,
   onViewDetails,
+  onUpdate,
+  updatingId,
   selected,
   onToggleOne,
   highlightName,
@@ -68,6 +71,10 @@ export function DockerList({
   onAction: (id: string, action: ContainerAction) => void;
   onViewLogs: (container: UnraidDockerContainer) => void;
   onViewDetails?: (container: UnraidDockerContainer) => void;
+  /** 【续 91 F】「更新镜像」菜单项 handler(Pro 门控在项内,未解锁换 🔒 跳设置) */
+  onUpdate?: (container: UnraidDockerContainer) => void;
+  /** 【续 91 F】正在更新中的 containerId(行内「更新中…」反馈 + 菜单项禁用) */
+  updatingId?: string | null;
   selected?: Set<string>;
   onToggleOne?: (id: string) => void;
   /** 【续 50 C8】深链 ?focus= 命中的容器名,对应卡片短暂高亮+滚动定位 */
@@ -87,6 +94,8 @@ export function DockerList({
             onAction={onAction}
             onViewLogs={onViewLogs}
             onViewDetails={onViewDetails}
+            onUpdate={onUpdate}
+            updating={updatingId === container.containerId}
             isSelected={selected?.has(container.containerId) ?? false}
             onToggleSelect={onToggleOne}
             highlighted={container.name === highlightName}
@@ -147,6 +156,8 @@ const ContainerItem = memo(function ContainerItem({
   onAction,
   onViewLogs,
   onViewDetails,
+  onUpdate,
+  updating,
   isSelected,
   onToggleSelect,
   highlighted,
@@ -157,6 +168,8 @@ const ContainerItem = memo(function ContainerItem({
   onAction: (id: string, action: ContainerAction) => void;
   onViewLogs: (container: UnraidDockerContainer) => void;
   onViewDetails?: (container: UnraidDockerContainer) => void;
+  onUpdate?: (container: UnraidDockerContainer) => void;
+  updating?: boolean;
   isSelected: boolean;
   onToggleSelect?: (id: string) => void;
   highlighted?: boolean;
@@ -179,6 +192,24 @@ const ContainerItem = memo(function ContainerItem({
       : []),
     { label: '日志', icon: ScrollText, onClick: () => onViewLogs(container) },
   ];
+  // 【续 91 F】更新镜像(Pro,纯 GraphQL):isUpdateAvailable 时橙点高亮;
+  // 未解锁换 🔒 占位跳设置(同启停项模式)
+  menuItems.push(
+    pro
+      ? {
+          label: '更新镜像',
+          icon: ArrowUpCircle,
+          onClick: () => onUpdate?.(container),
+          disabled: loading || updating,
+          highlight: container.isUpdateAvailable === true,
+        }
+      : {
+          label: '更新镜像',
+          icon: Lock,
+          onClick: goUnlock,
+          highlight: container.isUpdateAvailable === true,
+        }
+  );
   if (container.state === 'running') {
     menuItems.push(
       pro
@@ -265,6 +296,13 @@ const ContainerItem = memo(function ContainerItem({
               <span className="inline-flex items-center gap-1 text-xs text-blue-500">
                 <RefreshCw size={12} className="animate-spin" />
                 执行中…
+              </span>
+            )}
+            {/* 【续 91 F】更新过程行内反馈(mutation 最长 120s) */}
+            {!restarting && !loading && updating && (
+              <span className="inline-flex items-center gap-1 text-xs text-orange-500">
+                <RefreshCw size={12} className="animate-spin" />
+                更新中…
               </span>
             )}
           </div>

@@ -26,10 +26,10 @@ detects the missing schema fields and degrades gracefully).
 
 | Free (works out of the box) | Pro (unlocked with a license key) |
 |------|------|
-| Full dashboard monitoring: CPU / memory / network / disks / array / history charts / favorites | Container & VM start/stop / restart / pause / resume operations |
+| Full dashboard monitoring: CPU / memory / network / disks / array / parity-check progress / history charts / favorites, unRAID alert badge | Container & VM start/stop / restart / pause / resume operations |
 | Container & VM lists, container details (ports/mounts/network/disk usage), container logs, VM basic details | **Compose stack management** (list/logs/up/down/pull/rebuild/yaml editing)¹ |
 | Shares file browsing / download / image preview, host system logs (syslog) | **CPU temperature**¹ (reads /sys/class/hwmon directly, never spins up disks), Shares write operations (upload/mkdir/delete/rename/text editing) |
-| Global search, command palette, config backup/import, single server, dark theme, PWA | Container batch operations, **multi-server**, alert notifications (Webhook), disk cleanup |
+| Global search, command palette, config backup/import, single server, dark theme, PWA | **One-click container updates** (single/batch, same as webGui), **UPS monitoring** (charge/runtime/load), container batch operations, **multi-server**, alert notifications (Webhook), disk cleanup |
 
 ¹ Requires the host agent (compose-api) — a small component installed on the unRAID host as described
 in "Pro host agent" below. **Installation modifies the boot script `/boot/config/go`; read the risk

@@ -7,7 +7,7 @@
 // 【续 90】移动端拖拽修复:手柄常显(触屏无 hover)+ draggable 移到手柄
 //   (整卡不再 draggable,顺带修卡片内链接被误拖);圆角统一 rounded-2xl
 import { useState, type ReactNode } from 'react';
-import { GripVertical } from 'lucide-react';
+import { ChevronDown, ChevronUp, GripVertical } from 'lucide-react';
 import Icon from '../ui/Icon';
 
 interface DraggableCardProps {
@@ -51,22 +51,55 @@ export default function DraggableCard({
       <div className="relative group">
         {/* 【续 90】拖动手柄常显(触屏无 hover),draggable 在手柄上 —— 整卡不再可拖,
             卡片内链接/按钮不会再被误拖 */}
-        <div
-          draggable
-          onDragStart={(e) => {
-            e.dataTransfer.effectAllowed = 'move';
-            e.dataTransfer.setData('text/plain', String(index));
-            setIsDragging(true);
-          }}
-          onDragEnd={() => {
-            setIsDragging(false);
-            setIsOver(false);
-          }}
-          className="absolute top-1.5 left-1.5 z-10 px-1.5 py-0.5 rounded bg-gray-100/80 dark:bg-gray-700/80 text-gray-400 dark:text-gray-500 text-xs cursor-grab active:cursor-grabbing select-none transition-opacity"
-          title="拖动重排"
-          aria-label={`拖动重排 ${id} (位置 ${index + 1}/${totalCount})`}
-        >
-          <Icon icon={GripVertical} size={14} />
+        {/* 【续 91】手柄缩进卡片 16px padding 区(top-1 left-1 + 12px 图标 + 60% 透明),
+            不再盖住卡内 icon chip;旁加上移/下移小按钮(触屏可用 + 键盘可达),
+            首/末位禁用;手柄本身 tabIndex + 方向键上下也可排序 */}
+        <div className="absolute top-1 left-1 z-10 flex items-center gap-0.5">
+          <div
+            draggable
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowUp' && index > 0) {
+                e.preventDefault();
+                onMove(index, index - 1);
+              } else if (e.key === 'ArrowDown' && index < totalCount - 1) {
+                e.preventDefault();
+                onMove(index, index + 1);
+              }
+            }}
+            onDragStart={(e) => {
+              e.dataTransfer.effectAllowed = 'move';
+              e.dataTransfer.setData('text/plain', String(index));
+              setIsDragging(true);
+            }}
+            onDragEnd={() => {
+              setIsDragging(false);
+              setIsOver(false);
+            }}
+            className="p-0.5 rounded bg-gray-100/60 dark:bg-gray-700/60 text-gray-400 dark:text-gray-500 cursor-grab active:cursor-grabbing select-none transition-opacity"
+            title="拖动重排(或方向键上/下)"
+            aria-label={`拖动重排 ${id} (位置 ${index + 1}/${totalCount})`}
+          >
+            <Icon icon={GripVertical} size={12} />
+          </div>
+          <button
+            type="button"
+            disabled={index === 0}
+            onClick={() => onMove(index, index - 1)}
+            className="p-0.5 rounded bg-gray-100/60 dark:bg-gray-700/60 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed transition-opacity"
+            aria-label={`上移 ${id}`}
+          >
+            <Icon icon={ChevronUp} size={12} />
+          </button>
+          <button
+            type="button"
+            disabled={index >= totalCount - 1}
+            onClick={() => onMove(index, index + 1)}
+            className="p-0.5 rounded bg-gray-100/60 dark:bg-gray-700/60 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed transition-opacity"
+            aria-label={`下移 ${id}`}
+          >
+            <Icon icon={ChevronDown} size={12} />
+          </button>
         </div>
         {children}
       </div>

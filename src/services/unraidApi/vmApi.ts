@@ -17,13 +17,17 @@ export async function getVMs(
   baseUrl: string,
   apiKey: string,
   useProxy: boolean
-): Promise<UnraidVM[]> {
+): Promise<UnraidVM[] | null> {
   const endpoint = buildGraphqlEndpoint(baseUrl, useProxy);
   const result = await graphqlRequest<VmsResponse>(endpoint, apiKey, VMS_QUERY, undefined, {
     namespace: 'vms',
   });
 
-  if (result.success && result.data?.vms?.domains) {
+  // 【续 91 A1】统一"失败返 null"约定:真空(无 VM)返 [] 合法,失败返 null,
+  // 调用方据此保留旧列表,不再被失败清空
+  if (!result.success) return null;
+
+  if (result.data?.vms?.domains) {
     const domains = result.data.vms.domains;
     return domains.map((vm) => {
       // VM ID 格式是 serverId:vmUUID，提取 vmUUID 部分

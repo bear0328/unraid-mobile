@@ -212,6 +212,57 @@ export interface NetworkResponse {
   };
 }
 
+// ==================== Parity / UPS(【续 91 D/G】) ====================
+
+/** 【续 91 D】ARRAY_PARITY_QUERY 响应:ParityCheck 全字段可空(running 外实测均可能 null) */
+export interface ParityCheckInfo {
+  /** ParityCheckStatus 枚举:NEVER_RUN/RUNNING/PAUSED/COMPLETED/CANCELLED/FAILED */
+  status?: string;
+  running?: boolean | null;
+  paused?: boolean | null;
+  progress?: number | null;
+  speed?: string | null;
+  errors?: number | null;
+  /** DateTime ISO */
+  date?: string | null;
+  /** 秒 */
+  duration?: number | null;
+  correcting?: boolean | null;
+}
+
+export interface ParityStatusResponse {
+  array?: {
+    state?: string;
+    parityCheckStatus?: ParityCheckInfo | null;
+  };
+}
+
+/** 【续 91 G】UPS_QUERY 响应(子字段 2026-08-09 introspect 核实) */
+export interface UpsDeviceInfo {
+  id?: string;
+  name?: string;
+  model?: string;
+  /** apcaccess 状态码,如 "OL"(市电)/"OB"(电池供电) */
+  status?: string;
+  battery?: {
+    chargeLevel?: number | null;
+    /** 预计续航(分钟) */
+    estimatedRuntime?: number | null;
+    health?: string | null;
+  } | null;
+  power?: {
+    inputVoltage?: number | null;
+    outputVoltage?: number | null;
+    loadPercentage?: number | null;
+    nominalPower?: number | null;
+    currentPower?: number | null;
+  } | null;
+}
+
+export interface UpsDevicesResponse {
+  upsDevices?: UpsDeviceInfo[] | null;
+}
+
 // ==================== Shares ====================
 
 export interface ShareInfo {

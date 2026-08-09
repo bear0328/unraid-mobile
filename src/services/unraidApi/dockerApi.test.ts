@@ -8,6 +8,8 @@ import {
   restartContainer,
   pauseContainer,
   resumeContainer,
+  updateContainer,
+  updateContainers,
   getContainerLogs,
   getContainerStats,
   getAllContainerStats,
@@ -82,7 +84,7 @@ describe('dockerApi', () => {
           },
         })
       );
-      const list = await getDockerContainers(BASE, KEY, PROXY);
+      const list = (await getDockerContainers(BASE, KEY, PROXY))!;
       expect(list).toHaveLength(2);
       expect(list[0]).toMatchObject({
         id: 'abc:123',
@@ -101,10 +103,10 @@ describe('dockerApi', () => {
       expect(list).toEqual([]);
     });
 
-    it('失败响应返 []', async () => {
+    it('【续 91 A1】失败响应返 null(区别于真空 [];调用方保留旧列表)', async () => {
       fetchSpy.mockResolvedValueOnce(mockFetchOnce({ errors: [{ message: '鉴权失败' }] }));
       const list = await getDockerContainers(BASE, KEY, PROXY);
-      expect(list).toEqual([]);
+      expect(list).toBeNull();
     });
 
     it('【续 50 P2】names 为空数组 → 名归为 Unknown,不再抛 TypeError 拒掉整个列表', async () => {
@@ -119,7 +121,7 @@ describe('dockerApi', () => {
           },
         })
       );
-      const list = await getDockerContainers(BASE, KEY, PROXY);
+      const list = (await getDockerContainers(BASE, KEY, PROXY))!;
       expect(list).toHaveLength(1);
       expect(list[0].name).toBe('Unknown');
     });
@@ -198,25 +200,138 @@ describe('dockerApi', () => {
       expect(r).toEqual({ success: true });
     });
 
-    it('restartContainer:stop 失败直接返错,不调 start', async () => {
+    // 【续 91 F】restart 优先走原生 docker.restart mutation(一次请求);
+    // 仅 schema 校验失败(老 unraid-api 无此 mutation)才降级 stop+1s+start
+    it('restartContainer:原生 restart 成功,一次请求 + cache 失效', async () => {
+      setCache(getCacheKey('containers'), { stale: true });
+      setCache(getCacheKey('containerDetails'), { stale: true });
+      fetchSpy.mockResolvedValueOnce(
+        mockFetchOnce({ data: { docker: { restart: { id: 'c:1', state: 'running' } } } })
+      );
+      const r = await restartContainer(BASE, KEY, PROXY, 'c:1');
+      expect(r).toEqual({ success: true });
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      const init = fetchSpy.mock.calls[0]?.[1] as RequestInit | undefined;
+      const body = JSON.parse(String(init?.body ?? '{}'));
+      expect(body.query).toContain('restart');
+      expect(body.variables.id).toBe('c:1');
+      expect(getCache(getCacheKey('containers'))).toBeNull();
+      expect(getCache(getCacheKey('containerDetails'))).toBeNull();
+    });
+
+    it('restartContainer:原生报业务错误(非 schema)直接返错,不走降级', async () => {
       fetchSpy.mockResolvedValueOnce(mockFetchOnce({ errors: [{ message: 'boom' }] }));
       const r = await restartContainer(BASE, KEY, PROXY, 'c:1');
       expect(r.success).toBe(false);
-      expect(fetchSpy).toHaveBeenCalledTimes(1); // 没走到 start
+      expect(r.error).toBe('boom');
+      expect(fetchSpy).toHaveBeenCalledTimes(1); // 没走 stop/start 降级
     });
 
-    it('restartContainer:stop 成功后等 1s 再 start', async () => {
+    it('restartContainer:schema 校验失败(无 restart 字段)→ 降级 stop+1s+start', async () => {
       // fakeTimers 才能 mock setTimeout
       vi.useFakeTimers();
+      try {
+        fetchSpy
+          // 原生 restart:老 unraid-api 无此 mutation(schema 校验错误)
+          .mockResolvedValueOnce(
+            mockFetchOnce({
+              errors: [{ message: 'Cannot query field "restart" on type "DockerMutations".' }],
+            })
+          )
+          .mockResolvedValueOnce(mockFetchOnce({ data: {} })) // stop
+          .mockResolvedValueOnce(mockFetchOnce({ data: {} })); // start
+        const p = restartContainer(BASE, KEY, PROXY, 'c:1');
+        await vi.advanceTimersByTimeAsync(1000);
+        const r = await p;
+        expect(r.success).toBe(true);
+        expect(fetchSpy).toHaveBeenCalledTimes(3);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('restartContainer:降级路径 stop 失败直接返错,不调 start', async () => {
       fetchSpy
-        .mockResolvedValueOnce(mockFetchOnce({ data: {} })) // stop
-        .mockResolvedValueOnce(mockFetchOnce({ data: {} })); // start
-      const p = restartContainer(BASE, KEY, PROXY, 'c:1');
-      await vi.advanceTimersByTimeAsync(1000);
-      const r = await p;
-      expect(r.success).toBe(true);
-      expect(fetchSpy).toHaveBeenCalledTimes(2);
-      vi.useRealTimers();
+        .mockResolvedValueOnce(
+          mockFetchOnce({
+            errors: [{ message: 'Cannot query field "restart" on type "DockerMutations".' }],
+          })
+        )
+        .mockResolvedValueOnce(mockFetchOnce({ errors: [{ message: 'boom' }] })); // stop 失败
+      const r = await restartContainer(BASE, KEY, PROXY, 'c:1');
+      expect(r.success).toBe(false);
+      expect(fetchSpy).toHaveBeenCalledTimes(2); // 没走到 start
+    });
+  });
+
+  // ==================== 【续 91 F】容器更新 ====================
+  describe('updateContainer(续 91 F)', () => {
+    it('成功 → success:true + containers/containerDetails cache 失效', async () => {
+      setCache(getCacheKey('containers'), { stale: true });
+      setCache(getCacheKey('containerDetails'), { stale: true });
+      fetchSpy.mockResolvedValueOnce(
+        mockFetchOnce({ data: { docker: { updateContainer: { id: 'c:1', state: 'running' } } } })
+      );
+      const r = await updateContainer(BASE, KEY, PROXY, 'c:1');
+      expect(r).toEqual({ success: true });
+      expect(getCache(getCacheKey('containers'))).toBeNull();
+      expect(getCache(getCacheKey('containerDetails'))).toBeNull();
+      const init = fetchSpy.mock.calls[0]?.[1] as RequestInit | undefined;
+      const body = JSON.parse(String(init?.body ?? '{}'));
+      expect(body.query).toContain('updateContainer');
+      expect(body.variables.id).toBe('c:1');
+    });
+
+    it('失败 → 错误信息透传(不静默),cache 保留', async () => {
+      setCache(getCacheKey('containers'), { stale: true });
+      fetchSpy.mockResolvedValueOnce(mockFetchOnce({ errors: [{ message: 'pull 失败' }] }));
+      const r = await updateContainer(BASE, KEY, PROXY, 'c:1');
+      expect(r).toEqual({ success: false, error: 'pull 失败' });
+      expect(getCache(getCacheKey('containers'))).not.toBeNull();
+    });
+
+    it('timeoutMs=120000:挂起请求 120s 后被 abort,报 Endpoint timeout(pull 镜像远超 10s 默认)', async () => {
+      vi.useFakeTimers();
+      try {
+        fetchSpy.mockImplementationOnce((_url, init) => {
+          const signal = (init as RequestInit).signal!;
+          // 永不返回,只在 abort 时 reject(模拟长时间 pull)
+          return new Promise<Response>((_resolve, reject) => {
+            signal.addEventListener('abort', () =>
+              reject(Object.assign(new Error('The operation was aborted'), { name: 'AbortError' }))
+            );
+          });
+        });
+        const p = updateContainer(BASE, KEY, PROXY, 'c:1');
+        await vi.advanceTimersByTimeAsync(120000);
+        const r = await p;
+        expect(r.success).toBe(false);
+        expect(r.error).toBe('Endpoint timeout (120000ms)');
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+  });
+
+  describe('updateContainers(续 91 F 批量)', () => {
+    it('成功 → ids 原样传入,success:true + cache 失效', async () => {
+      setCache(getCacheKey('containers'), { stale: true });
+      fetchSpy.mockResolvedValueOnce(
+        mockFetchOnce({ data: { docker: { updateContainers: [{ id: 'c:1' }, { id: 'c:2' }] } } })
+      );
+      const r = await updateContainers(BASE, KEY, PROXY, ['c:1', 'c:2']);
+      expect(r).toEqual({ success: true });
+      expect(getCache(getCacheKey('containers'))).toBeNull();
+      const init = fetchSpy.mock.calls[0]?.[1] as RequestInit | undefined;
+      const body = JSON.parse(String(init?.body ?? '{}'));
+      expect(body.query).toContain('updateContainers');
+      expect(body.variables.ids).toEqual(['c:1', 'c:2']);
+    });
+
+    it('失败 → 错误透传(不静默)', async () => {
+      fetchSpy.mockResolvedValueOnce(mockFetchOnce({ errors: [{ message: 'network' }] }));
+      const r = await updateContainers(BASE, KEY, PROXY, ['c:1']);
+      expect(r).toEqual({ success: false, error: 'network' });
     });
   });
 

@@ -81,7 +81,9 @@ describe('useDashboardOrder', () => {
     const legacy = ['favorites', 'cpu', 'memory', 'containers', 'network', 'array', 'disk'];
     localStorage.setItem(STORAGE_KEY, JSON.stringify(legacy));
     const { result } = renderHook(() => useDashboardOrder());
-    expect(result.current.order).toEqual([
+    // 【续 91 D/G】missing-key 补全先发生:ups/parity/vms 追加在末尾,
+    // 迁移只重排 network/vms,ups/parity 保持在尾部(老用户新卡出现在最后,符合预期)
+    const migrated = [
       'favorites',
       'cpu',
       'memory',
@@ -89,10 +91,13 @@ describe('useDashboardOrder', () => {
       'containers',
       'vms',
       'disk',
-    ]);
+      'ups',
+      'parity',
+    ];
+    expect(result.current.order).toEqual(migrated);
     // 迁移结果写回 LS + 版本标记(之后 mount 不再重复迁移)
     expect(localStorage.getItem(MIGRATE_KEY)).toBe('v2');
-    expect(JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]')).toEqual([...DEFAULT_ORDER]);
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]')).toEqual(migrated);
   });
 
   it('【续 90】已迁移(v2 标记)→ 尊重用户自定义,不再强制 network 提前', () => {
@@ -101,7 +106,8 @@ describe('useDashboardOrder', () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(custom));
     localStorage.setItem(MIGRATE_KEY, 'v2');
     const { result } = renderHook(() => useDashboardOrder());
-    expect(result.current.order).toEqual(custom);
+    // 【续 91 D/G】v2 信任路径只做 missing-key 补全:ups/parity 追加末尾,不动用户顺序
+    expect(result.current.order).toEqual([...custom, 'ups', 'parity']);
   });
 
   it('【续 90】迁移只做一次:迁移后用户再拖拽,下次 mount 保持新顺序', () => {
@@ -122,5 +128,60 @@ describe('useDashboardOrder', () => {
     localStorage.setItem(STORAGE_KEY, 'not json{');
     const { result } = renderHook(() => useDashboardOrder());
     expect(result.current.order).toEqual([...DEFAULT_ORDER]);
+  });
+
+  // ==== 【续 91】脏 LS 去重 + move 越界守卫 ====
+
+  it('【续 91】脏 LS 含重复 key → 去重后不重复渲染(v2 信任路径)', () => {
+    const dirty = ['favorites', 'cpu', 'cpu', 'memory', 'network', 'network', 'containers', 'vms', 'disk'];
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(dirty));
+    localStorage.setItem(MIGRATE_KEY, 'v2');
+    const { result } = renderHook(() => useDashboardOrder());
+    // 【续 91 D/G】v2 信任路径只做 missing-key 补全:ups/parity 追加末尾,不重排
+    expect(result.current.order).toEqual([
+      'favorites',
+      'cpu',
+      'memory',
+      'network',
+      'containers',
+      'vms',
+      'disk',
+      'ups',
+      'parity',
+    ]);
+    // 每个 key 只出现一次
+    expect(new Set(result.current.order).size).toBe(result.current.order.length);
+  });
+
+  it('【续 91】脏 LS 含重复 key → 迁移路径同样去重', () => {
+    // 无 v2 标记走迁移路径,containers 重复
+    const dirty = ['favorites', 'cpu', 'memory', 'containers', 'containers', 'network', 'disk'];
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(dirty));
+    const { result } = renderHook(() => useDashboardOrder());
+    // 【续 91 D/G】迁移路径:network 提前 + vms 插入,missing 补全的 ups/parity 在末尾
+    expect(result.current.order).toEqual([
+      'favorites',
+      'cpu',
+      'memory',
+      'network',
+      'containers',
+      'vms',
+      'disk',
+      'ups',
+      'parity',
+    ]);
+    expect(new Set(result.current.order).size).toBe(result.current.order.length);
+  });
+
+  it('【续 91】越界 move 是 no-op,不产生 undefined', () => {
+    const { result } = renderHook(() => useDashboardOrder());
+    const before = [...result.current.order];
+    act(() => result.current.move(-1, 2));
+    expect(result.current.order).toEqual(before);
+    act(() => result.current.move(0, 99));
+    expect(result.current.order).toEqual(before);
+    act(() => result.current.move(99, 0));
+    expect(result.current.order).toEqual(before);
+    expect(result.current.order).not.toContain(undefined);
   });
 });

@@ -96,6 +96,32 @@ describe('useContainersData', () => {
     expect(result.current.loading).toBe(false);
   });
 
+  it('【续 91 A2】API 返 null(请求失败)→ 保留 prev 列表 + 置 error(不清空卡片)', async () => {
+    const getDockerContainers = vi.fn().mockResolvedValue(SAMPLE_CONTAINERS);
+    const api = makeApi({ getDockerContainers });
+    const { result } = renderHook(() => useContainersData(api, true));
+
+    await waitFor(() => {
+      expect(result.current.containers).toHaveLength(1);
+    }, WAIT_TIMEOUT);
+
+    // 下一轮失败(null):列表保留,error 填充;真空([])才会清空
+    getDockerContainers.mockResolvedValue(null);
+    await act(async () => {
+      await result.current.refresh();
+    });
+    expect(result.current.containers).toHaveLength(1);
+    expect(result.current.error).toBe('无法连接到 unRAID 服务器');
+
+    // 再下一轮真空([]):合法清空
+    getDockerContainers.mockResolvedValue([]);
+    await act(async () => {
+      await result.current.refresh();
+    });
+    expect(result.current.containers).toEqual([]);
+    expect(result.current.error).toBeNull();
+  });
+
   it('refresh() 暴露给外部可手动调', async () => {
     const getDockerContainers = vi.fn().mockResolvedValue(SAMPLE_CONTAINERS);
     const api = makeApi({ getDockerContainers });

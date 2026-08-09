@@ -1,8 +1,10 @@
 // 【阶段 P1-详情 - 2026-06-17 续 33-1】ContainerDetailsModal 测试
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import ContainerDetailsModal from './ContainerDetailsModal';
 import { clearFavorites } from '../../hooks/useFavorites';
+import { __setLicenseStateForTest, __resetLicenseForTest } from '../../services/license';
 import type { UnraidApiService, UnraidDockerContainer } from '../../services';
 
 const container: UnraidDockerContainer = {
@@ -21,6 +23,11 @@ describe('ContainerDetailsModal', () => {
   beforeEach(() => {
     clearFavorites();
     localStorage.clear();
+  });
+
+  // 【续 91 F】门控用例会改 license 态,测后复位防串扰
+  afterEach(() => {
+    __resetLicenseForTest();
   });
 
   it('显示容器名 + 状态 + 镜像', () => {
@@ -220,5 +227,71 @@ describe('ContainerDetailsModal', () => {
     // javascript: 的 WebUI 按钮 / 项目主页链接不渲染
     expect(screen.queryByRole('link', { name: /打开 Web UI/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /项目主页/ })).not.toBeInTheDocument();
+  });
+
+  // ==================== 【续 91 F】一键更新按钮(Pro 门控) ====================
+
+  it('【续 91 F】已解锁 + 无更新徽标 → 显示「检查并更新」,点击调 onUpdate 并重拉详情', async () => {
+    __setLicenseStateForTest({
+      status: 'active',
+      info: { email: 't@t', tier: 'pro', iat: 1, exp: null },
+    });
+    const { default: userEvent } = await import('@testing-library/user-event');
+    const api = makeApi({ success: true, data: { ...detailPayload, isUpdateAvailable: false } });
+    const onUpdate = vi.fn().mockResolvedValue(true);
+    render(
+      <ContainerDetailsModal container={container} api={api} onClose={() => {}} onUpdate={onUpdate} />
+    );
+    const btn = await screen.findByRole('button', { name: /检查并更新/ });
+    await userEvent.click(btn);
+    expect(onUpdate).toHaveBeenCalledWith(container);
+    // 成功后重拉详情消徽标(首次打开 1 次 + 更新后 1 次)
+    await waitFor(() => expect(api.getContainerDetails).toHaveBeenCalledTimes(2));
+  });
+
+  it('【续 91 F】有更新徽标 → 按钮文案「更新」', async () => {
+    __setLicenseStateForTest({
+      status: 'active',
+      info: { email: 't@t', tier: 'pro', iat: 1, exp: null },
+    });
+    const api = makeApi({ success: true, data: detailPayload }); // isUpdateAvailable: true
+    const onUpdate = vi.fn().mockResolvedValue(true);
+    render(
+      <ContainerDetailsModal container={container} api={api} onClose={() => {}} onUpdate={onUpdate} />
+    );
+    await screen.findByText('有更新');
+    // 按钮(非徽章 span)文案为「更新」
+    expect(screen.getByRole('button', { name: '更新' })).toBeInTheDocument();
+  });
+
+  it('【续 91 F】未解锁 → 按钮换 ProGateButton 锁占位(Pro 功能提示),点击不调 onUpdate', async () => {
+    __setLicenseStateForTest({ status: 'none' });
+    const { default: userEvent } = await import('@testing-library/user-event');
+    const onUpdate = vi.fn();
+    render(
+      <MemoryRouter>
+        <ContainerDetailsModal container={container} api={null} onClose={() => {}} onUpdate={onUpdate} />
+      </MemoryRouter>
+    );
+    const btn = screen.getByRole('button', { name: /检查并更新/ });
+    expect(btn.getAttribute('title')).toContain('Pro 功能');
+    await userEvent.click(btn);
+    expect(onUpdate).not.toHaveBeenCalled();
+  });
+
+  it('【续 91 F】onUpdate 进行中 → 按钮禁用并显示「更新中…」', async () => {
+    __setLicenseStateForTest({
+      status: 'active',
+      info: { email: 't@t', tier: 'pro', iat: 1, exp: null },
+    });
+    const { default: userEvent } = await import('@testing-library/user-event');
+    // 永不 resolve 的 onUpdate,模拟 pull 中
+    const onUpdate = vi.fn(() => new Promise<boolean>(() => {}));
+    render(
+      <ContainerDetailsModal container={container} api={null} onClose={() => {}} onUpdate={onUpdate} />
+    );
+    const btn = screen.getByRole('button', { name: /检查并更新/ });
+    await userEvent.click(btn);
+    expect(await screen.findByRole('button', { name: /更新中…/ })).toBeDisabled();
   });
 });

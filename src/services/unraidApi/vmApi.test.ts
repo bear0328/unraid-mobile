@@ -42,7 +42,7 @@ describe('vmApi', () => {
           },
         })
       );
-      const list = await vmApi.getVMs(BASE, KEY, PROXY);
+      const list = (await vmApi.getVMs(BASE, KEY, PROXY))!;
       expect(list).toHaveLength(2);
       expect(list[0]).toEqual({
         id: 'srv-1:uuid-aaa',
@@ -52,9 +52,14 @@ describe('vmApi', () => {
       });
     });
 
-    it('空列表返 []', async () => {
+    it('空列表返 [](真空合法)', async () => {
       fetchSpy.mockResolvedValueOnce(mockFetchOnce({ data: { vms: { domains: [] } } }));
       expect(await vmApi.getVMs(BASE, KEY, PROXY)).toEqual([]);
+    });
+
+    it('【续 91 A1】失败响应返 null(区别于真空 [];调用方保留旧列表)', async () => {
+      fetchSpy.mockResolvedValueOnce(mockFetchOnce({ errors: [{ message: 'boom' }] }));
+      expect(await vmApi.getVMs(BASE, KEY, PROXY)).toBeNull();
     });
   });
 

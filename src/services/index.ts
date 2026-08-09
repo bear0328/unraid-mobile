@@ -16,6 +16,8 @@ export type {
   UnraidDockerContainer,
   UnraidVM,
   UnraidNetworkInfo,
+  UnraidParityStatus,
+  UnraidUpsDevice,
   UnraidApiResponse,
   ApiConfig,
   ContainerLogs,

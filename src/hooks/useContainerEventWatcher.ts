@@ -39,7 +39,11 @@ export function useContainerEventWatcher() {
       // 【续 73】tick 放行时先失效 30min namespace cache,否则拿到旧状态,
       // webhook 检测被架空;skipInitialIf/mount 路径不走 fetcher,不受影响
       invalidateNamespace('containers');
-      return api ? await api.getDockerContainers() : [];
+      // 【续 91 A1】失败返 null → 抛错走 onError,不把一次失败当"全部容器消失"
+      // (否则一轮失败会把所有 running 容器误判停止,群发 webhook/通知)
+      const list = api ? await api.getDockerContainers() : [];
+      if (!list) throw new Error('getDockerContainers failed');
+      return list;
     },
     keyOf: (c) => c.name,
     stateOf: (c) => c.state,

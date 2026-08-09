@@ -20,13 +20,17 @@ import {
   Link as LinkIcon,
   ExternalLink,
   Globe,
+  ArrowUpCircle,
+  RefreshCw,
 } from 'lucide-react';
 import { UnraidApiService, UnraidDockerContainer, ContainerDetailInfo } from '../../services';
 import { useFavorites } from '../../hooks/useFavorites';
 import { useApiConfig } from '../../hooks/useUnraidApi';
+import { usePro } from '../../hooks/usePro';
 import ContainerStatsSection, { type Stats } from './ContainerStatsSection';
 import ContainerMountsSection from './ContainerMountsSection';
 import { Modal, ModalHeader } from '../Modal';
+import { ProGateButton } from '../ProGate';
 import Icon from '../ui/Icon';
 import { containerStateLabel, formatDate, formatBytes } from '../../utils/formatters';
 import { safeUrl } from '../../utils/safeUrl';
@@ -36,12 +40,16 @@ interface ContainerDetailsModalProps {
   /** 来自 useUnraidApi(),用于拉 stats */
   api: UnraidApiService | null;
   onClose: () => void;
+  /** 【续 91 F】「更新/检查并更新」按钮 handler(确认对话框/toast/列表刷新在父级
+   * Containers 统一实现);返回 true=更新成功(本组件据此重拉详情消徽标) */
+  onUpdate?: (container: UnraidDockerContainer) => Promise<boolean>;
 }
 
 export default function ContainerDetailsModal({
   container,
   api,
   onClose,
+  onUpdate,
 }: ContainerDetailsModalProps) {
   const [stats, setStats] = useState<Stats | null>(null);
   const [statsError, setStatsError] = useState<string | null>(null);
@@ -56,6 +64,25 @@ export default function ContainerDetailsModal({
   const faved = isFav('container', container.containerId);
   // 【续 33-4】跳 WebGUI 用 baseUrl
   const { config } = useApiConfig();
+  // 【续 91 F】更新按钮 Pro 门控 + mutation 期间 spinner/禁用
+  const pro = usePro();
+  const [updating, setUpdating] = useState(false);
+
+  // 【续 91 F】确认对话框/toast/列表刷新统一在父级 Containers 的 handler;
+  // 成功后重拉详情(dockerApi 已失效 containerDetails 缓存),消掉「有更新」徽标
+  const handleUpdate = async () => {
+    if (!onUpdate || updating) return;
+    setUpdating(true);
+    try {
+      const ok = await onUpdate(container);
+      if (ok && api) {
+        const r = await api.getContainerDetails(container.name);
+        if (r.success && r.data) setDetail(r.data);
+      }
+    } finally {
+      setUpdating(false);
+    }
+  };
 
   // 【续 35-7】单次拉 stats(辅助初始值)
   // 【续 53】非 running 跳过:docker stats 只有运行中容器才有数据,拉了也是报错
@@ -146,6 +173,32 @@ export default function ContainerDetailsModal({
                 有更新
               </span>
             )}
+            {/* 【续 91 F】一键更新(Pro):徽章旁常显;无徽章时文案「检查并更新」;
+                未解锁用 ProGateButton 锁占位跳设置 */}
+            {onUpdate &&
+              (() => {
+                const updateLabel = detail?.isUpdateAvailable === true ? '更新' : '检查并更新';
+                return pro ? (
+                  <button
+                    onClick={handleUpdate}
+                    disabled={updating}
+                    className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-orange-600 text-white hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    title="拉取最新镜像并重建容器(配置保留)"
+                  >
+                    {updating ? (
+                      <Icon icon={RefreshCw} size={12} className="animate-spin" />
+                    ) : (
+                      <Icon icon={ArrowUpCircle} size={12} />
+                    )}
+                    {updating ? '更新中…' : updateLabel}
+                  </button>
+                ) : (
+                  <ProGateButton
+                    label={updateLabel}
+                    className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/60 transition-colors"
+                  />
+                );
+              })()}
           </p>
         }
       >

@@ -59,16 +59,47 @@ function ServerHeroCard({
   // 【续 89b】外网地址显隐 + 复制反馈(均组件内 state,不持久化)
   const [showAddress, setShowAddress] = useState(false);
   const [copied, setCopied] = useState(false);
+  // 【续 91】复制失败也要给反馈(不静默)
+  const [copyFailed, setCopyFailed] = useState(false);
   // 【续 90】host 而非 origin:去 scheme,显示纯 IP:端口(域名访问则域名:端口)
   const address = typeof window !== 'undefined' ? window.location.host : '';
 
-  const copyAddress = async () => {
+  // 【续 91】clipboard API 回退:http 非安全上下文 navigator.clipboard 不存在,
+  // 用隐藏 textarea + execCommand('copy')
+  const fallbackCopy = (text: string): boolean => {
     try {
-      await navigator.clipboard.writeText(address);
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      return ok;
+    } catch {
+      return false;
+    }
+  };
+
+  const copyAddress = async () => {
+    let ok = false;
+    if (navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(address);
+        ok = true;
+      } catch {
+        /* 落入回退 */
+      }
+    }
+    if (!ok) ok = fallbackCopy(address);
+    if (ok) {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
-    } catch {
-      /* clipboard 不可用忽略 */
+    } else {
+      setCopyFailed(true);
+      setTimeout(() => setCopyFailed(false), 1500);
     }
   };
 
@@ -138,6 +169,7 @@ function ServerHeroCard({
                     <Icon icon={copied ? Check : Copy} size={11} />
                   </button>
                   {copied && <span className="text-green-300">已复制</span>}
+                  {copyFailed && <span className="text-red-300">复制失败</span>}
                 </>
               ) : (
                 <span className="font-mono tracking-wider">••••••••</span>

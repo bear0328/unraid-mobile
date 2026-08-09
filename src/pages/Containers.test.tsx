@@ -6,7 +6,7 @@
 // ⚠️  注意:tab 切换会触发 re-render → useContainersData 第二次调用,
 //         因此 VM 详情相关用例必须用 mockReturnValue(持久)而非 mockReturnValueOnce(单次)
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, act, waitFor } from '@testing-library/react';
+import { render, screen, act, waitFor, within } from '@testing-library/react';
 import userEvent, { type UserEvent } from '@testing-library/user-event';
 import type { UnraidDockerContainer, UnraidVM } from '../services';
 import type { UnraidApiService } from '../services';
@@ -154,6 +154,8 @@ describe('Containers 页面', () => {
     });
     // 清 toast 调用记录,防止上一用例的 toast 污染计数断言
     Object.values(toastMocks).forEach((m) => m.mockClear());
+    // 【续 91 F】还原 useUnraidApi 默认实现(更新用例会 mockReturnValue 覆盖,防串到后续用例)
+    vi.mocked(useUnraidApi).mockImplementation(() => ({}) as unknown as UnraidApiService);
     // 重置 mock 持久返回值,避免上一测试污染
     vi.mocked(useContainersData).mockReturnValue({
       containers: [] as UnraidDockerContainer[],
@@ -570,5 +572,119 @@ describe('Containers 页面', () => {
     await user.click(screen.getByText('win11'));
     expect(screen.getByTestId('vm-details-modal')).toBeInTheDocument();
     expect(screen.getByTestId('vm-details-modal')).toHaveTextContent('win11');
+  });
+
+  // ==== 续 91 F:容器一键更新(Pro,纯 GraphQL) ====
+  it('⋮ 菜单「更新镜像」→ 确认对话框 → 确认后调 api.updateContainer + toast 成功', async () => {
+    const user: UserEvent = userEvent.setup();
+    const updateContainer = vi.fn().mockResolvedValue({ success: true });
+    vi.mocked(useUnraidApi).mockReturnValue({
+      updateContainer,
+      updateContainers: vi.fn(),
+    } as unknown as UnraidApiService);
+    vi.mocked(useContainersData).mockReturnValue({
+      containers: [makeContainer({ name: 'nginx', containerId: 'container:abc' })],
+      vms: [],
+      loading: false,
+      error: null,
+      refresh: vi.fn(),
+      containersRef: { current: [] },
+      vmsRef: { current: [] },
+    });
+    renderContainers();
+    await user.click(screen.getByRole('button', { name: '更多操作' }));
+    await user.click(screen.getByRole('menuitem', { name: /更新镜像/ }));
+    // 确认对话框(useDialog)
+    const dlg = await screen.findByRole('dialog');
+    expect(dlg).toHaveTextContent('最新镜像');
+    await user.click(within(dlg).getByRole('button', { name: '更新' }));
+    await waitFor(() => expect(updateContainer).toHaveBeenCalledWith('container:abc'));
+    await waitFor(() => expect(toastMocks.success).toHaveBeenCalledWith('「nginx」更新完成'));
+  });
+
+  it('「更新镜像」确认对话框点取消 → 不调 api.updateContainer', async () => {
+    const user: UserEvent = userEvent.setup();
+    const updateContainer = vi.fn().mockResolvedValue({ success: true });
+    vi.mocked(useUnraidApi).mockReturnValue({
+      updateContainer,
+      updateContainers: vi.fn(),
+    } as unknown as UnraidApiService);
+    vi.mocked(useContainersData).mockReturnValue({
+      containers: [makeContainer({ name: 'nginx', containerId: 'container:abc' })],
+      vms: [],
+      loading: false,
+      error: null,
+      refresh: vi.fn(),
+      containersRef: { current: [] },
+      vmsRef: { current: [] },
+    });
+    renderContainers();
+    await user.click(screen.getByRole('button', { name: '更多操作' }));
+    await user.click(screen.getByRole('menuitem', { name: /更新镜像/ }));
+    const dlg = await screen.findByRole('dialog');
+    await user.click(within(dlg).getByRole('button', { name: '取消' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(updateContainer).not.toHaveBeenCalled();
+  });
+
+  it('更新失败 → toast.error 透传错误 + 后备刷新一次 containers', async () => {
+    const user: UserEvent = userEvent.setup();
+    const updateContainer = vi.fn().mockResolvedValue({ success: false, error: 'Endpoint timeout (120000ms)' });
+    vi.mocked(useUnraidApi).mockReturnValue({
+      updateContainer,
+      updateContainers: vi.fn(),
+    } as unknown as UnraidApiService);
+    const refresh = vi.fn();
+    vi.mocked(useContainersData).mockReturnValue({
+      containers: [makeContainer({ name: 'nginx', containerId: 'container:abc' })],
+      vms: [],
+      loading: false,
+      error: null,
+      refresh,
+      containersRef: { current: [] },
+      vmsRef: { current: [] },
+    });
+    renderContainers();
+    await user.click(screen.getByRole('button', { name: '更多操作' }));
+    await user.click(screen.getByRole('menuitem', { name: /更新镜像/ }));
+    const dlg = await screen.findByRole('dialog');
+    await user.click(within(dlg).getByRole('button', { name: '更新' }));
+    await waitFor(() =>
+      expect(toastMocks.error).toHaveBeenCalledWith(
+        '「nginx」更新失败:Endpoint timeout (120000ms)',
+        6000
+      )
+    );
+    expect(refresh).toHaveBeenCalled();
+  });
+
+  it('批量工具条「更新」→ 确认后 api.updateContainers(选中 ids) + toast 汇总', async () => {
+    const user: UserEvent = userEvent.setup();
+    const updateContainers = vi.fn().mockResolvedValue({ success: true });
+    vi.mocked(useUnraidApi).mockReturnValue({
+      updateContainer: vi.fn(),
+      updateContainers,
+    } as unknown as UnraidApiService);
+    vi.mocked(useContainersData).mockReturnValue({
+      containers: [
+        makeContainer({ name: 'nginx', containerId: 'c1' }),
+        makeContainer({ name: 'redis', containerId: 'c2' }),
+      ],
+      vms: [],
+      loading: false,
+      error: null,
+      refresh: vi.fn(),
+      containersRef: { current: [] },
+      vmsRef: { current: [] },
+    });
+    renderContainers();
+    await user.click(screen.getByLabelText('选择 nginx'));
+    await user.click(screen.getByLabelText('选择 redis'));
+    await user.click(screen.getByRole('button', { name: '更新' }));
+    const dlg = await screen.findByRole('dialog');
+    expect(dlg).toHaveTextContent('2 个容器');
+    await user.click(within(dlg).getByRole('button', { name: '更新' }));
+    await waitFor(() => expect(updateContainers).toHaveBeenCalledWith(['c1', 'c2']));
+    await waitFor(() => expect(toastMocks.success).toHaveBeenCalledWith('批量更新完成: 2 个'));
   });
 });

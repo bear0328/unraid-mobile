@@ -173,6 +173,29 @@ describe('systemApi / diskApi / networkApi / shareApi', () => {
       expect(mockGetCpuTemp).not.toHaveBeenCalled();
     });
 
+    it('【续 91 L12】CPU 温度与主 graphql 并行:fetch 未回时已发起 compose-api 调用', async () => {
+      let resolveFetch!: (r: Response) => void;
+      fetchSpy.mockImplementationOnce(() => new Promise<Response>((r) => { resolveFetch = r; }));
+      mockGetCpuTemp.mockResolvedValue({ celsius: 47.0, sensor: 'coretemp' });
+      const p = getSystemInfo(BASE, KEY, PROXY);
+      // fetch 还在飞,compose-api 已被调用(串行实现此时还没发起)
+      await vi.waitFor(() => expect(mockGetCpuTemp).toHaveBeenCalled());
+      resolveFetch(
+        mockFetchOnce({
+          data: {
+            info: { os: { hostname: 'tower' }, cpu: { cores: 8, threads: 16, brand: 'AMD' } },
+            metrics: {
+              cpu: { percentTotal: 35, cpus: [] },
+              memory: { used: 8e9, total: 16e9, free: 8e9, percentTotal: 50, swapTotal: 0, swapUsed: 0, swapFree: 0, percentSwapTotal: 0 },
+            },
+            array: { state: 'STARTED' },
+          },
+        })
+      );
+      const info = await p;
+      expect(info?.cpuTemp).toBe(47.0);
+    });
+
     it('【续 46.5】SYSTEM_INFO_QUERY 不含 temperature 字段(防回归:任何人加回都会唤醒休眠硬盘)', async () => {
       fetchSpy.mockResolvedValueOnce(
         mockFetchOnce({
@@ -226,7 +249,7 @@ describe('systemApi / diskApi / networkApi / shareApi', () => {
           },
         })
       );
-      const list = await getDisks(BASE, KEY, PROXY);
+      const list = (await getDisks(BASE, KEY, PROXY))!;
       expect(list).toHaveLength(3);
       const d1 = list.find((d) => d.name === 'disk1')!;
       expect(d1.type).toBe('data');
@@ -262,7 +285,7 @@ describe('systemApi / diskApi / networkApi / shareApi', () => {
           },
         })
       );
-      const list = await getDisks(BASE, KEY, PROXY);
+      const list = (await getDisks(BASE, KEY, PROXY))!;
       const d1 = list[0];
       expect(d1.size).toBe(4000762032 * 1000); // 优先 fsSize,不取 size×1024
       expect(d1.used).toBe(2272663820 * 1000);
@@ -284,7 +307,7 @@ describe('systemApi / diskApi / networkApi / shareApi', () => {
           },
         })
       );
-      const list = await getDisks(BASE, KEY, PROXY);
+      const list = (await getDisks(BASE, KEY, PROXY))!;
       expect(list.map((d) => d.name)).toEqual(['cache', 'flash']);
       expect(list.find((d) => d.name === 'flash')!.type).toBe('boot');
       expect(list.find((d) => d.name === 'cache')!.size).toBe(2048407200 * 1000);
@@ -303,8 +326,43 @@ describe('systemApi / diskApi / networkApi / shareApi', () => {
           },
         })
       );
-      const list = await getDisks(BASE, KEY, PROXY);
+      const list = (await getDisks(BASE, KEY, PROXY))!;
       expect(list).toHaveLength(1);
+    });
+
+    it('【续 91 L13b】flash/boot 同设备不同名 → 按 device 去重不双进列表', async () => {
+      // array.flash 与 array.boot 指向同一 U 盘(device 相同,name 不同),
+      // 修复前两行都进列表(同一设备显示两次)
+      fetchSpy.mockResolvedValueOnce(
+        mockFetchOnce({
+          data: {
+            array: {
+              flash: { name: 'flash', device: 'sda', status: 'DISK_OK', size: 14064640 },
+              boot: { name: 'boot', device: 'sda', status: 'DISK_OK', size: 14064640 },
+            },
+          },
+        })
+      );
+      const list = (await getDisks(BASE, KEY, PROXY))!;
+      expect(list.map((d) => d.name)).toEqual(['flash']);
+    });
+
+    it('【续 91 L13d】temp null(休眠盘)→ temperature 保留 null,不再归 0', async () => {
+      fetchSpy.mockResolvedValueOnce(
+        mockFetchOnce({
+          data: {
+            array: {
+              disks: [
+                { name: 'disk1', type: 'Data', status: 'DISK_OK', size: 1000, temp: null },
+                { name: 'disk2', type: 'Data', status: 'DISK_OK', size: 1000, temp: 0 },
+              ],
+            },
+          },
+        })
+      );
+      const list = (await getDisks(BASE, KEY, PROXY))!;
+      expect(list.find((d) => d.name === 'disk1')!.temperature).toBeNull();
+      expect(list.find((d) => d.name === 'disk2')!.temperature).toBe(0); // 0 是合法温度
     });
 
     it('【续 67】isSpinning 校验失败(unraid-api<4.20)→ 降级重试不含该字段的查询', async () => {
@@ -324,7 +382,7 @@ describe('systemApi / diskApi / networkApi / shareApi', () => {
           },
         })
       );
-      const list = await getDisks(BASE, KEY, PROXY);
+      const list = (await getDisks(BASE, KEY, PROXY))!;
       expect(fetchSpy).toHaveBeenCalledTimes(2);
       const retryBody = JSON.parse((fetchSpy.mock.calls[1][1] as RequestInit).body as string);
       expect(retryBody.query).not.toMatch(/isSpinning/);
@@ -343,7 +401,8 @@ describe('systemApi / diskApi / networkApi / shareApi', () => {
       );
       const list = await getDisks(BASE, KEY, PROXY);
       expect(fetchSpy).toHaveBeenCalledTimes(1); // 不重试
-      expect(list).toHaveLength(0);
+      // 【续 91 A1】失败返 null(原返 [],调用方会把磁盘卡清空+缓存覆盖为空)
+      expect(list).toBeNull();
     });
   });
 
@@ -362,17 +421,22 @@ describe('systemApi / diskApi / networkApi / shareApi', () => {
           },
         })
       );
-      const map = await getSpinStatus(BASE, KEY, PROXY);
+      const map = (await getSpinStatus(BASE, KEY, PROXY))!;
       expect(map.get('disk1')).toBe(false);
       expect(map.get('disk2')).toBe(true);
       expect(map.get('cache')).toBe(true);
       expect(map.size).toBe(3);
     });
 
-    it('【续 66】失败/空响应 → 空 Map,不抛错阻塞 dashboard', async () => {
+    it('【续 66】空响应(成功但无数据)→ 空 Map,不抛错阻塞 dashboard', async () => {
       fetchSpy.mockResolvedValueOnce(mockFetchOnce({ data: { array: {} } }));
-      const map = await getSpinStatus(BASE, KEY, PROXY);
+      const map = (await getSpinStatus(BASE, KEY, PROXY))!;
       expect(map.size).toBe(0);
+    });
+
+    it('【续 91 A1】请求失败 → 返 null(调用方保留旧 spinMap,不清休眠徽章)', async () => {
+      fetchSpy.mockResolvedValueOnce(mockFetchOnce({ errors: [{ message: 'boom' }] }));
+      expect(await getSpinStatus(BASE, KEY, PROXY)).toBeNull();
     });
   });
 
@@ -395,7 +459,7 @@ describe('systemApi / diskApi / networkApi / shareApi', () => {
           },
         })
       );
-      const list = await getNetworkInfo(BASE, KEY, PROXY);
+      const list = (await getNetworkInfo(BASE, KEY, PROXY))!;
       expect(list).toHaveLength(2);
       expect(list[0]).toEqual({
         name: 'eth0',
@@ -431,7 +495,7 @@ describe('systemApi / diskApi / networkApi / shareApi', () => {
             },
           })
         );
-        const list = await getNetworkInfo(BASE, KEY, PROXY);
+        const list = (await getNetworkInfo(BASE, KEY, PROXY))!;
         expect(list[0].rxSec).toBe(1000); // (3000-1000)/2s
         expect(list[0].txSec).toBe(100); // (700-500)/2s
       } finally {
@@ -447,7 +511,7 @@ describe('systemApi / diskApi / networkApi / shareApi', () => {
           },
         })
       );
-      const list = await getNetworkInfo(BASE, KEY, PROXY);
+      const list = (await getNetworkInfo(BASE, KEY, PROXY))!;
       expect(list).toHaveLength(1);
       const body = JSON.parse((fetchSpy.mock.calls[0][1] as RequestInit).body as string);
       expect(body.query).toMatch(/networkInterfaces/);
@@ -468,7 +532,7 @@ describe('systemApi / diskApi / networkApi / shareApi', () => {
           },
         })
       );
-      const list = await getNetworkInfo(BASE, KEY, PROXY);
+      const list = (await getNetworkInfo(BASE, KEY, PROXY))!;
       expect(fetchSpy).toHaveBeenCalledTimes(2);
       const retryBody = JSON.parse((fetchSpy.mock.calls[1][1] as RequestInit).body as string);
       expect(retryBody.query).not.toMatch(/metrics/);
@@ -482,6 +546,11 @@ describe('systemApi / diskApi / networkApi / shareApi', () => {
         rxSec: 0,
         txSec: 0,
       });
+    });
+
+    it('【续 91 A1】请求失败 → 返 null(区别于真空 [];prev 采样不更新)', async () => {
+      fetchSpy.mockResolvedValueOnce(mockFetchOnce({ errors: [{ message: 'boom' }] }));
+      expect(await getNetworkInfo(BASE, KEY, PROXY)).toBeNull();
     });
   });
 
@@ -533,11 +602,13 @@ describe('systemApi / diskApi / networkApi / shareApi', () => {
       );
       const meta = await getServerMeta(BASE, KEY, PROXY);
       // registration.type 优先于 vars.regTy
+      // 【续 91 A15】NORMAL 通知不进 alerts
       expect(meta).toEqual({
         version: '7.3.0',
         regTy: 'LIFETIME',
         regTo: 'Bear',
         osUpdate: { subject: 'unRAID OS 7.4.0 is available', link: '/Tools/UpdateOS' },
+        alerts: [],
       });
     });
 
@@ -565,6 +636,51 @@ describe('systemApi / diskApi / networkApi / shareApi', () => {
       expect(meta?.version).toBe('7.3.0');
       expect(meta?.regTy).toBe('PRO');
       expect(meta?.osUpdate).toBeNull();
+      // 【续 91 A15】ALERT 通知进 alerts(给顶栏铃铛徽章)
+      expect(meta?.alerts).toEqual([
+        {
+          title: 'Disk 1 error',
+          subject: 'device has read errors',
+          importance: 'ALERT',
+          link: undefined,
+          timestamp: '2026-08-01T00:00:00Z',
+        },
+      ]);
+    });
+
+    it('【续 91 A15】alerts 提取:WARNING 也收、NORMAL 排除、最多 5 条', async () => {
+      const mk = (i: number, importance: string) => ({
+        title: `n${i}`,
+        subject: `s${i}`,
+        importance,
+        link: '',
+        timestamp: '2026-08-01T00:00:00Z',
+      });
+      fetchSpy.mockResolvedValueOnce(
+        mockFetchOnce({
+          data: {
+            vars: { version: '7.3.0', regTy: 'PRO', regTo: 'Bear' },
+            registration: null,
+            notifications: {
+              list: [
+                mk(1, 'ALERT'),
+                mk(2, 'NORMAL'), // 排除
+                mk(3, 'WARNING'),
+                mk(4, 'ALERT'),
+                mk(5, 'WARNING'),
+                mk(6, 'ALERT'),
+                mk(7, 'ALERT'), // 超出 5 条截断
+              ],
+            },
+          },
+        })
+      );
+      const meta = await getServerMeta(BASE, KEY, PROXY);
+      expect(meta?.alerts).toHaveLength(5);
+      expect(meta?.alerts?.map((a) => a.title)).toEqual(['n1', 'n3', 'n4', 'n5', 'n6']);
+      expect(meta?.alerts?.every((a) => a.importance === 'ALERT' || a.importance === 'WARNING')).toBe(
+        true
+      );
     });
 
     it('标题/正文含 unraid+update(无 link)也命中 osUpdate', async () => {
@@ -612,7 +728,43 @@ describe('systemApi / diskApi / networkApi / shareApi', () => {
         regTy: 'TRIAL',
         regTo: 'Trial User',
         osUpdate: null,
+        alerts: [],
       });
+    });
+
+    it('【续 91 A6】降级(vars-only)结果不写 namespace 缓存 → 下次刷新重试全量查询', async () => {
+      // 第一次:schema 校验失败 → 降级 vars-only 成功
+      fetchSpy.mockResolvedValueOnce(
+        mockFetchOnce({
+          errors: [{ message: 'Cannot query field "registration" on type "Query".' }],
+        })
+      );
+      fetchSpy.mockResolvedValueOnce(
+        mockFetchOnce({
+          data: { vars: { version: '7.2.0', regTy: 'TRIAL', regTo: 'Trial User' } },
+        })
+      );
+      const meta = await getServerMeta(BASE, KEY, PROXY);
+      expect(meta?.version).toBe('7.2.0');
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+
+      // 降级结果若写了 'serverMeta' 缓存,第二次调用会 0 请求直接命中;
+      // 不写缓存 → 重试全量查询(又遇 schema 失败 → 再降级,共 4 次 fetch)
+      fetchSpy.mockResolvedValueOnce(
+        mockFetchOnce({
+          errors: [{ message: 'Cannot query field "registration" on type "Query".' }],
+        })
+      );
+      fetchSpy.mockResolvedValueOnce(
+        mockFetchOnce({
+          data: { vars: { version: '7.2.0', regTy: 'TRIAL', regTo: 'Trial User' } },
+        })
+      );
+      const meta2 = await getServerMeta(BASE, KEY, PROXY);
+      expect(meta2?.version).toBe('7.2.0');
+      expect(fetchSpy).toHaveBeenCalledTimes(4);
+      const retryFullBody = JSON.parse((fetchSpy.mock.calls[2][1] as RequestInit).body as string);
+      expect(retryFullBody.query).toMatch(/registration/); // 重试的是全量查询
     });
 
     it('非 schema 错误 → 不重试,静默 null', async () => {

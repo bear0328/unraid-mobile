@@ -1,7 +1,7 @@
 // Docker 容器 API + 动作管理方法
 import { UnraidDockerContainer, ContainerDetailInfo } from '../types';
 import { DockerContainersResponse } from '../graphqlTypes';
-import { graphqlRequest, buildGraphqlEndpoint } from './graphql';
+import { graphqlRequest, buildGraphqlEndpoint, isSchemaValidationError } from './graphql';
 import {
   DOCKER_CONTAINERS_QUERY,
   DOCKER_CONTAINER_DETAILS_QUERY,
@@ -11,6 +11,17 @@ import {
   PAUSE_CONTAINER_MUTATION,
   RESUME_CONTAINER_MUTATION,
 } from './queries';
+
+// 【续 91 F】容器更新/原生 restart mutation 常量放本文件而非 queries.ts:
+// 本轮 D/E/G(parity/UPS)与 F(容器更新)两 agent 并行,queries.ts 归 D/E/G,
+// 放这里是文件级隔离点,避免并行改同一文件冲突。
+// 目标机 introspect 实测(2026-08-09):
+//   updateContainer(id: PrefixedID!): DockerContainer!
+//   updateContainers(ids: [PrefixedID!]!): [DockerContainer!]!
+//   restart(id: PrefixedID!): DockerContainer!
+export const DOCKER_UPDATE_CONTAINER_MUTATION = `mutation UpdateContainer($id: PrefixedID!) { docker { updateContainer(id: $id) { id state } } }`;
+export const DOCKER_UPDATE_CONTAINERS_MUTATION = `mutation UpdateContainers($ids: [PrefixedID!]!) { docker { updateContainers(ids: $ids) { id state } } }`;
+export const DOCKER_RESTART_MUTATION = `mutation RestartContainer($id: PrefixedID!) { docker { restart(id: $id) { id state } } }`;
 import {
   startContainerStatsStream,
   updateContainerIndex,
@@ -26,7 +37,7 @@ export async function getDockerContainers(
   baseUrl: string,
   apiKey: string,
   useProxy: boolean
-): Promise<UnraidDockerContainer[]> {
+): Promise<UnraidDockerContainer[] | null> {
   const endpoint = buildGraphqlEndpoint(baseUrl, useProxy);
   const result = await graphqlRequest<DockerContainersResponse>(
     endpoint,
@@ -38,7 +49,11 @@ export async function getDockerContainers(
     }
   );
 
-  if (result.success && result.data?.docker?.containers) {
+  // 【续 91 A1】统一"失败返 null"约定:真空(无容器)返 [] 合法,失败返 null,
+  // 调用方(useContainersData/webhook watcher)据此保留旧列表,不再被失败清空
+  if (!result.success) return null;
+
+  if (result.data?.docker?.containers) {
     const containers = result.data.docker.containers;
     const mapped = containers.map((container) => {
       // 【续 50 P2】names 为空数组时 names[0] 是 undefined,旧代码直接 .replace 抛 TypeError
@@ -123,14 +138,31 @@ export async function stopContainer(
   return { success: false, error: result.error || '停止失败' };
 }
 
-// 重启容器（通过 stop + start 实现）
+// 重启容器
+// 【续 91 F】优先走原生 docker.restart(id) mutation(unraid-api 已支持,一次请求);
+// 老版本 unraid-api 无此 mutation(schema 校验报 Cannot query field)时降级回
+// 原来的 stop + 1s + start 绕行
 export async function restartContainer(
   baseUrl: string,
   apiKey: string,
   useProxy: boolean,
   containerId: string
 ): Promise<{ success: boolean; error?: string }> {
-  // 先停止
+  const endpoint = buildGraphqlEndpoint(baseUrl, useProxy);
+  const result = await graphqlRequest(endpoint, apiKey, DOCKER_RESTART_MUTATION, {
+    id: containerId,
+  });
+  if (result.success) {
+    // 【续 50 B1】mutation 成功后失效 containers/containerDetails cache(同其它动作)
+    invalidateNamespace('containers');
+    invalidateNamespace('containerDetails');
+    return { success: true };
+  }
+  if (!isSchemaValidationError(result.error)) {
+    // 业务错误(如容器不存在)直接透传,不走降级
+    return { success: false, error: result.error || '重启失败' };
+  }
+  // 降级:老 unraid-api 无 restart mutation → stop + 1s + start
   const stopResult = await stopContainer(baseUrl, apiKey, useProxy, containerId);
   if (!stopResult.success) {
     return { success: false, error: stopResult.error || '停止失败' };
@@ -139,6 +171,48 @@ export async function restartContainer(
   await new Promise((resolve) => setTimeout(resolve, 1000));
   // 再启动
   return await startContainer(baseUrl, apiKey, useProxy, containerId);
+}
+
+// ==================== 容器更新(续 91 F,Pro) ====================
+
+// 更新单个容器(拉最新镜像并重建,配置保留;等同 webGui 的更新按钮)
+// timeoutMs 120000:pull 镜像可能远超 10s 默认超时
+export async function updateContainer(
+  baseUrl: string,
+  apiKey: string,
+  useProxy: boolean,
+  containerId: string
+): Promise<{ success: boolean; error?: string }> {
+  const endpoint = buildGraphqlEndpoint(baseUrl, useProxy);
+  const result = await graphqlRequest(endpoint, apiKey, DOCKER_UPDATE_CONTAINER_MUTATION, {
+    id: containerId,
+  }, { timeoutMs: 120000 });
+  if (result.success) {
+    invalidateNamespace('containers');
+    invalidateNamespace('containerDetails');
+    return { success: true };
+  }
+  // 【续 91 F】失败/超时错误信息透传(不静默),UI 层 toast 展示
+  return { success: false, error: result.error || '更新失败' };
+}
+
+// 批量更新容器(updateContainers(ids),返回 [DockerContainer!]!,一次请求)
+export async function updateContainers(
+  baseUrl: string,
+  apiKey: string,
+  useProxy: boolean,
+  containerIds: string[]
+): Promise<{ success: boolean; error?: string }> {
+  const endpoint = buildGraphqlEndpoint(baseUrl, useProxy);
+  const result = await graphqlRequest(endpoint, apiKey, DOCKER_UPDATE_CONTAINERS_MUTATION, {
+    ids: containerIds,
+  }, { timeoutMs: 120000 });
+  if (result.success) {
+    invalidateNamespace('containers');
+    invalidateNamespace('containerDetails');
+    return { success: true };
+  }
+  return { success: false, error: result.error || '批量更新失败' };
 }
 
 export async function pauseContainer(

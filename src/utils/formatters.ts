@@ -92,6 +92,8 @@ export function formatLogTimesForDisplay(logs: string): string {
 export function formatBytes(bytes: number | null | undefined): string {
   if (!bytes && bytes !== 0) return '-';
   const b = Number(bytes);
+  // 【续 91 L13c】NaN/Infinity 守卫(除零/脏数据),不再输出 "NaNB"/"InfinityT"
+  if (!isFinite(b)) return '-';
   if (b >= 1e12) return (b / 1e12).toFixed(1) + 'T';
   if (b >= 1e9) return (b / 1e9).toFixed(1) + 'G';
   if (b >= 1e6) return (b / 1e6).toFixed(1) + 'M';

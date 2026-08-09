@@ -18,6 +18,11 @@ describe('formatBytes', () => {
   it('0 返 "0B" 而不是 "-"', () => {
     expect(formatBytes(0)).toBe('0B');
   });
+  it('【续 91 L13c】NaN / Infinity 返 "-"(除零/脏数据守卫)', () => {
+    expect(formatBytes(NaN)).toBe('-');
+    expect(formatBytes(Infinity)).toBe('-');
+    expect(formatBytes(-Infinity)).toBe('-');
+  });
   it.each([
     [500, '500B'],
     [1500, '1.5K'],

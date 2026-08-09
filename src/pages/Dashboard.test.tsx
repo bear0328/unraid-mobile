@@ -46,6 +46,17 @@ const mockGetDisks = vi.fn();
 const mockGetNetworkInfo = vi.fn();
 const mockGetSpinStatus = vi.fn();
 const mockGetServerMeta = vi.fn();
+// 【续 91 D/G】Dashboard 直调 parityApi/upsApi 子模块(unraidApi.ts 类是并行 F 范围不动),
+// 这里 mock 掉避免真实 fetch;默认 null(卡不渲染)
+const mockGetParityCheckStatus = vi.fn();
+const mockGetUpsDevices = vi.fn();
+vi.mock('../services/unraidApi/parityApi', () => ({
+  // 箭头包装延迟取值:工厂在 const 初始化前执行,直接引用会 TDZ 报错
+  getParityCheckStatus: (...args: unknown[]) => mockGetParityCheckStatus(...args),
+}));
+vi.mock('../services/unraidApi/upsApi', () => ({
+  getUpsDevices: (...args: unknown[]) => mockGetUpsDevices(...args),
+}));
 vi.mock('../hooks/useUnraidApi', () => ({
   useUnraidApi: vi.fn(() => ({
     getSystemInfo: mockGetSystemInfo,
@@ -125,6 +136,8 @@ beforeEach(() => {
   mockGetNetworkInfo.mockReset();
   mockGetSpinStatus.mockReset();
   mockGetServerMeta.mockReset();
+  mockGetParityCheckStatus.mockReset();
+  mockGetUpsDevices.mockReset();
   // 默认成功路径
   mockGetSystemInfo.mockResolvedValue(makeSystem());
   mockGetDisks.mockResolvedValue([makeDisk()]);
@@ -133,6 +146,9 @@ beforeEach(() => {
   mockGetSpinStatus.mockResolvedValue(new Map());
   // 【续 89b】serverMeta 默认版本+license,无更新提醒
   mockGetServerMeta.mockResolvedValue({ version: '7.3.0', regTy: 'LIFETIME', osUpdate: null });
+  // 【续 91 D/G】默认无 parity 数据(卡不渲染);UPS 默认非 Pro 不拉取
+  mockGetParityCheckStatus.mockResolvedValue(null);
+  mockGetUpsDevices.mockResolvedValue(null);
 });
 
 afterEach(() => {
@@ -239,5 +255,139 @@ describe('Dashboard 页面', () => {
     // 推进 polling 让 fn 跑完(会 setSystemInfo(tower) 覆盖 cache,但卡片已渲染)
     await vi.advanceTimersByTimeAsync(10);
     expect(screen.getByText('CPU')).toBeInTheDocument();
+  });
+
+  it('【续 91 D】parity 数据到位 → ParityCard 渲染(默认 null 不渲染)', async () => {
+    mockGetParityCheckStatus.mockResolvedValue({
+      arrayState: 'STARTED',
+      status: 'RUNNING',
+      running: true,
+      paused: false,
+      correcting: false,
+      progress: 45,
+      speed: '120 MB/s',
+      errors: 0,
+      date: null,
+      duration: null,
+    });
+    renderWithRouter(<Dashboard />);
+    await vi.advanceTimersByTimeAsync(10);
+    expect(screen.getByText('Parity 校验')).toBeInTheDocument();
+  });
+
+  it('【续 91 G】未解锁 Pro(默认)→ UPS 拉取跳过,UpsCard 渲染 ProGate 引导卡', async () => {
+    renderWithRouter(<Dashboard />);
+    await vi.advanceTimersByTimeAsync(10);
+    expect(mockGetUpsDevices).not.toHaveBeenCalled();
+    expect(screen.getByText(/UPS 监控 · Pro 功能/)).toBeInTheDocument();
+  });
+
+  it('【续 91 A1/A2】getDisks 失败(返 null)→ 磁盘 state 与 LS 缓存都不被清空', async () => {
+    localStorage.setItem(
+      'unraid-mobile-dashboard-cache',
+      JSON.stringify({
+        systemInfo: makeSystem(),
+        disks: [makeDisk()],
+        networks: [makeNetwork()],
+      })
+    );
+    renderWithRouter(<Dashboard />);
+    await vi.advanceTimersByTimeAsync(10);
+    expect(screen.getByText('DISK1')).toBeInTheDocument();
+
+    // 刷新磁盘失败(【续 91 A1】API 层失败返 null,不是 []):旧数据保留
+    mockGetDisks.mockResolvedValueOnce(null);
+    await act(async () => {
+      screen.getByRole('button', { name: '刷新磁盘数据(会唤醒休眠的阵列盘)' }).click();
+    });
+    expect(screen.getByText('DISK1')).toBeInTheDocument();
+    const parsed = JSON.parse(localStorage.getItem('unraid-mobile-dashboard-cache')!);
+    expect(parsed.disks).toHaveLength(1); // 缓存未被空数组覆盖
+  });
+
+  it('【续 91 A2/M5】getSystemInfo 失败(返 null)→ 不谎报刷新,错误降级 banner 不整屏', async () => {
+    localStorage.setItem(
+      'unraid-mobile-dashboard-cache',
+      JSON.stringify({
+        systemInfo: makeSystem({ name: 'cached-tower' }),
+        disks: [],
+        networks: [makeNetwork()],
+      })
+    );
+    mockGetSystemInfo.mockResolvedValueOnce(null);
+    renderWithRouter(<Dashboard />);
+    await vi.advanceTimersByTimeAsync(10);
+    // 旧数据保留 + banner 提示(有数据时不整屏错误)
+    expect(screen.getByText('cached-tower')).toBeInTheDocument();
+    expect(screen.getByText('无法连接到 unRAID 服务器')).toBeInTheDocument();
+    expect(screen.queryByText('需要配置')).not.toBeInTheDocument();
+    // 不谎报:saveDashboardCache 未执行,预置 cache 仍无 timestamp
+    const parsed = JSON.parse(localStorage.getItem('unraid-mobile-dashboard-cache')!);
+    expect(parsed.timestamp).toBeUndefined();
+  });
+
+  it('【续 91 M3】single-flight:轻量刷新在飞时点「刷新磁盘」→ 排队执行,不吞也不重复', async () => {
+    // 预置 cache:页面在 mount 刷新在飞时已渲染(loading=false),磁盘按钮可点
+    localStorage.setItem(
+      'unraid-mobile-dashboard-cache',
+      JSON.stringify({
+        systemInfo: makeSystem(),
+        disks: [makeDisk()],
+        networks: [makeNetwork()],
+      })
+    );
+    let resolveSys!: (v: UnraidSystemInfo | null) => void;
+    mockGetSystemInfo.mockImplementationOnce(
+      () => new Promise<UnraidSystemInfo | null>((r) => { resolveSys = r; })
+    );
+    renderWithRouter(<Dashboard />);
+    await vi.advanceTimersByTimeAsync(10);
+    expect(mockGetSystemInfo).toHaveBeenCalledTimes(1); // mount fire 在飞
+
+    await act(async () => {
+      screen.getByRole('button', { name: '刷新磁盘数据(会唤醒休眠的阵列盘)' }).click();
+    });
+    // 在飞的是轻量刷新,磁盘刷新排队等待(不被合并吞掉,也不并发重发)
+    expect(mockGetDisks).not.toHaveBeenCalled();
+
+    await act(async () => {
+      resolveSys(makeSystem());
+    });
+    await vi.advanceTimersByTimeAsync(10);
+    expect(mockGetDisks).toHaveBeenCalledTimes(1); // 排队后恰好执行一次
+    expect(mockGetSystemInfo).toHaveBeenCalledTimes(2);
+    expect(screen.getByText('DISK1')).toBeInTheDocument();
+  });
+
+  it('【续 91 M4】切服务器(serverUrl 变 + api 重建)→ 内存 state 重置并立即重拉', async () => {
+    vi.mocked(useApiConfig).mockReturnValue({
+      config: { serverUrl: 'http://nas-a', apiKey: 'k' },
+      isConfigured: true,
+    });
+    try {
+      localStorage.setItem('unraid-mobile-server-url', 'http://nas-a');
+      localStorage.setItem('unraid-mobile-api-key', 'k');
+      localStorage.setItem(
+        'unraid-mobile-dashboard-cache',
+        JSON.stringify({
+          systemInfo: makeSystem(),
+          disks: [makeDisk()],
+          networks: [makeNetwork()],
+        })
+      );
+      renderWithRouter(<Dashboard />);
+      await vi.advanceTimersByTimeAsync(10);
+      expect(screen.getByText('DISK1')).toBeInTheDocument();
+      expect(screen.getByText('tower')).toBeInTheDocument();
+
+      // 切服务器:LS 地址变更;下一次 render(mock useUnraidApi 每次新建 api)→
+      // 检测到 serverUrl 变化 → 重置内存 state + 立即用新 api 轻量重拉(不含 disks)
+      localStorage.setItem('unraid-mobile-server-url', 'http://nas-b');
+      await vi.advanceTimersByTimeAsync(30_000); // useNow tick 触发 re-render
+      expect(screen.queryByText('DISK1')).not.toBeInTheDocument(); // 磁盘 state 已重置
+      expect(screen.getByText('tower')).toBeInTheDocument(); // 主数据已重拉
+    } finally {
+      vi.mocked(useApiConfig).mockReturnValue({ config: null, isConfigured: true });
+    }
   });
 });

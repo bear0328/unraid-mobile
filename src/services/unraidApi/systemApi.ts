@@ -1,5 +1,5 @@
 // 系统信息 API
-import { UnraidSystemInfo, UnraidServerMeta } from '../types';
+import { UnraidSystemInfo, UnraidServerMeta, UnraidAlert } from '../types';
 import { SystemInfoResponse, ServerMetaResponse, ServerMetaNotification } from '../graphqlTypes';
 import { graphqlRequest, buildGraphqlEndpoint, isSchemaValidationError } from './graphql';
 import {
@@ -61,13 +61,21 @@ export async function getSystemInfo(
   // - skipCpuTemp → 跳过 compose-api(agent 只代理 active 服务器,跨服务器调会串数据)
   const namespace = options?.namespace === undefined ? 'systemInfo' : options.namespace;
   const endpoint = buildGraphqlEndpoint(baseUrl, useProxy);
-  const result = await graphqlRequest<SystemInfoResponse>(
-    endpoint,
-    apiKey,
-    SYSTEM_INFO_QUERY,
-    undefined,
-    namespace ? { namespace } : undefined
-  );
+  // 【续 91 L12】CPU 温度(compose-api)与主 graphql 并行:原来串行,Pro 用户
+  // 每次刷新最多白等 15s(compose-api 慢/超时叠加在 graphql 之后)
+  const wantCpuTemp = isPro() && !options?.skipCpuTemp;
+  const [result, temp] = await Promise.all([
+    graphqlRequest<SystemInfoResponse>(
+      endpoint,
+      apiKey,
+      SYSTEM_INFO_QUERY,
+      undefined,
+      namespace ? { namespace } : undefined
+    ),
+    wantCpuTemp
+      ? getCpuTemp().catch(() => null) // 任何失败(未装 compose-api/无传感器/超时)静默回退
+      : Promise.resolve(null),
+  ]);
 
   if (result.success && result.data) {
     const data = result.data;
@@ -79,15 +87,8 @@ export async function getSystemInfo(
     // 【续 57 2026-07-22】CPU 温度归 Pro:非 Pro 直接回退 0,不调 compose-api
     // (免费版零宿主改动,也避免自装 agent 绕过门控),CpuCard 显示 🔒 占位。
     let cpuTemp = 0;
-    if (isPro() && !options?.skipCpuTemp) {
-      try {
-        const temp = await getCpuTemp();
-        if (typeof temp.celsius === 'number' && temp.celsius > 0) {
-          cpuTemp = temp.celsius;
-        }
-      } catch {
-        // 回退 cpuTemp=0
-      }
+    if (temp && typeof temp.celsius === 'number' && temp.celsius > 0) {
+      cpuTemp = temp.celsius;
     }
     const mem = data.metrics?.memory;
     // 【续 89】GraphQL memory 三字段口径实测(2026-08,对照宿主 free -k):
@@ -169,12 +170,14 @@ export async function getServerMeta(
     { namespace: 'serverMeta' }
   );
   if (!result.success && isSchemaValidationError(result.error)) {
+    // 【续 91 A6】降级(vars-only)结果不写 namespace 缓存:降级数据缺
+    // registration/notifications,写缓存会让 30min 内拿不到全量;
+    // 不传 namespace → 每次刷新都重试全量查询,schema 升级后自愈
     result = await graphqlRequest<ServerMetaResponse>(
       endpoint,
       apiKey,
       SERVER_META_QUERY_VARS_ONLY,
-      undefined,
-      { namespace: 'serverMeta' }
+      undefined
     );
   }
   if (!result.success || !result.data) return null;
@@ -185,7 +188,27 @@ export async function getServerMeta(
     regTy: d.registration?.type || d.vars?.regTy || undefined,
     regTo: d.vars?.regTo || undefined,
     osUpdate: findOsUpdateNotification(d.notifications?.list),
+    // 【续 91 A15】告警徽章数据:从已拉回的 notifications.list 提取,零新增请求
+    alerts: extractAlerts(d.notifications?.list),
   };
+}
+
+/**
+ * 【续 91 A15】从 notifications.list 提取告警条目(importance=ALERT/WARNING,
+ * 最多 5 条),给顶栏铃铛徽章用;vars-only 降级路径无 notifications → 空数组。
+ */
+function extractAlerts(list: ServerMetaNotification[] | undefined): UnraidAlert[] {
+  if (!Array.isArray(list)) return [];
+  return list
+    .filter((n) => n?.importance === 'ALERT' || n?.importance === 'WARNING')
+    .slice(0, 5)
+    .map((n) => ({
+      title: n.title || '',
+      subject: n.subject || '',
+      importance: n.importance || '',
+      link: n.link || undefined,
+      timestamp: n.timestamp || undefined,
+    }));
 }
 
 /**

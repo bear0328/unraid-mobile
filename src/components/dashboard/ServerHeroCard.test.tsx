@@ -132,4 +132,32 @@ describe('ServerHeroCard', () => {
     fireEvent.click(screen.getByRole('button', { name: '隐藏外网地址' }));
     expect(screen.queryByText(hostRe)).not.toBeInTheDocument();
   });
+
+  // ==== 【续 91】复制回退:clipboard 不可用 → textarea + execCommand;仍失败给「复制失败」 ====
+  it('【续 91】navigator.clipboard 不可用 → 回退 execCommand 复制,成功仍显示「已复制」', async () => {
+    Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true });
+    const execCommand = vi.fn().mockReturnValue(true);
+    document.execCommand = execCommand;
+    render(<ServerHeroCard name="T" isRefreshing={false} onRefresh={() => {}} />);
+
+    fireEvent.click(screen.getByRole('button', { name: '显示外网地址' }));
+    fireEvent.click(screen.getByTitle('点击复制'));
+
+    expect(execCommand).toHaveBeenCalledWith('copy');
+    expect(await screen.findByText('已复制')).toBeInTheDocument();
+    expect(screen.queryByText('复制失败')).not.toBeInTheDocument();
+  });
+
+  it('【续 91】clipboard 抛错 + execCommand 也失败 → 显示「复制失败」(不静默)', async () => {
+    const writeText = vi.fn().mockRejectedValue(new Error('denied'));
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    document.execCommand = vi.fn().mockReturnValue(false);
+    render(<ServerHeroCard name="T" isRefreshing={false} onRefresh={() => {}} />);
+
+    fireEvent.click(screen.getByRole('button', { name: '显示外网地址' }));
+    fireEvent.click(screen.getByTitle('点击复制'));
+
+    expect(await screen.findByText('复制失败')).toBeInTheDocument();
+    expect(screen.queryByText('已复制')).not.toBeInTheDocument();
+  });
 });

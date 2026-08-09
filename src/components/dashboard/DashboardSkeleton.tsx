@@ -41,14 +41,16 @@ export default function DashboardSkeleton() {
         <Bar className="h-4 w-full max-w-[280px]" />
       </div>
 
-      {/* cpu */}
+      {/* cpu(【续 91】h-10 趋势图占位条,对齐实际卡片高度减 CLS) */}
       <HeaderCardSkeleton>
         <Bar className="h-2 rounded-full" />
+        <Bar className="h-10 w-full mt-2" />
       </HeaderCardSkeleton>
 
-      {/* memory */}
+      {/* memory(同上) */}
       <HeaderCardSkeleton>
         <Bar className="h-2 rounded-full" />
+        <Bar className="h-10 w-full mt-2" />
       </HeaderCardSkeleton>
 
       {/* network:左右两个数值块 */}

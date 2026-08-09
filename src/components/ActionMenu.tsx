@@ -14,6 +14,8 @@ export interface MenuItem {
   onClick: () => void;
   disabled?: boolean;
   danger?: boolean;
+  /** 【续 91 F】label 后加橙色圆点高亮(如"有可用更新"提示) */
+  highlight?: boolean;
 }
 
 export default function ActionMenu({ items }: { items: MenuItem[] }) {
@@ -92,6 +94,9 @@ export default function ActionMenu({ items }: { items: MenuItem[] }) {
             >
               {item.icon && <Icon icon={item.icon} size={15} className="shrink-0" />}
               {item.label}
+              {item.highlight && (
+                <span className="w-1.5 h-1.5 rounded-full bg-orange-500 shrink-0" />
+              )}
             </button>
           ))}
         </div>

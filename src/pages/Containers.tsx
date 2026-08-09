@@ -4,7 +4,7 @@
 // 【续 48 2026-07-19】Compose 页并入为 compose tab,tab 顺序 docker/compose/vm;/compose 路由重定向到 /containers
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { RefreshCw, Play, Square } from 'lucide-react';
+import { RefreshCw, Play, Square, ArrowUpCircle } from 'lucide-react';
 import { UnraidDockerContainer, UnraidVM } from '../services';
 import { ContainerAction, VmAction } from '../services/actionTypes';
 import { useUnraidApi, useApiConfig } from '../hooks/useUnraidApi';
@@ -12,6 +12,7 @@ import { useContainersData } from '../hooks/useContainersData';
 import { useContainerActions } from '../hooks/useContainerActions';
 import { useContainerLogs } from '../hooks/useContainerLogs';
 import { useToast } from '../hooks/useToast';
+import { useDialog } from '../hooks/useDialog';
 import { DockerList, VmList } from '../components/ContainerLists';
 import { LogsModal } from '../components/LogsModal';
 import VmDetailsModal from '../components/vms/VmDetailsModal';
@@ -20,6 +21,7 @@ import ComposeStacks from '../components/compose/ComposeStacks';
 import LastRefreshText from '../components/ui/LastRefreshText';
 import Icon from '../components/ui/Icon';
 import ProGate from '../components/ProGate';
+import Dialog from '../components/shares/Dialog';
 import { usePro } from '../hooks/usePro';
 import { getCacheKey } from '../services/unraidApi/cache';
 
@@ -43,6 +45,10 @@ export default function Containers() {
   const { isConfigured } = useApiConfig();
   const hasConfig = isConfigured && !!api;
   const toast = useToast();
+  // 【续 91 F】更新确认对话框(useDialog + <Dialog> 渲染在页底)
+  const dialog = useDialog();
+  // 【续 91 F】正在更新中的 containerId(行内「更新中…」反馈)
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
   // 【续 55 商业化】Pro 状态:Compose tab / 批量选择(全选行+行内 checkbox)未解锁时隐藏
   const pro = usePro();
 
@@ -214,6 +220,64 @@ export default function Containers() {
     }
   };
 
+  // 【续 91 F】容器一键更新(Pro,纯 GraphQL):详情弹窗按钮与 ⋮ 菜单「更新镜像」
+  // 共用本 handler —— 确认对话框 → mutation(最长 120s)→ toast + 刷新;
+  // 失败/超时也后备刷新一次 containers,防徽标/状态陈旧。返回成败供调用方(详情弹窗)收尾
+  const handleUpdateContainer = useCallback(
+    async (container: UnraidDockerContainer): Promise<boolean> => {
+      if (!api) return false;
+      const ok = await dialog.confirm({
+        title: '更新容器',
+        message: `将拉取「${container.name}」的最新镜像并重建容器(配置保留),期间容器会短暂不可用。`,
+        confirmText: '更新',
+      });
+      if (!ok) return false;
+      setUpdatingId(container.containerId);
+      let r: { success: boolean; error?: string };
+      try {
+        r = await api.updateContainer(container.containerId);
+      } finally {
+        setUpdatingId(null);
+      }
+      if (r.success) {
+        toast.success(`「${container.name}」更新完成`);
+        await refreshContainers();
+        return true;
+      }
+      toast.error(`「${container.name}」更新失败:${r.error || '未知错误'}`, 6000);
+      await refreshContainers();
+      return false;
+    },
+    [api, dialog, toast, refreshContainers]
+  );
+
+  // 【续 91 F】批量更新选中(updateContainers(ids) 一次请求;返回 [DockerContainer!]! 结构简单)
+  const handleBatchUpdate = useCallback(async () => {
+    if (!api || selected.size === 0) return;
+    const ids = Array.from(selected);
+    const ok = await dialog.confirm({
+      title: '批量更新容器',
+      message: `将拉取选中的 ${ids.length} 个容器的最新镜像并重建(配置保留),期间容器会短暂不可用。`,
+      confirmText: '更新',
+    });
+    if (!ok) return;
+    setBatchBusy(true);
+    let r: { success: boolean; error?: string };
+    try {
+      r = await api.updateContainers(ids);
+    } finally {
+      setBatchBusy(false);
+    }
+    clearSelection();
+    if (r.success) {
+      toast.success(`批量更新完成: ${ids.length} 个`);
+    } else {
+      toast.error(`批量更新失败:${r.error || '未知错误'}`, 6000);
+    }
+    // 成功/失败都刷新一次:成功消徽标,失败兜底状态
+    await refreshContainers();
+  }, [api, selected, dialog, toast, refreshContainers, clearSelection]);
+
   if (loading) {
     return <div className="p-4">加载中...</div>;
   }
@@ -330,6 +394,15 @@ export default function Containers() {
                 <Icon icon={Square} size={12} fill="currentColor" />
                 停止
               </button>
+              {/* 【续 91 F】批量更新选中(updateContainers 一次请求,Pro——批量选择本身已 Pro 门控) */}
+              <button
+                onClick={handleBatchUpdate}
+                disabled={batchBusy}
+                className="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 bg-orange-600 hover:bg-orange-700 disabled:bg-gray-400 text-white rounded-lg"
+              >
+                <Icon icon={ArrowUpCircle} size={12} />
+                更新
+              </button>
             </>
           ) : (
             <>
@@ -403,6 +476,8 @@ export default function Containers() {
           onAction={handleContainerAction}
           onViewLogs={handleViewLogs}
           onViewDetails={setDetailsContainer}
+          onUpdate={handleUpdateContainer}
+          updatingId={updatingId}
           selected={selected}
           onToggleOne={toggleOne}
           highlightName={highlightName}
@@ -437,8 +512,12 @@ export default function Containers() {
           container={detailsContainer}
           api={api}
           onClose={() => setDetailsContainer(null)}
+          onUpdate={handleUpdateContainer}
         />
       )}
+
+      {/* 【续 91 F】更新确认对话框(单个/批量共用) */}
+      <Dialog {...dialog} />
     </div>
   );
 }

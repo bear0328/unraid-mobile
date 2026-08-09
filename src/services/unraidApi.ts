@@ -120,6 +120,16 @@ export class UnraidApiService {
     return dockerApi.getContainerDetails(this.baseUrl, this.apiKey, this.useProxy, containerName);
   }
 
+  /** 【续 91 F】更新单个容器镜像(pull + 重建,配置保留),超时 120s */
+  updateContainer(containerId: string) {
+    return dockerApi.updateContainer(this.baseUrl, this.apiKey, this.useProxy, containerId);
+  }
+
+  /** 【续 91 F】批量更新容器镜像(updateContainers(ids),一次请求) */
+  updateContainers(containerIds: string[]) {
+    return dockerApi.updateContainers(this.baseUrl, this.apiKey, this.useProxy, containerIds);
+  }
+
   // ==================== VM ====================
 
   getVMs() {

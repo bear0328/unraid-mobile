@@ -98,8 +98,10 @@ export function usePolling(
 
     // Mount 立即 fire(skipInitialIf 命中则跳过)
     // 【续 50 C12】从 ref 读,主 effect deps 只留稳定 primitive,inline 箭头不再重启 interval
+    // 【续 91 L7】mount 首次 fire 也守 visibility:后台 tab 打开页面不应立即拉数据
+    // (与 interval tick 的 isPageHidden 守卫同款;切回前台由 useResumeActivity 兜底)
     const shouldSkipInitial = skipInitialRef.current?.() === true;
-    if (!shouldSkipInitial) {
+    if (!shouldSkipInitial && !(respectVisibility && isPageHidden())) {
       const maxJitter = initialJitterMs ?? Math.min(Math.floor(delay / 4), 1000);
       if (maxJitter > 0) {
         const jitter = Math.floor(Math.random() * maxJitter);

@@ -408,6 +408,77 @@ describe('DockerList', () => {
     );
     expect(screen.queryByLabelText('选择 nginx')).not.toBeInTheDocument();
   });
+
+  // ==== 续 91 F:「更新镜像」菜单项(Pro,纯 GraphQL 一键更新) ====
+  it('已解锁 → 菜单显示「更新镜像」,点击调 onUpdate(container)', async () => {
+    const user = userEvent.setup();
+    const onUpdate = vi.fn();
+    const container = makeContainer({ state: 'running' });
+    renderWithRouter(
+      <DockerList
+        containers={[container]}
+        actionLoading={null}
+        restartingContainers={new Set()}
+        onAction={() => {}}
+        onViewLogs={() => {}}
+        onUpdate={onUpdate}
+      />
+    );
+    await openActionMenu(user);
+    await user.click(screen.getByRole('menuitem', { name: /更新镜像/ }));
+    expect(onUpdate).toHaveBeenCalledWith(container);
+  });
+
+  it('isUpdateAvailable=true →「更新镜像」菜单项带橙点高亮;null 无橙点', async () => {
+    const user = userEvent.setup();
+    renderWithRouter(
+      <DockerList
+        containers={[makeContainer({ isUpdateAvailable: true })]}
+        actionLoading={null}
+        restartingContainers={new Set()}
+        onAction={() => {}}
+        onViewLogs={() => {}}
+        onUpdate={() => {}}
+      />
+    );
+    await openActionMenu(user);
+    const item = screen.getByRole('menuitem', { name: /更新镜像/ });
+    expect(item.querySelector('.bg-orange-500')).not.toBeNull();
+  });
+
+  it('未解锁 →「更新镜像」换 🔒 占位,点击跳设置不调 onUpdate', async () => {
+    __setLicenseStateForTest({ status: 'none' });
+    const user = userEvent.setup();
+    const onUpdate = vi.fn();
+    renderWithRouter(
+      <DockerList
+        containers={[makeContainer({ state: 'running' })]}
+        actionLoading={null}
+        restartingContainers={new Set()}
+        onAction={() => {}}
+        onViewLogs={() => {}}
+        onUpdate={onUpdate}
+      />
+    );
+    await openActionMenu(user);
+    await user.click(screen.getByRole('menuitem', { name: /更新镜像/ }));
+    expect(onUpdate).not.toHaveBeenCalled();
+  });
+
+  it('updatingId 命中 → 行内显示「更新中…」反馈', () => {
+    renderWithRouter(
+      <DockerList
+        containers={[makeContainer({ containerId: 'nginx' })]}
+        actionLoading={null}
+        restartingContainers={new Set()}
+        onAction={() => {}}
+        onViewLogs={() => {}}
+        onUpdate={() => {}}
+        updatingId="nginx"
+      />
+    );
+    expect(screen.getByText('更新中…')).toBeInTheDocument();
+  });
 });
 
 describe('VmList', () => {

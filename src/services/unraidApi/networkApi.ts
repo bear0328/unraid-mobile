@@ -18,7 +18,7 @@ export async function getNetworkInfo(
   baseUrl: string,
   apiKey: string,
   useProxy: boolean
-): Promise<UnraidNetworkInfo[]> {
+): Promise<UnraidNetworkInfo[] | null> {
   // 【续 66】查回 metrics.network(仅 2 个累积字段):bytesReceived/bytesSent 供差分算速率,
   // 读 /proc/net/dev,不碰盘;首次采样速率为 0,第二轮起有值
   const endpoint = buildGraphqlEndpoint(baseUrl, useProxy);
@@ -45,7 +45,11 @@ export async function getNetworkInfo(
 
   const networks: UnraidNetworkInfo[] = [];
 
-  if (result.success && result.data) {
+  // 【续 91 A1】失败返 null(区别于真空 []):调用方保留旧网卡数据,
+  // 原实现失败返 [] 会把网络卡清空;失败也不更新 prev 采样(下轮差分基准不脏)
+  if (!result.success || !result.data) return null;
+
+  {
     // 合并 info 和 metrics 的数据
     // 【续 50 C9】真实 schema 是 info.networkInterfaces(unraid/api generated-schema.graphql:
     // Info.networkInterfaces: [InfoNetworkInterface!]!,无 info.network)。原解析
@@ -76,7 +80,9 @@ export async function getNetworkInfo(
       let rxSec = 0;
       let txSec = 0;
       // 只算正增量(重启/计数器清零时负值归零)
-      if (cur && last && dt > 0) {
+      // 【续 91 M3】dt 下限 1s:交叠刷新(single-flight 前的并发/手动连点)dt≈0
+      // 会把正常 delta 放大成速率尖峰,<1s 不算速率返 0
+      if (cur && last && dt >= 1) {
         rxSec = Math.max(0, (cur.rx - last.rx) / dt);
         txSec = Math.max(0, (cur.tx - last.tx) / dt);
       }

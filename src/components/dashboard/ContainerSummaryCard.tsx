@@ -216,7 +216,7 @@ function ContainerSummaryCard({ containers, loading, api: apiProp, cacheAgeMs }:
             />
           )}
 
-          {/* 运行中(收起 Top 5,展开全部) */}
+          {/* 运行中(收起不显示,展开全部) */}
           {shownRunning.length > 0 && (
             <div className="border-t border-gray-100 dark:border-gray-700 pt-2 space-y-1.5">
               {shownRunning.map((c) => {

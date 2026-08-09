@@ -36,6 +36,16 @@ export interface UnraidSystemInfo {
   swap?: UnraidSwapInfo;
 }
 
+/** 【续 91 A15】unRAID 通知中心的告警条目(webGui 铃铛同源,importance=ALERT/WARNING) */
+export interface UnraidAlert {
+  title: string;
+  subject: string;
+  /** 原始级别:"ALERT" | "WARNING" */
+  importance: string;
+  link?: string;
+  timestamp?: string;
+}
+
 /** 【续 89b】头卡元信息:版本/license 类型/OS 更新提醒(getServerMeta,独立查询) */
 export interface UnraidServerMeta {
   /** unRAID 版本号,如 "7.3.0" */
@@ -46,6 +56,8 @@ export interface UnraidServerMeta {
   regTo?: string;
   /** 匹配到的 OS 更新通知(webGui 铃铛同源),无则 null */
   osUpdate?: { subject: string; link?: string } | null;
+  /** 【续 91 A15】未读告警(importance=ALERT/WARNING,最多 5 条,给顶栏铃铛徽章用) */
+  alerts?: UnraidAlert[];
 }
 
 export interface UnraidDisk {
@@ -54,7 +66,8 @@ export interface UnraidDisk {
   status: string;
   size: number;
   used: number;
-  temperature: number;
+  /** 【续 91 L13d】休眠盘 GraphQL temp 为 null → 保留 null 显示 —(不再误导 0°C) */
+  temperature: number | null;
   type: 'parity' | 'data' | 'cache' | 'ssd' | 'boot';
   reads?: number; // 累计读取字节数
   writes?: number; // 累计写入字节数
@@ -195,6 +208,54 @@ export interface UnraidVM {
   vmUuid: string; // 只提取 vmUuid
   name: string;
   state: string;
+}
+
+/** 【续 91 D】parity 校验状态(归一化后,ParityCard 用;查询失败/老 schema → 整卡不渲染) */
+export interface UnraidParityStatus {
+  /** 阵列状态原始值,如 "STARTED" */
+  arrayState: string;
+  /** ParityCheckStatus 枚举:NEVER_RUN/RUNNING/PAUSED/COMPLETED/CANCELLED/FAILED */
+  status: string;
+  running: boolean;
+  paused: boolean;
+  /** 纠错模式(写入修正) */
+  correcting: boolean;
+  /** 进度 0-100 */
+  progress: number;
+  /** 速度原始字符串,如 "120 MB/s" */
+  speed: string;
+  /** 错误数(null=未知) */
+  errors: number | null;
+  /** 上次校验时间 ISO(null=从未) */
+  date: string | null;
+  /** 上次校验耗时(秒,null=未知) */
+  duration: number | null;
+}
+
+/** 【续 91 G】UPS 设备(归一化后,UpsCard 用;无 UPS/查询失败 → null 不渲染) */
+export interface UnraidUpsDevice {
+  id: string;
+  name: string;
+  model: string;
+  /** apcaccess 状态码原始值,如 "OL"(市电)/"OB"(电池供电) */
+  status: string;
+  battery: {
+    /** 电量 0-100 */
+    chargeLevel: number;
+    /** 预计续航(分钟) */
+    estimatedRuntime: number;
+    health: string;
+  };
+  power: {
+    inputVoltage: number;
+    outputVoltage: number;
+    /** 负载 0-100 */
+    loadPercentage: number;
+    /** 额定功率 W(可空) */
+    nominalPower: number | null;
+    /** 当前功率 W(可空) */
+    currentPower: number | null;
+  };
 }
 
 export interface UnraidNetworkInfo {
