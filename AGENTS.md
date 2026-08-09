@@ -43,11 +43,8 @@
 - SSH:`ssh -i ~/.ssh/mac_unraid_key -p 222 root@192.168.6.140`
   （必须 `-o IdentitiesOnly=yes` 或等效，否则 agent 多 key 会认证失败）。
 
-## 3. 当前项目状态（2026-08-09，供参考）
+## 3. 当前项目状态（2026-08-10，供参考）
 
-- 当前版本 **v1.1.0**(GitHub commit `4b84b2e` + tag;Docker Hub `:1.1.0`/`:latest` 已推送）。
-- prod(3999)bundle:`index-PIdaGkaw.js`。
-- dev(3998）已部署「容器页签 P1 修复（续 99)」但**尚未 commit**:
-  bundle `index-C1Z6QEDm.js`（刷新按钮 refreshing 态、invalidateNamespace 口径统一、
-  VM tab focus 深链高亮）。
+- 当前版本 **v1.2.0**(GitHub commit `21b8a98` + tag;Docker Hub `:1.2.0`/`:latest` 已推送；digest `sha256:f8658c723301123e2e1469d66f5a4a761d1afd4bb211e4281dd420d71542a403`）。
+- dev(3998)/prod(3999) 均运行 bundle `index-J1vZ0F1u.js`。
 - 最新状态以 `DEV_PROGRESS.md` 头部「最后更新」行为准，本段只作快照。
