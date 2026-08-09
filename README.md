@@ -127,10 +127,6 @@ Without it, those features show an install guide or a placeholder; **everything 
 > - `/boot/config/plugins/unraid-mobile/audit.log`: audit log of key api.php operations
 > - `/boot/config/go.unraid-mobile-bak`: automatic backup of `go` taken before any change
 >
-> Note: at runtime `api.php` and `update-status.php` are copied to
-> `/usr/local/emhttp/plugins/compose.manager/` (tmpfs); after a reboot the `go` hook restores
-> them from the flash masters automatically — no manual maintenance needed.
->
 > Safeguards:
 > - The original `/boot/config/go` is backed up to `/boot/config/go.unraid-mobile-bak` first
 > - Only tagged 【unraid-mobile】 hook lines are appended; none of your existing lines are touched

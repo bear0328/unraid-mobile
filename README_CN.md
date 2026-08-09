@@ -115,10 +115,6 @@ Compose tab 和 CPU 温度(均为 Pro 功能)依赖一个宿主端小组件(`api
 > - `/boot/config/plugins/unraid-mobile/audit.log`:api.php 关键操作审计日志
 > - `/boot/config/go.unraid-mobile-bak`:安装前自动备份的 `go` 文件
 >
-> 说明:运行时会把 `api.php` 和 `update-status.php` 临时复制到
-> `/usr/local/emhttp/plugins/compose.manager/`(tmpfs),重启后由 `go` 钩子自动从
-> flash 正本恢复,无需用户手动维护。
->
 > 保障措施:
 > - 修改前自动备份 `/boot/config/go` 为 `/boot/config/go.unraid-mobile-bak`
 > - 仅追加带【unraid-mobile】标记的恢复钩子,不改动你已有的任何行
