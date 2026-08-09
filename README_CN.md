@@ -107,20 +107,23 @@ Compose tab 和 CPU 温度(均为 Pro 功能)依赖一个宿主端小组件(`api
 未安装时对应功能显示安装指引或占位,**其余功能不受影响**。
 
 > ⚠️ **风险说明(安装前必读)**
-> 安装脚本会修改以下宿主文件(均带【unraid-mobile】标记,可完整还原):
-> - `/boot/config/go`:开机脚本,追加恢复钩子(6 行),用于重启后把 flash 正本复制到 tmpfs 执行位置、清理 Compose 残留锁
-> - `/usr/local/emhttp/plugins/compose.manager/api.php`:Compose / CPU 温度 / VM 详情等 Pro 功能的执行入口(tmpfs,重启丢失,由 go 钩子恢复)
-> - `/usr/local/emhttp/plugins/compose.manager/update-status.php`:Compose 更新徽章回写脚本(tmpfs,重启丢失,由 go 钩子恢复)
-> - `/boot/config/plugins/unraid-mobile/api.php` + `update-status.php`:上述两个 tmpfs 文件的 flash 正本
-> - `/boot/config/plugins/unraid-mobile/apikey`:sha256 哈希存储的 API key(600,明文不落盘)
+> 安装脚本会修改以下持久宿主文件(均带【unraid-mobile】标记,可完整还原):
+> - `/boot/config/go`:开机脚本,追加恢复钩子(6 行),用于重启后恢复 Pro 后端组件、清理 Compose 残留锁
+> - `/boot/config/plugins/unraid-mobile/api.php`:Pro 后端(Compose / CPU 温度 / VM 详情)flash 正本
+> - `/boot/config/plugins/unraid-mobile/update-status.php`:Compose 更新徽章回写脚本 flash 正本
+> - `/boot/config/plugins/unraid-mobile/apikey`:API key 的 sha256 哈希(600,明文不落 flash)
 > - `/boot/config/plugins/unraid-mobile/audit.log`:api.php 关键操作审计日志
-> - `/boot/config/go.unraid-mobile-bak`:`go` 文件修改前自动备份
+> - `/boot/config/go.unraid-mobile-bak`:安装前自动备份的 `go` 文件
+>
+> 说明:运行时会把 `api.php` 和 `update-status.php` 临时复制到
+> `/usr/local/emhttp/plugins/compose.manager/`(tmpfs),重启后由 `go` 钩子自动从
+> flash 正本恢复,无需用户手动维护。
 >
 > 保障措施:
 > - 修改前自动备份 `/boot/config/go` 为 `/boot/config/go.unraid-mobile-bak`
 > - 仅追加带【unraid-mobile】标记的恢复钩子,不改动你已有的任何行
 > - 脚本执行时会要求输入 `YES` 显式确认
-> - 卸载:删除 `/boot/config/plugins/unraid-mobile/` 和 `go` 里标记的 6 行即完全还原
+> - 卸载:删除 `/boot/config/plugins/unraid-mobile/` 和 `go` 里标记的恢复钩子即完全还原
 >
 > 如果你不接受对开机脚本的任何修改,不要安装 —— 免费版的全部功能都不需要它。
 

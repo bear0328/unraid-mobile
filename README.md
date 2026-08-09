@@ -114,27 +114,29 @@ The Compose tab and CPU temperature (both Pro features) rely on a small host-sid
 Without it, those features show an install guide or a placeholder; **everything else is unaffected**.
 
 > ⚠️ **Risk notice (read before installing)**
-> The install script modifies the following host files (all tagged 【unraid-mobile】, fully
-> restorable):
-> - `/boot/config/go`: the boot script — a 6-line restore hook is appended so the flash copies
->   are restored to the tmpfs execution paths after reboots, and stale Compose locks are cleaned
-> - `/usr/local/emhttp/plugins/compose.manager/api.php`: execution entry for Pro features
->   (Compose / CPU temperature / VM details) — tmpfs, lost on reboot, restored by the `go` hook
-> - `/usr/local/emhttp/plugins/compose.manager/update-status.php`: Compose update-badge
->   write-back script — tmpfs, lost on reboot, restored by the `go` hook
-> - `/boot/config/plugins/unraid-mobile/api.php` + `update-status.php`: flash masters of the
->   two tmpfs files above
+> The install script modifies the following persistent host files (all tagged 【unraid-mobile】,
+> fully restorable):
+> - `/boot/config/go`: the boot script — a 6-line restore hook is appended so the Pro backend
+>   is restored after reboots and stale Compose locks are cleaned
+> - `/boot/config/plugins/unraid-mobile/api.php`: flash master of the Pro backend
+>   (Compose / CPU temperature / VM details)
+> - `/boot/config/plugins/unraid-mobile/update-status.php`: flash master of the Compose
+>   update-badge write-back script
 > - `/boot/config/plugins/unraid-mobile/apikey`: API key stored as a sha256 hash (mode 600,
 >   plaintext never touches the flash drive)
 > - `/boot/config/plugins/unraid-mobile/audit.log`: audit log of key api.php operations
 > - `/boot/config/go.unraid-mobile-bak`: automatic backup of `go` taken before any change
 >
+> Note: at runtime `api.php` and `update-status.php` are copied to
+> `/usr/local/emhttp/plugins/compose.manager/` (tmpfs); after a reboot the `go` hook restores
+> them from the flash masters automatically — no manual maintenance needed.
+>
 > Safeguards:
 > - The original `/boot/config/go` is backed up to `/boot/config/go.unraid-mobile-bak` first
 > - Only tagged 【unraid-mobile】 hook lines are appended; none of your existing lines are touched
 > - The script asks you to type `YES` explicitly before doing anything
-> - Uninstall: delete `/boot/config/plugins/unraid-mobile/` and the 6 tagged lines in `go` to
->   fully restore
+> - Uninstall: delete `/boot/config/plugins/unraid-mobile/` and the tagged hook lines in `go`
+>   to fully restore
 >
 > If you do not accept any modification to the boot script, do not install — every free feature
 > works without it.
