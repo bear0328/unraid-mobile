@@ -70,12 +70,70 @@ describe('api.php 同步操作并发锁(续 88)', () => {
   });
 });
 
-describe('api.php 认证失败审计(续 88)', () => {
-  it('所有 401 分支前都有 audit(auth) 记录', () => {
-    const authAudits = apiPhp.match(/audit\('auth', '-', 'fail'\);/g) ?? [];
+describe('api.php 认证失败审计(续 88 / 续 100 限流)', () => {
+  it('所有 401 分支前都有 auditAuthFail() 调用', () => {
+    const authAudits = apiPhp.match(/auditAuthFail\(\);/g) ?? [];
     const fail401s = apiPhp.match(/fail\(401,/g) ?? [];
     expect(fail401s.length).toBeGreaterThan(0);
     expect(authAudits.length).toBe(fail401s.length);
+  });
+
+  it('auditAuthFail: error_log 兜底 + flash 审计同分钟限流(stamp 在 /tmp)', () => {
+    const fn = fnBody(apiPhp, 'auditAuthFail');
+    expect(fn).toContain('error_log(');
+    expect(fn).toContain("audit('auth', '-', 'fail');");
+    expect(fn).toContain('/tmp/');
+    expect(fn).toContain('@filemtime');
+  });
+});
+
+describe('api.php vminfo 端点(续 101)', () => {
+  const fn = fnBody(apiPhp, 'readVmInfo');
+
+  it('readVmInfo 存在且路由注册 action=vminfo', () => {
+    expect(fn).not.toBe('');
+    expect(apiPhp).toContain("$action === 'vminfo'");
+  });
+
+  it('vm 参数走白名单正则(防注入/穿越),非法返 400', () => {
+    const route = apiPhp.slice(apiPhp.indexOf("$action === 'vminfo'"));
+    expect(route).toContain("'/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/'");
+    expect(route).toContain("fail(400, '非法 VM 名')");
+  });
+
+  it('virsh 调用全部 escapeshellarg;只读子命令(无写操作)', () => {
+    expect(fn).toContain('escapeshellarg($vm)');
+    expect(fn).toContain('virsh dumpxml');
+    expect(fn).toContain('virsh dominfo');
+    expect(fn).toContain('virsh snapshot-list');
+    // 禁止任何写/控制类 virsh 子命令
+    for (const bad of ['virsh start', 'virsh destroy', 'virsh shutdown', 'virsh define', 'virsh edit']) {
+      expect(fn).not.toContain(bad);
+    }
+  });
+
+  it('virsh 无结果时回退读 /etc/libvirt/qemu/<vm>.xml;XML 解析失败 fail(500)', () => {
+    expect(fn).toContain("/etc/libvirt/qemu/");
+    expect(fn).toContain('@simplexml_load_string');
+    expect(fn).toContain('fail(500');
+    expect(fn).toContain('fail(404');
+  });
+
+  it('提取字段:vcpus/memory/disks/interfaces/graphics/hostDevices/snapshots', () => {
+    for (const key of [
+      "'vcpus'",
+      "'memory'",
+      "'disks'",
+      "'interfaces'",
+      "'graphics'",
+      "'hostDevices'",
+      "'snapshots'",
+    ]) {
+      expect(fn).toContain(key);
+    }
+    // 磁盘大小走 qemu-img info(带 timeout,失败只返回 path)
+    expect(fn).toContain('qemu-img info --output json');
+    expect(fn).toContain('timeout 5');
   });
 });
 

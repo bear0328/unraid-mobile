@@ -108,12 +108,13 @@ describe('composeApi', () => {
     expect((err as ComposeApiError).message).toContain('请求超时');
   });
 
-  // 【续 50 C-补充】stackAction 同步跑 docker compose,慢,超时放宽到 60s
-  it('stackAction: 超时放宽到 60s(同步 compose 命令较慢)', async () => {
+  // 【续 50 C-补充】stackAction 同步跑 docker compose,慢,超时放宽
+  // 【续 100】60s → 180s:与后端 set_time_limit(300)/fastcgi_read_timeout 300s 口径对齐
+  it('stackAction: 超时放宽到 180s(同步 compose 命令较慢)', async () => {
     const timeoutSpy = vi.spyOn(AbortSignal, 'timeout');
     mockFetchOnce(200, { ok: true, data: { exitCode: 0, output: 'done' } });
     await stackAction('emby', 'up');
-    expect(timeoutSpy).toHaveBeenCalledWith(60000);
+    expect(timeoutSpy).toHaveBeenCalledWith(180000);
   });
 
   // 【续 51】CPU 温度端点(后端直读 /sys/class/hwmon,不唤盘)

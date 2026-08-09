@@ -27,6 +27,7 @@ export type {
   ContainerNetwork,
   UnraidShare,
   ContainerDetailInfo,
+  VmInfo,
 } from './types';
 export type { CheckOnlineResult } from './unraidApi/systemApi';
 export { checkHealth } from './unraidApi/healthCheck';

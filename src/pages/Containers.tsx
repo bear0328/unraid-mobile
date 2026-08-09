@@ -23,7 +23,7 @@ import Icon from '../components/ui/Icon';
 import ProGate from '../components/ProGate';
 import Dialog from '../components/shares/Dialog';
 import { usePro } from '../hooks/usePro';
-import { getCacheKey } from '../services/unraidApi/cache';
+import { invalidateNamespace } from '../services/unraidApi/cache';
 
 type TabType = 'docker' | 'compose' | 'vm';
 
@@ -66,14 +66,20 @@ export default function Containers() {
   // useNow/cacheAgeMs 随之不再需要( polling 刷新本身会触发 re-render)
 
   // 【续 45.7】手动刷新按钮:invalidate containers + vms cache + 调 useContainersData.refresh
+  // 【续 99】①缓存失效口径统一为 invalidateNamespace(同 useContainerActions.refreshBypassCache,
+  //   不再手撸 localStorage.removeItem(getCacheKey(...)));
+  //   ②refreshing 态:原 disabled 用首屏 loading(首次加载后恒 false),刷新中按钮可连点
+  //   且无反馈;改独立 refreshing state,驱动 disabled + 图标旋转
+  const [refreshing, setRefreshing] = useState(false);
   const handleManualRefresh = useCallback(async () => {
+    setRefreshing(true);
     try {
-      localStorage.removeItem(getCacheKey('containers'));
-      localStorage.removeItem(getCacheKey('vms'));
-    } catch {
-      /* LS 不可用忽略 */
+      invalidateNamespace('containers');
+      invalidateNamespace('vms');
+      await refreshContainers();
+    } finally {
+      setRefreshing(false);
     }
-    await refreshContainers();
   }, [refreshContainers]);
 
   // 【续 70】compose tab 的刷新:信号递增 → ComposeStacks 内部 handleRefresh
@@ -102,7 +108,7 @@ export default function Containers() {
   } = useContainerLogs(api, logsModal.containerId, logsModal.open ?? false);
 
   // 【续 50 C8】消费收藏/全局搜索的深链 ?focus=<容器名>:
-  // 找到卡片(按卡片渲染的 container.name 匹配)→ 高亮 ring 1.5s(滚动由 ContainerItem 做),
+  // 找到卡片(按卡片渲染的 container/vm name 匹配)→ 高亮 ring 1.5s(滚动由 ContainerItem/VmItem 做),
   // 然后 replace 清掉 query,防刷新重复滚动
   const [searchParams, setSearchParams] = useSearchParams();
   const focusName = searchParams.get('focus');
@@ -119,10 +125,13 @@ export default function Containers() {
 
   useEffect(() => {
     if (!focusName) return;
-    if (!containers.some((c) => c.name === focusName)) return;
+    // 【续 99】focus 深链匹配扩到 VM 名(原只查 containers,?tab=vm&focus= 无定位反馈)
+    const hit =
+      containers.some((c) => c.name === focusName) || vms.some((v) => v.name === focusName);
+    if (!hit) return;
     setHighlightName(focusName);
     setSearchParams({}, { replace: true });
-  }, [focusName, containers, setSearchParams]);
+  }, [focusName, containers, vms, setSearchParams]);
 
   // 高亮 1.5s 后自动消。独立 effect:清 query 会让上面的 effect 重跑,
   // 若 timer 挂在其 cleanup 下会被一起 clear,高亮永不消
@@ -305,12 +314,16 @@ export default function Containers() {
         {/* 【续 70】三 tab 统一走页级刷新钮:docker/vm 刷容器数据,compose 信号联动 ComposeStacks */}
         <button
           onClick={activeTab === 'compose' ? handleComposeRefresh : handleManualRefresh}
-          disabled={activeTab === 'compose' ? composeLoading : loading}
+          disabled={activeTab === 'compose' ? composeLoading : refreshing}
           className="inline-flex items-center gap-1 text-xs px-2.5 py-1 text-gray-700 dark:text-gray-300 font-medium hover:text-primary-600 dark:hover:text-primary-400 hover:underline underline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           aria-label="手动刷新容器列表"
           title="立即拉新容器数据(不唤醒硬盘)"
         >
-          <Icon icon={RefreshCw} size={12} />
+          <Icon
+            icon={RefreshCw}
+            size={12}
+            className={activeTab !== 'compose' && refreshing ? 'animate-spin' : ''}
+          />
           刷新
         </button>
         {/* 【续 74】页签刷新时间统一走全局「更新于」(原容器 StaleBadge 移除) */}
@@ -491,6 +504,7 @@ export default function Containers() {
           onVmClick={setSelectedVm}
           selected={selected}
           onToggleOne={toggleOne}
+          highlightName={highlightName}
         />
       )}
 

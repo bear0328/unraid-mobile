@@ -59,10 +59,19 @@ export class ComposeApiError extends Error {
 
 /** 【续 50 C-补充】读请求(列表/详情/日志)超时:后端 hang 时不再永远转圈 */
 const READ_TIMEOUT_MS = 15_000;
-/** 【续 50 C-补充】stackAction 同步执行 docker compose(up/down/restart),慢,放宽到 60s */
-const ACTION_TIMEOUT_MS = 60_000;
+/** 【续 50 C-补充】stackAction 同步执行 docker compose(up/down/restart),慢,放宽超时
+ * 【续 100】60s → 180s:与后端口径对齐(api.php set_time_limit(300) 含 nohup 启动开销 +
+ * nginx fastcgi_read_timeout 300s);原 60s 时前端超时后端仍持 .op-running 锁继续跑,
+ * 用户重试只得 409,像"卡死" */
+const ACTION_TIMEOUT_MS = 180_000;
 
-async function request<T>(path: string, init?: RequestInit, timeoutMs = READ_TIMEOUT_MS): Promise<T> {
+async function request<T>(
+  path: string,
+  init?: RequestInit,
+  timeoutMs = READ_TIMEOUT_MS,
+  /** 【续 100】超时提示附加文案(操作类请求传"后端可能仍在执行",防用户连点重试撞 409) */
+  timeoutHint = ''
+): Promise<T> {
   const config = getApiConfig();
   if (!config) {
     throw new ComposeApiError(0, '未配置 API,请到设置页配置');
@@ -81,7 +90,10 @@ async function request<T>(path: string, init?: RequestInit, timeoutMs = READ_TIM
   } catch (err) {
     // 【续 50 C-补充】超时单独报错,与"网络不可达"区分(无调用方传 signal,abort 只能是超时)
     if (err instanceof DOMException && (err.name === 'TimeoutError' || err.name === 'AbortError')) {
-      throw new ComposeApiError(0, `请求超时(${Math.round(timeoutMs / 1000)}s): compose-api 无响应`);
+      throw new ComposeApiError(
+        0,
+        `请求超时(${Math.round(timeoutMs / 1000)}s): compose-api 无响应${timeoutHint}`
+      );
     }
     throw new ComposeApiError(0, '网络错误: compose-api 不可达');
   }
@@ -130,7 +142,9 @@ export function stackAction(name: string, op: ComposeOp): Promise<ComposeOpResul
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: op, name }),
     },
-    ACTION_TIMEOUT_MS
+    ACTION_TIMEOUT_MS,
+    // 【续 100】超时后后端可能仍持锁执行,提示勿立即重试(否则撞 409)
+    ';后端可能仍在执行,请稍后在栈详情确认结果,勿立即重试'
   );
 }
 

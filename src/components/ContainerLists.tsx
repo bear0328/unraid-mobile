@@ -114,6 +114,7 @@ export function VmList({
   onVmClick,
   selected,
   onToggleOne,
+  highlightName,
 }: {
   vms: UnraidVM[];
   actionLoading: string | null;
@@ -122,6 +123,8 @@ export function VmList({
   onVmClick?: (vm: UnraidVM) => void;
   selected?: Set<string>;
   onToggleOne?: (id: string) => void;
+  /** 【续 99】深链 ?focus= 命中的 VM 名,对应卡片短暂高亮+滚动定位(对齐 DockerList) */
+  highlightName?: string | null;
 }) {
   return (
     <div className="space-y-2">
@@ -138,6 +141,7 @@ export function VmList({
             onClick={onVmClick}
             isSelected={selected?.has(vm.vmUuid) ?? false}
             onToggleSelect={onToggleOne}
+            highlighted={vm.name === highlightName}
           />
         ))
       )}
@@ -330,6 +334,7 @@ const VmItem = memo(function VmItem({
   onClick,
   isSelected,
   onToggleSelect,
+  highlighted,
 }: {
   vm: UnraidVM;
   loading: boolean;
@@ -338,7 +343,13 @@ const VmItem = memo(function VmItem({
   onClick?: (vm: UnraidVM) => void;
   isSelected: boolean;
   onToggleSelect?: (id: string) => void;
+  highlighted?: boolean;
 }) {
+  // 【续 99】深链定位:高亮时把卡片滚到可视区中央(对齐 ContainerItem,jsdom 无 scrollIntoView 用 ?. 兜底)
+  const cardRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (highlighted) cardRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+  }, [highlighted]);
   const isRunning = vm.state.toUpperCase().includes('RUN');
   const isPaused = vm.state.toUpperCase().includes('PAUSE');
   const vmPillTone = getVMStateTone(vm.state);
@@ -405,9 +416,13 @@ const VmItem = memo(function VmItem({
 
   return (
     <div
+      ref={cardRef}
+      data-vm-name={vm.name}
       className={`${rowCardClass} ${
         onClick ? 'cursor-pointer active:bg-gray-50 dark:active:bg-gray-700' : ''
-      } ${isSelected ? 'ring-2 ring-primary-500 bg-primary-50/40 dark:bg-primary-900/20' : ''}`}
+      } ${isSelected ? 'ring-2 ring-primary-500 bg-primary-50/40 dark:bg-primary-900/20' : ''} ${
+        highlighted ? 'ring-2 ring-blue-500' : ''
+      }`}
       onClick={handleCardClick}
     >
       <div className="flex items-center justify-between gap-2">

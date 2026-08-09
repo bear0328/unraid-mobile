@@ -25,6 +25,8 @@ declare(strict_types=1);
  *   GET  ?action=cputemp                    CPU 温度(续 51:直读 /sys/class/hwmon CPU 传感器,
  *                                           纯内核 sysfs 不碰 smartctl/块设备,全盘 standby 不唤盘。
  *                                           这是续 46.5 "GraphQL temperature 唤盘红线"的安全替代)
+ *   GET  ?action=vminfo&vm=X                VM 详情增强(续 101:virsh dumpxml/dominfo/
+ *                                           snapshot-list + /etc/libvirt/qemu 回退,全只读)
  *   GET  ?action=list                       栈列表(名称/状态/autostart/last_result)
  *   GET  ?action=get&name=X                 栈详情(compose.yaml/override/log)
  *   GET  ?action=log&name=X                 操作日志 + 是否有异步任务在跑
@@ -64,6 +66,24 @@ function fail(int $code, string $msg): void
 }
 
 // ---------- 鉴权 ----------
+// 【续 100】认证失败审计限流:原每次 401 都 file_put_contents 到 flash 盘
+// (AUDIT_LOG 在 /boot/config),公网撞 key 流量会磨损 flash + 触发 1MB 轮转 churn。
+// 现改为:① 每次都 error_log 到 php-fpm 日志(tmpfs,零 flash 磨损,兜底可溯);
+// ② flash 审计行同分钟最多写一条(戳记文件在 /tmp,也不占 flash)
+function auditAuthFail(): void
+{
+    $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? '-');
+    error_log('unraid-mobile compose-api: auth fail from ' . $ip);
+    $stamp = '/tmp/unraid-mobile-authfail.stamp';
+    $last = @filemtime($stamp);
+    $now = time();
+    if ($last !== false && $now - $last < 60) {
+        return; // 同分钟内已写过 flash 审计
+    }
+    @touch($stamp);
+    audit('auth', '-', 'fail');
+}
+
 $stored = trim((string) @file_get_contents(KEY_FILE));
 if ($stored === '') {
     fail(503, 'compose API 未配置: key 文件缺失,请运行 install-compose-api.sh');
@@ -71,7 +91,8 @@ if ($stored === '') {
 $provided = $_SERVER['HTTP_X_API_KEY'] ?? '';
 if (!is_string($provided) || $provided === '') {
     // 【续 88 2026-08-08】认证失败也进审计日志(此前只记动作成败,401 无痕迹)
-    audit('auth', '-', 'fail');
+    // 【续 100】改走 auditAuthFail():php-fpm error_log 兜底 + flash 审计同分钟限流
+    auditAuthFail();
     fail(401, '未授权: X-Api-Key 无效');
 }
 // 【续 60】文件格式自描述前缀: `sha256:<64hex>` = 哈希存储(新装),否则 = 旧明文(兼容)。
@@ -83,7 +104,7 @@ if (str_starts_with($stored, 'sha256:')) {
     $ok = hash_equals($stored, $provided);
 }
 if (!$ok) {
-    audit('auth', '-', 'fail');
+    auditAuthFail();
     fail(401, '未授权: X-Api-Key 无效');
 }
 
@@ -262,8 +283,162 @@ function readCpuTemp(): array
     return ['celsius' => null, 'sensor' => null];
 }
 
+/**
+ * 【续 101 2026-08-10】VM 详情增强:读 libvirt XML 返回 vcpus/内存/磁盘/网卡/
+ * 图形/直通/快照(GraphQL VmDomain 只有 id/name/state,做不了详情)。
+ * 只读操作:virsh dumpxml/dominfo/snapshot-list + qemu-img info,无任何写。
+ * 安全:vm 名走 validName 同款白名单正则(不含项目目录存在性检查——VM 与
+ * compose 项目无关);所有 shell 参数 escapeshellarg。
+ */
+function readVmInfo(string $vm): array
+{
+    $arg = escapeshellarg($vm);
+    // 优先 virsh dumpxml;不可用/返回空 → 回退读 /etc/libvirt/qemu/<vm>.xml
+    $xml = (string) @shell_exec(PATH_ENV . ' virsh dumpxml ' . $arg . ' 2>/dev/null');
+    if (trim($xml) === '') {
+        $xml = (string) @file_get_contents('/etc/libvirt/qemu/' . $vm . '.xml');
+    }
+    if (trim($xml) === '') {
+        fail(404, '无法读取 VM XML(virsh 不可用且无配置文件): ' . $vm);
+    }
+    $dom = @simplexml_load_string($xml);
+    if ($dom === false) {
+        fail(500, 'VM XML 解析失败: ' . $vm);
+    }
+
+    $attr = static fn($node, string $name): ?string =>
+        isset($node[$name]) ? (string) $node[$name] : null;
+
+    // vcpus:<vcpu> 内容;属性 current 存在时优先(未指定上限场景)
+    $vcpus = null;
+    if (isset($dom->vcpu)) {
+        $current = $attr($dom->vcpu, 'current');
+        $vcpus = (int) ($current !== null ? $current : (string) $dom->vcpu);
+    }
+
+    // memory:<memory>=上限 <currentMemory>=当前,unit 默认 KiB
+    $memory = null;
+    if (isset($dom->memory)) {
+        $memory = [
+            'max' => (int) (string) $dom->memory,
+            'current' => isset($dom->currentMemory) ? (int) (string) $dom->currentMemory : (int) (string) $dom->memory,
+            'unit' => $attr($dom->memory, 'unit') ?? 'KiB',
+        ];
+    }
+
+    // autostart:virsh dominfo 的 "Autostart:" 行
+    $autostart = null;
+    $dominfo = (string) @shell_exec(PATH_ENV . ' virsh dominfo ' . $arg . ' 2>/dev/null');
+    if (preg_match('/^Autostart:\s*(\w+)/m', $dominfo, $m)) {
+        $autostart = strtolower($m[1]) === 'enable';
+    }
+
+    // disks:<disk device='disk'>;大小走 qemu-img info(timeout 5s),失败只返回 path
+    $disks = [];
+    foreach ($dom->devices->disk ?? [] as $disk) {
+        if (($attr($disk, 'device') ?? 'disk') !== 'disk') {
+            continue;
+        }
+        $type = $attr($disk, 'type');
+        $path = null;
+        if (isset($disk->source)) {
+            $path = $attr($disk->source, 'file') ?? $attr($disk->source, 'dev');
+        }
+        $entry = [
+            'type' => $type,
+            'path' => $path,
+            'bus' => isset($disk->target) ? $attr($disk->target, 'bus') : null,
+            'dev' => isset($disk->target) ? $attr($disk->target, 'dev') : null,
+            'format' => isset($disk->driver) ? $attr($disk->driver, 'type') : null,
+            'size' => null,
+        ];
+        if ($path !== null && $type === 'file') {
+            $imgOut = (string) @shell_exec(
+                PATH_ENV . ' timeout 5 qemu-img info --output json ' . escapeshellarg($path) . ' 2>/dev/null'
+            );
+            $img = json_decode($imgOut, true);
+            if (is_array($img) && isset($img['virtual-size'])) {
+                $entry['size'] = (int) $img['virtual-size'];
+            }
+        }
+        $disks[] = $entry;
+    }
+
+    // interfaces:<interface type='bridge|network'>
+    $interfaces = [];
+    foreach ($dom->devices->interface ?? [] as $if) {
+        $interfaces[] = [
+            'type' => $attr($if, 'type'),
+            'bridge' => isset($if->source)
+                ? ($attr($if->source, 'bridge') ?? $attr($if->source, 'network'))
+                : null,
+            'mac' => isset($if->mac) ? $attr($if->mac, 'address') : null,
+            'model' => isset($if->model) ? $attr($if->model, 'type') : null,
+        ];
+    }
+
+    // graphics:<graphics type='vnc|spice'>
+    $graphics = null;
+    if (isset($dom->devices->graphics)) {
+        $g = $dom->devices->graphics;
+        $graphics = [
+            'type' => $attr($g, 'type'),
+            'port' => $attr($g, 'port'),
+            'autoport' => ($attr($g, 'autoport') ?? '') === 'yes',
+            'listen' => isset($g->listen)
+                ? ($attr($g->listen, 'address') ?? $attr($g, 'listen'))
+                : $attr($g, 'listen'),
+        ];
+    }
+
+    // hostDevices:<hostdev type='pci|usb'>
+    $hostDevices = [];
+    foreach ($dom->devices->hostdev ?? [] as $hd) {
+        $hdType = $attr($hd, 'type');
+        if ($hdType === 'pci' && isset($hd->source->address)) {
+            $hostDevices[] = [
+                'type' => 'pci',
+                'domain' => $attr($hd->source->address, 'domain'),
+                'bus' => $attr($hd->source->address, 'bus'),
+                'slot' => $attr($hd->source->address, 'slot'),
+                'function' => $attr($hd->source->address, 'function'),
+            ];
+        } elseif ($hdType === 'usb' && isset($hd->source)) {
+            $hostDevices[] = [
+                'type' => 'usb',
+                'vendorId' => isset($hd->source->vendor) ? $attr($hd->source->vendor, 'id') : null,
+                'productId' => isset($hd->source->product) ? $attr($hd->source->product, 'id') : null,
+            ];
+        }
+    }
+
+    // snapshots:virsh snapshot-list --name,按行拆分
+    $snapshots = [];
+    $snapOut = (string) @shell_exec(PATH_ENV . ' virsh snapshot-list ' . $arg . ' --name 2>/dev/null');
+    foreach (preg_split('/\r?\n/', trim($snapOut)) ?: [] as $line) {
+        $line = trim($line);
+        if ($line !== '') {
+            $snapshots[] = $line;
+        }
+    }
+
+    return [
+        'name' => isset($dom->name) ? (string) $dom->name : $vm,
+        'uuid' => isset($dom->uuid) ? (string) $dom->uuid : null,
+        'vcpus' => $vcpus,
+        'memory' => $memory,
+        'autostart' => $autostart,
+        'disks' => $disks,
+        'interfaces' => $interfaces,
+        'graphics' => $graphics,
+        'hostDevices' => $hostDevices,
+        'snapshots' => $snapshots,
+    ];
+}
+
 function stackSummary(string $dirName, array $lsMap, array $pcMap = []): array
 {
+
     $dir = PROJECTS_DIR . '/' . $dirName;
     $project = projectName($dirName);
     $row = $lsMap[$project] ?? null;
@@ -371,6 +546,15 @@ if ($method === 'GET') {
     // 【续 51】CPU 温度(sysfs,不唤盘),放在栈相关 action 之前(不需要 PROJECTS_DIR)
     if ($action === 'cputemp') {
         ok(readCpuTemp());
+    }
+
+    // 【续 101】VM 详情(libvirt XML 只读;vm 名白名单正则,不查项目目录)
+    if ($action === 'vminfo') {
+        $vm = (string) ($_GET['vm'] ?? '');
+        if (!preg_match('/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/', $vm)) {
+            fail(400, '非法 VM 名');
+        }
+        ok(readVmInfo($vm));
     }
 
     if ($action === 'list') {

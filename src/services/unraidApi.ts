@@ -163,4 +163,9 @@ export class UnraidApiService {
   getVmDetails(vmUuid: string) {
     return vmApi.getVmDetails(this.baseUrl, this.apiKey, this.useProxy, vmUuid);
   }
+
+  // 【续 101】VM 详情增强(libvirt XML,compose-api vminfo 端点)
+  getVmInfo(vmName: string) {
+    return vmApi.getVmInfo(this.baseUrl, this.apiKey, this.useProxy, vmName);
+  }
 }

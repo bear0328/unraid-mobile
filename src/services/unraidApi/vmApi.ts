@@ -1,5 +1,5 @@
 // VM 虚拟机 API + 动作管理方法
-import { UnraidVM } from '../types';
+import { UnraidVM, VmInfo } from '../types';
 import { VmsResponse } from '../graphqlTypes';
 import { graphqlRequest, buildGraphqlEndpoint } from './graphql';
 import {
@@ -149,6 +149,40 @@ export async function rebootVm(
 }
 
 // ==================== VM 详情 / 日志 ====================
+
+// 【续 101】VM 详情增强(libvirt XML):走 compose-api vminfo 端点(宿主 php-fpm 只读)。
+// 与 composeApi.ts 同款:compose-api 只存在于本 app nginx 代理,故始终同源相对路径,
+// baseUrl/useProxy 保留签名对齐其它 vmApi 方法但不参与拼 URL
+export async function getVmInfo(
+  _baseUrl: string,
+  apiKey: string,
+  _useProxy: boolean,
+  vmName: string
+): Promise<{ success: boolean; data?: VmInfo; error?: string }> {
+  try {
+    const headers: Record<string, string> = {};
+    if (apiKey) headers['X-Api-Key'] = apiKey;
+    const res = await fetch(`/compose-api/?action=vminfo&vm=${encodeURIComponent(vmName)}`, {
+      headers,
+      signal: AbortSignal.timeout(15000),
+    });
+    const body = (await res.json().catch(() => null)) as {
+      ok?: boolean;
+      data?: VmInfo;
+      error?: string;
+    } | null;
+    if (!res.ok || !body?.ok) {
+      return { success: false, error: body?.error || `HTTP ${res.status}` };
+    }
+    return { success: true, data: body.data };
+  } catch (err) {
+    const anyErr = err as { name?: string; message?: string } | null | undefined;
+    if (anyErr?.name === 'TimeoutError' || anyErr?.name === 'AbortError') {
+      return { success: false, error: '请求超时(15s): compose-api 无响应' };
+    }
+    return { success: false, error: (err as Error).message || '获取 VM 详情失败' };
+  }
+}
 
 // 获取虚拟机日志
 // 【续 50 P2】unRAID GraphQL 的 Vms 类型没有 logs 字段,旧实现返 success:true + 占位文案

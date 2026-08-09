@@ -210,6 +210,46 @@ export interface UnraidVM {
   state: string;
 }
 
+/** 【续 101】VM 详情增强(compose-api vminfo 端点,libvirt XML 只读解析;字段均可空,缺失不抛错) */
+export interface VmInfo {
+  name: string;
+  uuid: string | null;
+  vcpus: number | null;
+  memory: { current: number; max: number; unit: string } | null;
+  autostart: boolean | null;
+  disks: Array<{
+    type: string | null;
+    path: string | null;
+    bus: string | null;
+    dev: string | null;
+    format: string | null;
+    /** virtual-size 字节(qemu-img info);null = 未取到 */
+    size: number | null;
+  }>;
+  interfaces: Array<{
+    type: string | null;
+    bridge: string | null;
+    mac: string | null;
+    model: string | null;
+  }>;
+  graphics: {
+    type: string | null;
+    port: string | null;
+    autoport: boolean;
+    listen: string | null;
+  } | null;
+  hostDevices: Array<{
+    type: 'pci' | 'usb';
+    domain?: string | null;
+    bus?: string | null;
+    slot?: string | null;
+    function?: string | null;
+    vendorId?: string | null;
+    productId?: string | null;
+  }>;
+  snapshots: string[];
+}
+
 /** 【续 91 D】parity 校验状态(归一化后,ParityCard 用;查询失败/老 schema → 整卡不渲染) */
 export interface UnraidParityStatus {
   /** 阵列状态原始值,如 "STARTED" */

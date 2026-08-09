@@ -29,19 +29,21 @@ export default function ActionMenu({ items }: { items: MenuItem[] }) {
   const trapRef = useFocusTrap(open, () => setOpen(false));
 
   // 展开时:判断方向(底部空间不够则向上)
+  // 【续 100】按实际项数动态估算(每项 36px + 上下 padding 8px + 16px 余量):
+  // 原固定按 4 项 144px 估,Docker 菜单已 5 项(≈188px),
+  // 底部空间 144~188px 时误判向下展开被屏幕裁掉;逻辑内联进 effect 保 lint 干净
   useEffect(() => {
     if (!open) return;
-    setAlign(estimateDirection());
-  }, [open]);
-
-  function estimateDirection(): 'up' | 'down' {
     const btn = triggerRef.current;
-    if (!btn) return 'up';
+    if (!btn) {
+      setAlign('up');
+      return;
+    }
     const rect = btn.getBoundingClientRect();
     const bottomSpace = window.innerHeight - rect.bottom;
-    // 假设菜单最多 4 项 * 36px = 144px
-    return bottomSpace < 160 ? 'up' : 'down';
-  }
+    const menuHeight = items.length * 36 + 8;
+    setAlign(bottomSpace < menuHeight + 16 ? 'up' : 'down');
+  }, [open, items.length]);
 
   // 点击外部关闭
   useEffect(() => {

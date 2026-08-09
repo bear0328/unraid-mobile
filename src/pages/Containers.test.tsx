@@ -105,6 +105,8 @@ import { useContainerLogs } from '../hooks/useContainerLogs';
 import Containers from './Containers';
 // 【续 55 商业化】测试直接置 license 状态(pro 态恢复原断言行为)
 import { __setLicenseStateForTest, __resetLicenseForTest } from '../services/license';
+// 【续 99】spy invalidateNamespace:手动刷新缓存失效口径断言
+import * as cacheModule from '../services/unraidApi/cache';
 
 function makeContainer(overrides: Partial<UnraidDockerContainer> = {}): UnraidDockerContainer {
   return {
@@ -460,6 +462,48 @@ describe('Containers 页面', () => {
     expect(toastMocks.warning).not.toHaveBeenCalled();
   });
 
+  // ==== 续 99:刷新按钮 refreshing 态 + 缓存失效口径统一 ====
+  it('docker tab:点刷新 → invalidateNamespace(containers/vms),刷新中 disabled+图标旋转,完成后恢复', async () => {
+    const invalidateSpy = vi.spyOn(cacheModule, 'invalidateNamespace');
+    let resolveRefresh!: () => void;
+    const refreshMock = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveRefresh = resolve;
+        })
+    );
+    vi.mocked(useContainersData).mockReturnValue({
+      containers: [],
+      vms: [],
+      loading: false,
+      error: null,
+      refresh: refreshMock,
+      containersRef: { current: [] },
+      vmsRef: { current: [] },
+    });
+    try {
+      const user: UserEvent = userEvent.setup();
+      renderContainers();
+      const btn = screen.getByLabelText('手动刷新容器列表');
+      expect(btn).not.toBeDisabled();
+      await user.click(btn);
+      // 缓存失效走 invalidateNamespace 统一口径
+      expect(invalidateSpy).toHaveBeenCalledWith('containers');
+      expect(invalidateSpy).toHaveBeenCalledWith('vms');
+      expect(refreshMock).toHaveBeenCalled();
+      // 刷新中:disabled + 图标旋转(原实现 disabled 用首屏 loading,恒 false 可连点)
+      expect(btn).toBeDisabled();
+      expect(btn.querySelector('svg')?.getAttribute('class') ?? '').toContain('animate-spin');
+      // 完成后恢复
+      await act(async () => {
+        resolveRefresh();
+      });
+      expect(btn).not.toBeDisabled();
+    } finally {
+      invalidateSpy.mockRestore();
+    }
+  });
+
   // ==== 续 50 C8:?focus= 深链定位 ====
   it('?focus=nginx → 卡片滚动定位 + 高亮 ring,replace 清掉 query,1.5s 后高亮消除', () => {
     vi.useFakeTimers();
@@ -504,6 +548,38 @@ describe('Containers 页面', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  // ==== 续 99:?tab=vm&focus= VM 深链高亮(VmList/VmItem 已支持 highlightName) ====
+  it('?tab=vm&focus=win11 → VM 卡片滚动定位 + 高亮 ring,replace 清掉 query', () => {
+    const scrollSpy = vi.fn();
+    window.HTMLElement.prototype.scrollIntoView = scrollSpy;
+    vi.mocked(useContainersData).mockReturnValue({
+      containers: [],
+      vms: [makeVm({ name: 'win11' }), makeVm({ id: 'v2', name: 'ubuntu', vmUuid: 'ubuntu' })],
+      loading: false,
+      error: null,
+      refresh: vi.fn(),
+      containersRef: { current: [] },
+      vmsRef: { current: [] },
+    });
+    render(
+      <MemoryRouter initialEntries={['/containers?tab=vm&focus=win11']}>
+        <Containers />
+        <LocationProbe />
+      </MemoryRouter>
+    );
+    // VM tab 激活 + 滚动定位
+    expect(screen.getByText('win11')).toBeInTheDocument();
+    expect(scrollSpy).toHaveBeenCalled();
+    // 目标 VM 卡片高亮,其他不高亮
+    const card = document.querySelector('[data-vm-name="win11"]');
+    expect(card?.className).toContain('ring-blue-500');
+    expect(document.querySelector('[data-vm-name="ubuntu"]')?.className).not.toContain(
+      'ring-blue-500'
+    );
+    // query 已被 replace 清掉
+    expect(screen.getByTestId('loc').textContent).toBe('/containers');
   });
 
   it('?focus=不存在的容器 → 不滚动不高亮,页面正常渲染', () => {

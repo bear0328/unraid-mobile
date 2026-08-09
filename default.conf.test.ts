@@ -51,4 +51,11 @@ describe('default.conf 安全加固(续 88)', () => {
   it('根目录过时 nginx.conf 已删除(引用它的 docker-compose.simple.yml 为 dev 遗物)', () => {
     expect(existsSync(path.join(dir, 'nginx.conf'))).toBe(false);
   });
+
+  it('/files 无 index 指令(续 100:含 index.html 的目录必须走 autoindex,防同源 HTML 执行)', () => {
+    const filesBlock = conf.slice(conf.indexOf('location /files'), conf.indexOf('location ^~ /dav/'));
+    expect(filesBlock).toContain('autoindex on;');
+    // 断指令行(注释里提到该字符串不算)
+    expect(filesBlock).not.toMatch(/^\s*index\s+index\.html/m);
+  });
 });

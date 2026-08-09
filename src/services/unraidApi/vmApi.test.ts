@@ -179,4 +179,74 @@ describe('vmApi', () => {
       expect(fetchSpy).toHaveBeenCalledTimes(2); // 详情没吃列表的旧缓存
     });
   });
+
+  // 【续 101】VM 详情增强(compose-api vminfo 端点,同源相对路径 + X-Api-Key)
+  describe('getVmInfo', () => {
+    const vmInfoPayload = {
+      ok: true,
+      data: {
+        name: 'win11',
+        uuid: 'uuid-aaa',
+        vcpus: 8,
+        memory: { current: 8388608, max: 16777216, unit: 'KiB' },
+        autostart: true,
+        disks: [
+          {
+            type: 'file',
+            path: '/mnt/user/domains/win11/vdisk1.img',
+            bus: 'virtio',
+            dev: 'vda',
+            format: 'qcow2',
+            size: 68719476736,
+          },
+        ],
+        interfaces: [{ type: 'bridge', bridge: 'br0', mac: '52:54:00:aa:bb:cc', model: 'virtio' }],
+        graphics: { type: 'vnc', port: '5900', autoport: true, listen: '0.0.0.0' },
+        hostDevices: [{ type: 'pci', domain: '0x0000', bus: '0x03', slot: '0x00', function: '0x0' }],
+        snapshots: ['before-upgrade', 'clean'],
+      },
+    };
+
+    it('成功:请求 /compose-api/?action=vminfo&vm=X 带 X-Api-Key,返回 data', async () => {
+      fetchSpy.mockResolvedValueOnce(mockFetchOnce(vmInfoPayload));
+      const r = await vmApi.getVmInfo(BASE, KEY, PROXY, 'win11');
+      expect(r.success).toBe(true);
+      expect(r.data?.vcpus).toBe(8);
+      expect(r.data?.disks[0]?.size).toBe(68719476736);
+      expect(r.data?.snapshots).toEqual(['before-upgrade', 'clean']);
+      const [url, init] = fetchSpy.mock.calls[0] as unknown as [string, RequestInit];
+      expect(url).toBe('/compose-api/?action=vminfo&vm=win11');
+      expect((init.headers as Record<string, string>)['X-Api-Key']).toBe(KEY);
+    });
+
+    it('vm 名含特殊字符 → encodeURIComponent 编码', async () => {
+      fetchSpy.mockResolvedValueOnce(mockFetchOnce({ ok: true, data: { name: 'a b' } }));
+      await vmApi.getVmInfo(BASE, KEY, PROXY, 'a b');
+      const [url] = fetchSpy.mock.calls[0] as unknown as [string];
+      expect(url).toBe('/compose-api/?action=vminfo&vm=a%20b');
+    });
+
+    it('后端 404(virsh 不可用)→ success:false 透传 error', async () => {
+      fetchSpy.mockResolvedValueOnce(
+        mockFetchOnce({ ok: false, error: '无法读取 VM XML(virsh 不可用且无配置文件): ghost' }, 404)
+      );
+      const r = await vmApi.getVmInfo(BASE, KEY, PROXY, 'ghost');
+      expect(r.success).toBe(false);
+      expect(r.error).toContain('无法读取 VM XML');
+    });
+
+    it('非 JSON 响应(nginx 错误页)→ success:false HTTP 状态码', async () => {
+      fetchSpy.mockResolvedValueOnce(new Response('<html>bad gateway</html>', { status: 502 }));
+      const r = await vmApi.getVmInfo(BASE, KEY, PROXY, 'win11');
+      expect(r.success).toBe(false);
+      expect(r.error).toBe('HTTP 502');
+    });
+
+    it('网络异常 → success:false', async () => {
+      fetchSpy.mockRejectedValueOnce(new TypeError('fetch failed'));
+      const r = await vmApi.getVmInfo(BASE, KEY, PROXY, 'win11');
+      expect(r.success).toBe(false);
+      expect(r.error).toBe('fetch failed');
+    });
+  });
 });
