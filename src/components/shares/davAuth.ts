@@ -17,8 +17,10 @@ const DAV_TIMEOUT_MS = 15000;
 export interface FileItem {
   name: string;
   path: string;
-  /** 字节数(由 parseAutoindexHtml 解析 nginx autoindex 得到) */
+  /** 字节数(由 parseAutoindexHtml 解析 nginx autoindex 得到;根 share 行存 used) */
   size?: number;
+  /** 【续 90】根 share 行的剩余空间(字节,来自 getShares 的 free),仅根列表有值 */
+  free?: number;
   date: string;
   mtime: number;
   permissions: string;

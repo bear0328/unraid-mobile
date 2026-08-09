@@ -108,26 +108,28 @@ describe('ServerHeroCard', () => {
     expect(screen.queryByText('系统有更新')).not.toBeInTheDocument();
   });
 
-  it('外网地址默认掩码,点 Eye 显示,显示态点击复制', async () => {
+  it('外网地址默认掩码,点 Eye 显示,显示态点击复制(【续 90】host 纯 IP:端口,无 scheme)', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
     render(<ServerHeroCard name="T" isRefreshing={false} onRefresh={() => {}} />);
-    const origin = window.location.origin;
+    const host = window.location.host;
+    const hostRe = new RegExp(host.replace(/[.:]/g, '\\$&'));
 
     // 默认掩码,不显示真实地址
     expect(screen.getByText('••••••••')).toBeInTheDocument();
-    expect(screen.queryByText(origin)).not.toBeInTheDocument();
+    expect(screen.queryByText(hostRe)).not.toBeInTheDocument();
 
-    // 点 Eye → 显示
+    // 点 Eye → 显示(纯 host,无 http:// 前缀)
     fireEvent.click(screen.getByRole('button', { name: '显示外网地址' }));
-    expect(screen.getByText(new RegExp(origin.replace(/[.:/]/g, '\\$&')))).toBeInTheDocument();
+    expect(screen.getByText(hostRe)).toBeInTheDocument();
+    expect(screen.queryByText(/https?:\/\//)).not.toBeInTheDocument();
 
     // 点击地址 → 复制
     fireEvent.click(screen.getByTitle('点击复制'));
-    expect(writeText).toHaveBeenCalledWith(origin);
+    expect(writeText).toHaveBeenCalledWith(host);
 
     // 再点 EyeOff → 回到掩码
     fireEvent.click(screen.getByRole('button', { name: '隐藏外网地址' }));
-    expect(screen.queryByText(new RegExp(origin.replace(/[.:/]/g, '\\$&')))).not.toBeInTheDocument();
+    expect(screen.queryByText(hostRe)).not.toBeInTheDocument();
   });
 });

@@ -95,6 +95,8 @@ const PATHS = {
 describe('Shares 页面', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // 【续 90】排序选择持久化在 LS,每个用例前清空防串扰
+    localStorage.clear();
     // 【续 55 商业化】默认 pro 态(上传/新建/清理/写操作菜单均已解锁),门控用例内再置回 none
     __setLicenseStateForTest({
       status: 'active',
@@ -321,6 +323,95 @@ describe('Shares 页面', () => {
     ).toBeInTheDocument();
   });
 
+  // ==== 续 90:排序 ====
+  // 子目录公共 mock(文件带大小,用于排序断言)
+  const mockSubdir = () =>
+    mockUseShares.mockReturnValue({
+      path: 'photos/',
+      items: PHOTOS_FILES,
+      loading: false,
+      error: null,
+      paths: PATHS,
+      fetchDir: vi.fn().mockResolvedValue(undefined),
+      refresh: vi.fn().mockResolvedValue(undefined),
+      navigateTo: vi.fn(),
+      navigateUp: vi.fn(),
+    });
+  // 断言 a 在 b 之前渲染
+  const expectBefore = (a: HTMLElement, b: HTMLElement) => {
+    expect(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  };
+
+  it('默认名称升序:目录 subdir 排最前(目录优先),文件按名称排', () => {
+    mockSubdir();
+    renderShares();
+    expectBefore(screen.getByText('subdir'), screen.getByText('bear.jpg'));
+    expectBefore(screen.getByText('bear.jpg'), screen.getByText('cat.png'));
+    // 排序控件默认显示 名称 + 升序
+    expect(screen.getByLabelText('排序方式')).toHaveValue('name');
+    expect(screen.getByRole('button', { name: '升序,点击切换为降序' })).toBeInTheDocument();
+  });
+
+  it('子目录切「大小」+ 点方向切降序 → bear.jpg 排在 cat.png 前,选择写入 LS', async () => {
+    const user: UserEvent = userEvent.setup();
+    mockSubdir();
+    renderShares();
+    await user.selectOptions(screen.getByLabelText('排序方式'), 'size');
+    // 选维度后方向不变(默认升序):cat.png(500K) 在 bear.jpg(1.2M) 前
+    expectBefore(screen.getByText('cat.png'), screen.getByText('bear.jpg'));
+    await user.click(screen.getByRole('button', { name: '升序,点击切换为降序' }));
+    // 大小降序:bear.jpg 在前
+    expectBefore(screen.getByText('bear.jpg'), screen.getByText('cat.png'));
+    // LS 持久化
+    const saved = JSON.parse(localStorage.getItem('unraid-mobile-shares-sort')!);
+    expect(saved.file).toEqual({ key: 'size', dir: 'desc' });
+  });
+
+  it('LS 已有排序选择 → 初始渲染即按该排序(大小降序)', () => {
+    localStorage.setItem(
+      'unraid-mobile-shares-sort',
+      JSON.stringify({ file: { key: 'size', dir: 'desc' }, share: { key: 'name', dir: 'asc' } })
+    );
+    mockSubdir();
+    renderShares();
+    expectBefore(screen.getByText('bear.jpg'), screen.getByText('cat.png'));
+    expect(screen.getByLabelText('排序方式')).toHaveValue('size');
+  });
+
+  it('根目录 share 列表切「已用」降序 → 按 used 从大到小排', async () => {
+    const user: UserEvent = userEvent.setup();
+    mockUseShares.mockReturnValue({
+      path: '',
+      items: [
+        { name: 'appdata', path: 'appdata/', isDir: true, size: 500, free: 9500, mtime: 0, date: '', permissions: '' },
+        { name: 'movies', path: 'movies/', isDir: true, size: 8000, free: 2000, mtime: 0, date: '', permissions: '' },
+        { name: 'photos', path: 'photos/', isDir: true, size: 3000, free: 7000, mtime: 0, date: '', permissions: '' },
+      ],
+      loading: false,
+      error: null,
+      paths: PATHS,
+      fetchDir: vi.fn().mockResolvedValue(undefined),
+      refresh: vi.fn().mockResolvedValue(undefined),
+      navigateTo: vi.fn(),
+      navigateUp: vi.fn(),
+    });
+    renderShares();
+    // 根列表排序选项是 名称/已用/剩余
+    const select = screen.getByLabelText('排序方式');
+    expect(select).toHaveValue('name');
+    // 默认名称升序:appdata 在 movies 前
+    expectBefore(screen.getByText('appdata'), screen.getByText('movies'));
+    await user.selectOptions(select, 'used');
+    // 已用升序:appdata(500) 在 photos(3000) 前
+    expectBefore(screen.getByText('appdata'), screen.getByText('photos'));
+    await user.click(screen.getByRole('button', { name: '升序,点击切换为降序' }));
+    // 已用降序:movies(8000) 排最前
+    expectBefore(screen.getByText('movies'), screen.getByText('photos'));
+    expectBefore(screen.getByText('photos'), screen.getByText('appdata'));
+    const saved = JSON.parse(localStorage.getItem('unraid-mobile-shares-sort')!);
+    expect(saved.share).toEqual({ key: 'used', dir: 'desc' });
+  });
+
   // ==== 续 55 商业化:Shares 写操作 → Pro ====
   it('未解锁 → 上传/新建文件夹/清理换锁占位按钮,文件行菜单写操作带锁图标(下载保持免费)', async () => {
     __setLicenseStateForTest({ status: 'none' });
@@ -344,8 +435,9 @@ describe('Shares 页面', () => {
     await user.click(screen.getByRole('button', { name: '新建文件夹' }));
     expect(screen.queryByPlaceholderText(/文件夹名/)).not.toBeInTheDocument();
     // 文件行 ⋮ 菜单:下载免费,删除/重命名带 Lock 图标(label 纯文本,图标 aria-hidden)
+    // 【续 90】排序后目录 subdir 排首行,menuTriggers[1] 才是文件行(bear.jpg,菜单含「下载」)
     const menuTriggers = screen.getAllByRole('button', { name: '更多操作' });
-    await user.click(menuTriggers[0]);
+    await user.click(menuTriggers[1]);
     expect(screen.getByRole('menuitem', { name: '下载' })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: '删除' })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: '重命名' })).toBeInTheDocument();

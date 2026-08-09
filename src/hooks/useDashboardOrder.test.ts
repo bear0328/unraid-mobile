@@ -1,10 +1,12 @@
 // 【阶段 P1-测试 - 2026-06-17 续 35-1】Dashboard 卡片顺序 hook 单测
 // 覆盖:默认顺序 / move() 重排 / reset() / LS 持久化(刷新后保留)/ 未知 key 过滤
+// 【续 90】迁移测试改写:迁移一次性(v2 标记)+ array key 剔除
 import { describe, it, expect, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useDashboardOrder, DEFAULT_ORDER } from './useDashboardOrder';
 
 const STORAGE_KEY = 'unraid-mobile-dashboard-order';
+const MIGRATE_KEY = 'unraid-mobile-dashboard-order-v';
 
 describe('useDashboardOrder', () => {
   beforeEach(() => {
@@ -74,8 +76,8 @@ describe('useDashboardOrder', () => {
     expect(result.current.order).toContain('vms');
   });
 
-  it('【续 89】老用户完整旧顺序迁移:network 提前 + vms 插到 containers 后', () => {
-    // 续 89 前的旧默认:containers 在 network 前,无 vms
+  it('【续 90】老用户完整旧顺序一次性迁移:network 提前 + vms 插入 + array 剔除,写回 LS + v2 标记', () => {
+    // 续 89 前的旧默认:containers 在 network 前,无 vms,含已删除的 array
     const legacy = ['favorites', 'cpu', 'memory', 'containers', 'network', 'array', 'disk'];
     localStorage.setItem(STORAGE_KEY, JSON.stringify(legacy));
     const { result } = renderHook(() => useDashboardOrder());
@@ -86,9 +88,34 @@ describe('useDashboardOrder', () => {
       'network',
       'containers',
       'vms',
-      'array',
       'disk',
     ]);
+    // 迁移结果写回 LS + 版本标记(之后 mount 不再重复迁移)
+    expect(localStorage.getItem(MIGRATE_KEY)).toBe('v2');
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]')).toEqual([...DEFAULT_ORDER]);
+  });
+
+  it('【续 90】已迁移(v2 标记)→ 尊重用户自定义,不再强制 network 提前', () => {
+    // 用户把 network 刻意拖到末尾,续 89 旧实现每次 mount 会强制改回,续 90 修复
+    const custom = ['favorites', 'cpu', 'memory', 'containers', 'vms', 'disk', 'network'];
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(custom));
+    localStorage.setItem(MIGRATE_KEY, 'v2');
+    const { result } = renderHook(() => useDashboardOrder());
+    expect(result.current.order).toEqual(custom);
+  });
+
+  it('【续 90】迁移只做一次:迁移后用户再拖拽,下次 mount 保持新顺序', () => {
+    const legacy = ['favorites', 'cpu', 'memory', 'containers', 'network', 'array', 'disk'];
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(legacy));
+    const { result, unmount } = renderHook(() => useDashboardOrder());
+    // 首次 mount 触发迁移并打标记
+    expect(localStorage.getItem(MIGRATE_KEY)).toBe('v2');
+    // 用户把 disk 拖到最前
+    act(() => result.current.move(6, 0));
+    unmount();
+    // 再次 mount:已迁移,保持用户顺序
+    const { result: result2 } = renderHook(() => useDashboardOrder());
+    expect(result2.current.order[0]).toBe('disk');
   });
 
   it('LS 损坏时降级默认', () => {

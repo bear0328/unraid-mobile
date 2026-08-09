@@ -169,11 +169,11 @@ describe('Dashboard 页面', () => {
           !!node?.textContent?.includes('5h')
       )
     ).toBeInTheDocument();
-    // 5 个卡片标题
+    // 卡片标题(【续 90】ArrayCard 删除,阵列使用率并入 DiskCard 标题)
     expect(screen.getByText('CPU')).toBeInTheDocument();
     expect(screen.getByText('内存')).toBeInTheDocument();
     expect(screen.getByText('网络 IO')).toBeInTheDocument();
-    expect(screen.getByText('存储阵列状态')).toBeInTheDocument();
+    expect(screen.getByText('磁盘状态')).toBeInTheDocument();
   });
 
   it('fetch 抛错 → 显示"无法连接到 unRAID 服务器" + ConfigRequiredState', async () => {
@@ -188,7 +188,7 @@ describe('Dashboard 页面', () => {
     await vi.advanceTimersByTimeAsync(10);
     // 核心回归守卫:mount 永远不得自动拉磁盘(iOS/无痕清 LS 后冷启动唤盘的根因)
     expect(mockGetDisks).not.toHaveBeenCalled();
-    // 磁盘空态由 ArrayCard + DiskCard 各自表达(替代旧的页面级"暂无数据")
+    // 磁盘空态由 DiskCard 空态卡表达(【续 90】ArrayCard 已删,替代旧的页面级"暂无数据")
     expect(screen.getAllByText(/磁盘数据未加载/).length).toBeGreaterThanOrEqual(1);
     expect(screen.queryByText(/暂无数据/)).not.toBeInTheDocument();
   });

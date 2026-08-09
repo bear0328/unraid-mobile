@@ -553,7 +553,7 @@ describe('Containers 页面', () => {
     expect(screen.getByText('nginx')).toBeInTheDocument();
   });
 
-  it('未解锁 → 点击 VM 卡片不弹 VmDetailsModal', async () => {
+  it('未解锁 → 点击 VM 卡片仍弹 VmDetailsModal(VM 基础详情免费)', async () => {
     __setLicenseStateForTest({ status: 'none' });
     const user: UserEvent = userEvent.setup();
     vi.mocked(useContainersData).mockReturnValue({
@@ -568,6 +568,7 @@ describe('Containers 页面', () => {
     renderContainers();
     await user.click(screen.getByRole('button', { name: '虚拟机' }));
     await user.click(screen.getByText('win11'));
-    expect(screen.queryByTestId('vm-details-modal')).not.toBeInTheDocument();
+    expect(screen.getByTestId('vm-details-modal')).toBeInTheDocument();
+    expect(screen.getByTestId('vm-details-modal')).toHaveTextContent('win11');
   });
 });

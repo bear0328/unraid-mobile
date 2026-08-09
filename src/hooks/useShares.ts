@@ -112,6 +112,8 @@ export function useShares(): UseSharesResult {
               name: s.name,
               path: s.name + '/',
               size: s.used || undefined,
+              // 【续 90】根列表排序(名称/已用/剩余)需要 free
+              free: s.free,
               mtime: 0,
               date: '',
               isDir: true,

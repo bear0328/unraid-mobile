@@ -7,12 +7,15 @@
 // 【续 50 C8】share/path 从 ?path= query 改 pathname 风格:useShares 从 pathname
 // 推导路径并自动拉数据,?path= 无人消费是死链
 // 【阶段 P2-导入导出 - 2026-06-17 续 33-3】导出 JSON 备份 + 导入(防换手机/清缓存)
+// 【续 90】标题回到 text-base font-semibold(index.css 约定);圆角统一 cardClass;
+//   空态改单行紧凑条(⭐+提示+导入),不再占首屏一大块
 import { useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Package, Folder, FolderOpen, Star, Download, Upload, type LucideIcon } from 'lucide-react';
 import { useFavorites, type Favorite, type FavoriteKind } from '../../hooks/useFavorites';
 import { useToast } from '../../hooks/useToast';
 import Icon from '../ui/Icon';
+import { cardClass } from '../ui/Card';
 
 function kindMeta(kind: FavoriteKind): { icon: LucideIcon; label: string; color: string } {
   switch (kind) {
@@ -54,44 +57,48 @@ export default function FavoritesCard() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const toast = useToast();
 
+  // 隐藏 file input + 导入逻辑(空态/非空态共用)
+  const importInput = (
+    <input
+      ref={fileInputRef}
+      type="file"
+      accept="application/json,.json"
+      className="hidden"
+      onChange={async (e) => {
+        const f = e.target.files?.[0];
+        if (!f) return;
+        try {
+          const text = await f.text();
+          const r = importJson(text);
+          toast.success(`导入完成: 新增 ${r.added} 条,跳过 ${r.skipped} 条已存在`);
+        } catch (err) {
+          toast.error('导入失败: ' + (err instanceof Error ? err.message : String(err)));
+        } finally {
+          e.target.value = '';
+        }
+      }}
+    />
+  );
+
   if (favorites.length === 0) {
-    // 空时也显示导入入口,方便用户恢复备份
+    // 【续 90】空态改单行紧凑条(⭐+提示+导入),不再占首屏一大块;
+    // 空时也保留导入入口,方便用户恢复备份
     return (
-      <div className="bg-white dark:bg-[#273244] rounded-xl p-4 shadow-md dark:shadow-lg dark:border dark:border-gray-700/60">
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
-            <Icon icon={Star} size={14} fill="currentColor" className="text-yellow-500" /> 快捷收藏
-          </h3>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="application/json,.json"
-            className="hidden"
-            onChange={async (e) => {
-              const f = e.target.files?.[0];
-              if (!f) return;
-              try {
-                const text = await f.text();
-                const r = importJson(text);
-                toast.success(`导入完成: 新增 ${r.added} 条,跳过 ${r.skipped} 条已存在`);
-              } catch (err) {
-                toast.error('导入失败: ' + (err instanceof Error ? err.message : String(err)));
-              } finally {
-                e.target.value = '';
-              }
-            }}
-          />
+      <div className={cardClass}>
+        <div className="flex items-center gap-2">
+          <Icon icon={Star} size={14} fill="currentColor" className="text-yellow-500 shrink-0" />
+          <p className="flex-1 min-w-0 text-xs text-gray-500 dark:text-gray-400 truncate">
+            暂无收藏,在容器详情或文件目录点 ⭐ 添加,也可导入备份
+          </p>
+          {importInput}
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="inline-flex items-center gap-1 text-xs px-2 py-1 text-gray-700 dark:text-gray-300 font-medium hover:text-primary-600 dark:hover:text-primary-400 hover:underline underline-offset-2 transition-colors"
+            className="inline-flex items-center gap-1 shrink-0 text-xs px-2 py-1 text-gray-700 dark:text-gray-300 font-medium hover:text-primary-600 dark:hover:text-primary-400 hover:underline underline-offset-2 transition-colors"
           >
             <Icon icon={Download} size={12} />
             导入
           </button>
         </div>
-        <p className="text-xs text-gray-500 dark:text-gray-400">
-          暂无收藏。在容器详情或文件目录点 ⭐ 添加。也可导入备份。
-        </p>
       </div>
     );
   }
@@ -119,32 +126,14 @@ export default function FavoritesCard() {
   }
 
   return (
-    <div className="bg-white dark:bg-[#273244] rounded-xl p-4 shadow-md dark:shadow-lg dark:border dark:border-gray-700/60">
+    <div className={cardClass}>
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white flex items-center gap-1.5">
           <Icon icon={Star} size={14} fill="currentColor" className="text-yellow-500" /> 快捷收藏
           <span className="text-xs text-gray-500 dark:text-gray-400 font-normal">({favorites.length})</span>
         </h3>
         <div className="flex items-center gap-1">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="application/json,.json"
-            className="hidden"
-            onChange={async (e) => {
-              const f = e.target.files?.[0];
-              if (!f) return;
-              try {
-                const text = await f.text();
-                const r = importJson(text);
-                toast.success(`导入完成: 新增 ${r.added} 条,跳过 ${r.skipped} 条已存在`);
-              } catch (err) {
-                toast.error('导入失败: ' + (err instanceof Error ? err.message : String(err)));
-              } finally {
-                e.target.value = '';
-              }
-            }}
-          />
+          {importInput}
           <button
             onClick={handleExport}
             className="inline-flex items-center gap-1 text-xs px-2 py-1 text-gray-700 dark:text-gray-300 font-medium hover:text-primary-600 dark:hover:text-primary-400 hover:underline underline-offset-2 transition-colors"

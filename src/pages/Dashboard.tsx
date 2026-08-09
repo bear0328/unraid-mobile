@@ -28,7 +28,6 @@ import DashboardSkeleton from '../components/dashboard/DashboardSkeleton';
 import CpuCard from '../components/dashboard/CpuCard';
 import MemoryCard from '../components/dashboard/MemoryCard';
 import NetworkCard from '../components/dashboard/NetworkCard';
-import ArrayCard from '../components/dashboard/ArrayCard';
 import DiskCard from '../components/dashboard/DiskCard';
 import FavoritesCard from '../components/dashboard/FavoritesCard';
 import ContainerSummaryCard from '../components/dashboard/ContainerSummaryCard';
@@ -40,6 +39,9 @@ import OtherServersCard from '../components/dashboard/OtherServersCard';
 import Icon from '../components/ui/Icon';
 import { useDashboardOrder, type DashboardCardKey } from '../hooks/useDashboardOrder';
 import { useContainersData } from '../hooks/useContainersData';
+// 【续 90】原生 confirm 换项目既有 useDialog + Dialog 渲染层
+import { useDialog } from '../hooks/useDialog';
+import Dialog from '../components/shares/Dialog';
 import { recordDiskSnapshot } from '../utils/diskHistory';
 import { markRefreshed } from '../utils/lastRefresh';
 import { cacheAgeMs, getCacheKey, invalidateNamespace } from '../services/unraidApi/cache';
@@ -75,6 +77,8 @@ export default function Dashboard() {
   const { isConfigured } = useApiConfig();
   // 【续 34-2】Dashboard 卡片顺序(可拖拽)
   const { order, move, reset } = useDashboardOrder();
+  // 【续 90】「恢复默认顺序」确认弹窗(替代原生 confirm)
+  const dialog = useDialog();
   // 【续 34-5】容器数据(给 ContainerSummaryCard 用)
   // 【续 89】同 hook 顺带返回 vms(本就并行拉 getVMs,零新增网络),给 VmSummaryCard 用
   const { containers, vms, loading: containersLoading } = useContainersData(api, hasConfig);
@@ -349,11 +353,17 @@ export default function Dashboard() {
       {/* 【续 78】多服务器聚合卡(Pro,≥2 台才渲染):固定卡片流末尾,不进拖拽排序 */}
       <OtherServersCard />
 
-      {/* 重置按钮 */}
+      {/* 重置按钮(【续 90】原生 confirm → useDialog 弹窗) */}
       <div className="flex justify-end">
         <button
-          onClick={() => {
-            if (confirm('恢复 Dashboard 卡片为默认顺序?')) reset();
+          onClick={async () => {
+            if (
+              await dialog.confirm({
+                title: '恢复默认顺序',
+                message: '恢复 Dashboard 卡片为默认顺序?',
+              })
+            )
+              reset();
           }}
           className="inline-flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-primary-600"
         >
@@ -361,6 +371,7 @@ export default function Dashboard() {
           恢复默认顺序
         </button>
       </div>
+      <Dialog {...dialog} />
     </div>
   );
 }
@@ -430,14 +441,6 @@ function renderCard(
           networks={props.networks}
           isRefreshing={props.isRefreshing}
           cacheAgeMs={props.dashboardCacheAge}
-        />
-      );
-    case 'array':
-      return (
-        <ArrayCard
-          systemInfo={props.systemInfo}
-          disks={props.disks}
-          cacheAgeMs={props.disksCacheAge}
         />
       );
     case 'disk':

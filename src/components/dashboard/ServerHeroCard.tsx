@@ -5,6 +5,8 @@
 // 【续 89b】信息增强:unRAID 版本/license 类型(并入信息行)、OS 更新提醒徽章
 // (notifications 同源 webGui 铃铛,点击跳 webGui 更新页)、外网地址(=当前访问地址,
 // 默认掩码点 Eye 显示,显示态点击复制,截屏友好)
+// 【续 90】外网地址显示值 origin → host(去 http:// scheme,显示纯 IP:端口/域名:端口);
+//   padding 去 sm:p-5,恒 p-4(与其它卡一致)
 import { memo, useState } from 'react';
 import { RefreshCw, Eye, EyeOff, Copy, Check, ArrowUpCircle } from 'lucide-react';
 import { UnraidServerMeta } from '../../services';
@@ -57,7 +59,8 @@ function ServerHeroCard({
   // 【续 89b】外网地址显隐 + 复制反馈(均组件内 state,不持久化)
   const [showAddress, setShowAddress] = useState(false);
   const [copied, setCopied] = useState(false);
-  const address = typeof window !== 'undefined' ? window.location.origin : '';
+  // 【续 90】host 而非 origin:去 scheme,显示纯 IP:端口(域名访问则域名:端口)
+  const address = typeof window !== 'undefined' ? window.location.host : '';
 
   const copyAddress = async () => {
     try {
@@ -82,7 +85,7 @@ function ServerHeroCard({
       : null;
 
   return (
-    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary-600 to-primary-500 dark:from-primary-800 dark:to-primary-600 p-4 sm:p-5 text-white shadow-md">
+    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary-600 to-primary-500 dark:from-primary-800 dark:to-primary-600 p-4 text-white shadow-md">
       {/* 装饰光斑(纯 CSS,不干扰交互) */}
       <div
         aria-hidden

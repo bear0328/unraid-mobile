@@ -100,8 +100,8 @@ export default function LicenseSection() {
       ) : (
         <div className="space-y-3">
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            当前为免费版。输入 License key 解锁 Pro 功能(容器详情/日志、Compose 管理、
-            文件写操作、批量操作、多服务器、告警通知等)。
+            当前为免费版。输入 License key 解锁 Pro 功能(容器/VM 启停操作、Compose 管理、
+            批量操作、文件写操作、多服务器、告警通知、CPU 温度)。
             {state.status === 'expired' && (
               <span className="mt-1 text-red-500 flex items-center gap-1">
                 <Icon icon={AlertTriangle} size={14} className="shrink-0" />

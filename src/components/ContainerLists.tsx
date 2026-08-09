@@ -168,54 +168,63 @@ const ContainerItem = memo(function ContainerItem({
   }, [highlighted]);
 
   const stateMeta = getContainerStateMeta(container.state);
-  // 【续 55 商业化】容器详情/日志 → Pro;未解锁时菜单项带锁图标,点击跳设置页 License 区
-  // (单个启停/重启/暂停动作保持免费)
+  // 【续 90 门控调整】详情/日志(纯 GraphQL 查看)免费;启动/停止/重启操作 → Pro,
+  // 未解锁时操作项保留原 label 换锁图标占位,点击跳设置页 License 区(沿用续 55 goUnlock 模式)
   const pro = usePro();
   const navigate = useNavigate();
   const goUnlock = () => navigate('/settings', { state: { focusLicense: true } });
-  const menuItems: MenuItem[] = pro
-    ? [
-        ...(onViewDetails
-          ? [{ label: '详情', icon: LayoutDashboard, onClick: () => onViewDetails(container) }]
-          : []),
-        { label: '日志', icon: ScrollText, onClick: () => onViewLogs(container) },
-      ]
-    : [
-        ...(onViewDetails ? [{ label: '详情', icon: Lock, onClick: goUnlock }] : []),
-        { label: '日志', icon: Lock, onClick: goUnlock },
-      ];
+  const menuItems: MenuItem[] = [
+    ...(onViewDetails
+      ? [{ label: '详情', icon: LayoutDashboard, onClick: () => onViewDetails(container) }]
+      : []),
+    { label: '日志', icon: ScrollText, onClick: () => onViewLogs(container) },
+  ];
   if (container.state === 'running') {
     menuItems.push(
-      {
-        label: '重启',
-        icon: RefreshCw,
-        onClick: () => onAction(container.containerId, 'restart'),
-        disabled: loading,
-      },
-      {
-        label: '停止',
-        icon: Square,
-        onClick: () => onAction(container.containerId, 'stop'),
-        disabled: loading,
-        danger: true,
-      }
+      pro
+        ? {
+            label: '重启',
+            icon: RefreshCw,
+            onClick: () => onAction(container.containerId, 'restart'),
+            disabled: loading,
+          }
+        : { label: '重启', icon: Lock, onClick: goUnlock },
+      pro
+        ? {
+            label: '停止',
+            icon: Square,
+            onClick: () => onAction(container.containerId, 'stop'),
+            disabled: loading,
+            danger: true,
+          }
+        : { label: '停止', icon: Lock, onClick: goUnlock }
     );
   } else {
-    menuItems.push({
-      label: '启动',
-      icon: Play,
-      onClick: () => onAction(container.containerId, 'start'),
-      disabled: loading,
-    });
+    menuItems.push(
+      pro
+        ? {
+            label: '启动',
+            icon: Play,
+            onClick: () => onAction(container.containerId, 'start'),
+            disabled: loading,
+          }
+        : { label: '启动', icon: Lock, onClick: goUnlock }
+    );
   }
+
+  // 【续 90 详情入口统一】整行可点进详情(对齐 VmItem),复用菜单「详情」的 handler
+  const handleCardClick = () => onViewDetails?.(container);
 
   return (
     <div
       ref={cardRef}
       data-container-name={container.name}
       className={`${rowCardClass} ${
+        onViewDetails ? 'cursor-pointer active:bg-gray-50 dark:active:bg-gray-700' : ''
+      } ${
         isSelected ? 'ring-2 ring-primary-500 bg-primary-50/40 dark:bg-primary-900/20' : ''
       } ${highlighted ? 'ring-2 ring-blue-500' : ''}`}
+      onClick={handleCardClick}
     >
       <div className="flex items-center justify-between gap-2">
         {/* 【续 55 商业化】批量选择 → Pro,未解锁时隐藏行内 checkbox */}
@@ -226,6 +235,8 @@ const ContainerItem = memo(function ContainerItem({
             onChange={() => onToggleSelect(container.containerId)}
             className="w-4 h-4 shrink-0 cursor-pointer accent-primary-600"
             aria-label={`选择 ${container.name}`}
+            // 【续 90】整卡可点后防穿透:勾选 checkbox 不触发卡片 onClick
+            onClick={(e) => e.stopPropagation()}
           />
         )}
         <div className="flex-1 min-w-0">
@@ -259,7 +270,14 @@ const ContainerItem = memo(function ContainerItem({
           </div>
           <p className="text-xs text-gray-500 truncate">{container.image}</p>
         </div>
-        <ActionMenu items={menuItems} />
+        {/* 【续 90】Chevron 暗示整卡可点(详情),对齐 VmItem */}
+        {onViewDetails && (
+          <ChevronRight size={16} className="text-gray-300 dark:text-gray-600 shrink-0" />
+        )}
+        {/* 【续 90】整卡可点后防穿透:点 ⋮ 菜单不触发卡片 onClick(对齐 VmItem :374 模式) */}
+        <div onClick={(e) => e.stopPropagation()}>
+          <ActionMenu items={menuItems} />
+        </div>
       </div>
     </div>
   );
@@ -287,45 +305,64 @@ const VmItem = memo(function VmItem({
   const isPaused = vm.state.toUpperCase().includes('PAUSE');
   const vmPillTone = getVMStateTone(vm.state);
   const stateText = getVMStateText(vm.state);
-  // 【续 55 商业化】VM 详情(点卡片) → Pro;未解锁时点击不弹详情,跳设置页 License 区
-  // (VM 启停/重启/暂停/恢复动作保持免费)
+  // 【续 90 门控调整】VM 详情(点卡片)免费(基础字段走 GraphQL,未解锁也直接开 VmDetailsModal);
+  // 启动/停止/重启/暂停/恢复操作 → Pro,未解锁时操作项保留原 label 换锁图标占位,点击跳设置页
   const pro = usePro();
   const navigate = useNavigate();
-  const handleCardClick = () => {
-    if (!pro) {
-      navigate('/settings', { state: { focusLicense: true } });
-      return;
-    }
-    onClick?.(vm);
-  };
+  const goUnlock = () => navigate('/settings', { state: { focusLicense: true } });
+  const handleCardClick = () => onClick?.(vm);
 
   const menuItems: MenuItem[] = [];
   if (isPaused) {
-    menuItems.push({
-      label: '恢复',
-      icon: Play,
-      onClick: () => onAction(vm.vmUuid, 'resume'),
-      disabled: loading,
-    });
+    menuItems.push(
+      pro
+        ? {
+            label: '恢复',
+            icon: Play,
+            onClick: () => onAction(vm.vmUuid, 'resume'),
+            disabled: loading,
+          }
+        : { label: '恢复', icon: Lock, onClick: goUnlock }
+    );
   } else if (isRunning) {
     menuItems.push(
-      { label: '重启', icon: RefreshCw, onClick: () => onAction(vm.vmUuid, 'reboot'), disabled: loading },
-      { label: '暂停', icon: Pause, onClick: () => onAction(vm.vmUuid, 'pause'), disabled: loading },
-      {
-        label: '停止',
-        icon: Square,
-        onClick: () => onAction(vm.vmUuid, 'stop'),
-        disabled: loading,
-        danger: true,
-      }
+      pro
+        ? {
+            label: '重启',
+            icon: RefreshCw,
+            onClick: () => onAction(vm.vmUuid, 'reboot'),
+            disabled: loading,
+          }
+        : { label: '重启', icon: Lock, onClick: goUnlock },
+      pro
+        ? {
+            label: '暂停',
+            icon: Pause,
+            onClick: () => onAction(vm.vmUuid, 'pause'),
+            disabled: loading,
+          }
+        : { label: '暂停', icon: Lock, onClick: goUnlock },
+      pro
+        ? {
+            label: '停止',
+            icon: Square,
+            onClick: () => onAction(vm.vmUuid, 'stop'),
+            disabled: loading,
+            danger: true,
+          }
+        : { label: '停止', icon: Lock, onClick: goUnlock }
     );
   } else {
-    menuItems.push({
-      label: '启动',
-      icon: Play,
-      onClick: () => onAction(vm.vmUuid, 'start'),
-      disabled: loading,
-    });
+    menuItems.push(
+      pro
+        ? {
+            label: '启动',
+            icon: Play,
+            onClick: () => onAction(vm.vmUuid, 'start'),
+            disabled: loading,
+          }
+        : { label: '启动', icon: Lock, onClick: goUnlock }
+    );
   }
 
   return (

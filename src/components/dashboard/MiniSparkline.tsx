@@ -2,6 +2,9 @@
 // 不引新依赖(recharts ~200KB gzipped),手写 ~100 行
 // 接受数字数组,自动归一化到 0-100 区间(用户给原始值时也支持)
 // 用途:显示 CPU%/内存%/网络 过去 N 秒趋势
+// 【续 90】gradient id 由颜色派生改 useId(同页多个同色 sparkline id 冲突,填充串色)
+import { useId } from 'react';
+
 interface MiniSparklineProps {
   /** 数据点(0-100 百分比 或 任意数值,会自适应) */
   data: number[];
@@ -30,6 +33,9 @@ export default function MiniSparkline({
   fillColor = 'rgba(59, 130, 246, 0.15)',
   emptyText = '暂无数据',
 }: MiniSparklineProps) {
+  // 【续 90】useId 派生 gradient id(去冒号防 url(#...) 解析问题);hook 须在 early return 前
+  const gradientId = `spark-${useId().replace(/:/g, '')}`;
+
   if (!data || data.length === 0) {
     return (
       <div className="flex items-center justify-center text-xs text-gray-500 dark:text-gray-400" style={{ height }}>
@@ -78,12 +84,12 @@ export default function MiniSparkline({
         aria-label={label || '趋势图'}
       >
         <defs>
-          <linearGradient id={`spark-${color.replace('#', '')}`} x1="0" y1="0" x2="0" y2="1">
+          <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor={fillColor} />
             <stop offset="100%" stopColor="transparent" />
           </linearGradient>
         </defs>
-        <path d={pathArea} fill={`url(#spark-${color.replace('#', '')})`} />
+        <path d={pathArea} fill={`url(#${gradientId})`} />
         <path
           d={pathLine}
           fill="none"

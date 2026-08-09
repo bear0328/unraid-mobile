@@ -62,7 +62,8 @@ export default function OtherServersCard() {
     <div className={cardClass} data-testid="other-servers-card">
       <div className="flex items-center gap-2 mb-3">
         <Icon icon={ServerIcon} className="text-primary-600 dark:text-primary-400" />
-        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">其他服务器</h3>
+        {/* 【续 90】标题统一 text-base font-semibold(index.css 卡片标题约定) */}
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white">其他服务器</h3>
       </div>
       <div className="space-y-2">
         {others.map((s) => {

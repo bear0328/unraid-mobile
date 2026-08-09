@@ -1,27 +1,13 @@
 // 【阶段 P2-6 - 2026-06-16 续 18】dashboard 卡片组件测试
-// 覆盖:ArrayCard / DiskCard / NetworkCard / EmptyState 4 个纯展示组件
+// 覆盖:DiskCard / NetworkCard / EmptyState 3 个纯展示组件
+// 【续 90】ArrayCard 删除(阵列使用率并入 DiskCard 标题),对应用例移到 DiskCard
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import ArrayCard from './ArrayCard';
+import userEvent from '@testing-library/user-event';
 import DiskCard from './DiskCard';
 import NetworkCard from './NetworkCard';
 import { ConfigRequiredState, NoDataState } from './EmptyState';
-import type { UnraidSystemInfo, UnraidDisk, UnraidNetworkInfo } from '../../services';
-
-const systemInfoStarted: UnraidSystemInfo = {
-  name: 'tower',
-  cpu: 0,
-  cpuTemp: 35,
-  memory: 50,
-  memoryUsage: 50,
-  uptime: '5h',
-  arrayStatus: 'Started',
-} as UnraidSystemInfo;
-
-const systemInfoStopped: UnraidSystemInfo = {
-  ...systemInfoStarted,
-  arrayStatus: 'Stopped',
-} as UnraidSystemInfo;
+import type { UnraidDisk, UnraidNetworkInfo } from '../../services';
 
 function makeDisk(overrides: Partial<UnraidDisk> = {}): UnraidDisk {
   return {
@@ -45,52 +31,6 @@ function makeNetwork(overrides: Partial<UnraidNetworkInfo> = {}): UnraidNetworkI
     ...overrides,
   } as UnraidNetworkInfo;
 }
-
-describe('ArrayCard', () => {
-  it('arrayStatus=Started → 显示"Started"和绿色样式', () => {
-    render(<ArrayCard systemInfo={systemInfoStarted} disks={[]} />);
-    expect(screen.getByText('存储阵列状态')).toBeInTheDocument();
-    expect(screen.getByText('Started')).toBeInTheDocument();
-  });
-
-  it('arrayStatus=Stopped → 显示"Stopped"和黄色样式', () => {
-    render(<ArrayCard systemInfo={systemInfoStopped} disks={[]} />);
-    expect(screen.getByText('Stopped')).toBeInTheDocument();
-  });
-
-  it('systemInfo=null → 显示"Unknown"', () => {
-    render(<ArrayCard systemInfo={null} disks={[]} />);
-    expect(screen.getByText('Unknown')).toBeInTheDocument();
-  });
-
-  it('多个 data 磁盘 → 进度条 value 是平均使用率', () => {
-    const disks = [
-      makeDisk({ name: 'disk1', type: 'data', size: 100, used: 50 }),
-      makeDisk({ name: 'disk2', type: 'data', size: 200, used: 100 }),
-    ];
-    const { container } = render(<ArrayCard systemInfo={systemInfoStarted} disks={disks} />);
-    // 验证"阵列使用率"标签渲染
-    expect(container.textContent).toContain('阵列使用率');
-  });
-
-  it('只算 data 磁盘,parity/cache/boot 忽略', () => {
-    const disks = [
-      makeDisk({ name: 'disk1', type: 'data', size: 100, used: 50 }),
-      makeDisk({ name: 'parity', type: 'parity', size: 100, used: 99 }),
-      makeDisk({ name: 'cache', type: 'cache', size: 100, used: 99 }),
-    ];
-    const { container } = render(<ArrayCard systemInfo={systemInfoStarted} disks={disks} />);
-    expect(container.textContent).toContain('阵列使用率');
-  });
-
-  it('无 data 磁盘 → 显示"磁盘数据未加载"提示(续 46.3:不再显示 0% 进度条)', () => {
-    const { container } = render(
-      <ArrayCard systemInfo={systemInfoStarted} disks={[makeDisk({ type: 'parity' })]} />
-    );
-    expect(container.textContent).toContain('磁盘数据未加载');
-    expect(container.textContent).not.toContain('阵列使用率');
-  });
-});
 
 describe('DiskCard', () => {
   it('空数组 → 渲染空态卡(标题+未加载提示,无按钮时不显示按钮)', () => {
@@ -183,6 +123,51 @@ describe('DiskCard', () => {
     expect(screen.getByText('CACHE')).toBeInTheDocument();
     expect(screen.getByText('转动中')).toBeInTheDocument();
   });
+
+  it('【续 90】标题右侧显示「阵列使用率 X%」(data 盘平均,原 ArrayCard 信息并入)', () => {
+    const disks = [
+      makeDisk({ name: 'disk1', type: 'data', size: 100, used: 50 }),
+      makeDisk({ name: 'disk2', type: 'data', size: 100, used: 70 }),
+    ];
+    render(<DiskCard disks={disks} />);
+    expect(screen.getByText('阵列使用率 60%')).toBeInTheDocument();
+  });
+
+  it('【续 90】阵列使用率只算 data 盘;无 data 盘不显示', () => {
+    const { rerender } = render(
+      <DiskCard
+        disks={[
+          makeDisk({ name: 'disk1', type: 'data', size: 100, used: 50 }),
+          makeDisk({ name: 'parity', type: 'parity', size: 100, used: 99 }),
+        ]}
+      />
+    );
+    expect(screen.getByText('阵列使用率 50%')).toBeInTheDocument();
+
+    rerender(<DiskCard disks={[makeDisk({ name: 'parity', type: 'parity' })]} />);
+    expect(screen.queryByText(/阵列使用率/)).not.toBeInTheDocument();
+  });
+
+  it('【续 90】>6 盘默认折叠 + 「展开全部 (N)」;展开后全部显示,再点收起还原', async () => {
+    const user = userEvent.setup();
+    const disks = Array.from({ length: 8 }, (_, i) => makeDisk({ name: `disk${i + 1}` }));
+    render(<DiskCard disks={disks} />);
+    // 折叠:只显示前 6 盘
+    expect(screen.getByText('DISK6')).toBeInTheDocument();
+    expect(screen.queryByText('DISK7')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /展开全部 \(8\)/ }));
+    expect(screen.getByText('DISK7')).toBeInTheDocument();
+    expect(screen.getByText('DISK8')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: '收起' }));
+    expect(screen.queryByText('DISK7')).not.toBeInTheDocument();
+  });
+
+  it('【续 90】≤6 盘不显示折叠按钮', () => {
+    render(<DiskCard disks={[makeDisk()]} />);
+    expect(screen.queryByRole('button', { name: /展开全部/ })).not.toBeInTheDocument();
+  });
 });
 
 describe('NetworkCard', () => {
@@ -197,18 +182,22 @@ describe('NetworkCard', () => {
       makeNetwork({ name: 'br0', rxSec: 999, txSec: 888 }),
     ];
     render(<NetworkCard networks={networks} isRefreshing={false} />);
-    // br0 的 rxSec/txSec 应该是被显示的(具体值依赖 formatSpeed 实现)
     expect(screen.getByText('网络 IO')).toBeInTheDocument();
+    // 【续 90】标题旁显示主网卡名(br0 优先选中)
+    expect(screen.getByText('br0')).toBeInTheDocument();
   });
 
-  it('isRefreshing=true → 显示"刷新中…"', () => {
+  it('【续 90】isRefreshing=true 也不再显示「刷新中…」(Hero 卡已有刷新态)', () => {
     render(<NetworkCard networks={[makeNetwork()]} isRefreshing={true} />);
-    expect(screen.getByText('刷新中…')).toBeInTheDocument();
+    expect(screen.queryByText('刷新中…')).not.toBeInTheDocument();
   });
 
-  it('isRefreshing=false → 不显示"刷新中…"', () => {
-    render(<NetworkCard networks={[makeNetwork()]} isRefreshing={false} />);
-    expect(screen.queryByText('刷新中…')).not.toBeInTheDocument();
+  it('【续 90】数值用大号等宽样式(text-lg font-semibold tabular-nums)', () => {
+    const { container } = render(
+      <NetworkCard networks={[makeNetwork()]} isRefreshing={false} />
+    );
+    const matches = container.innerHTML.match(/text-lg font-semibold tabular-nums/g) || [];
+    expect(matches.length).toBe(2); // 接收 + 发送
   });
 
   it('shim-br0 也被认作主网卡', () => {
@@ -216,14 +205,15 @@ describe('NetworkCard', () => {
       makeNetwork({ name: 'eth0', rxSec: 100, txSec: 50 }),
       makeNetwork({ name: 'shim-br0', rxSec: 200, txSec: 100 }),
     ];
-    const { container } = render(<NetworkCard networks={networks} isRefreshing={false} />);
-    expect(container.textContent).toContain('网络 IO');
+    render(<NetworkCard networks={networks} isRefreshing={false} />);
+    expect(screen.getByText('shim-br0')).toBeInTheDocument();
   });
 
   it('无 br0/eth → fallback 到第一项', () => {
     const networks = [makeNetwork({ name: 'lo', rxSec: 0, txSec: 0 })];
-    const { container } = render(<NetworkCard networks={networks} isRefreshing={false} />);
-    expect(container.textContent).toContain('网络 IO');
+    render(<NetworkCard networks={networks} isRefreshing={false} />);
+    expect(screen.getByText('网络 IO')).toBeInTheDocument();
+    expect(screen.getByText('lo')).toBeInTheDocument();
   });
 });
 

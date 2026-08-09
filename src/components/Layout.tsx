@@ -121,8 +121,8 @@ export default function Layout() {
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="pb-20">
+      {/* Main Content(【续 90】底部留白适配 tab bar 高度 + iOS 安全区,防遮挡) */}
+      <main className="pb-[calc(5.5rem+env(safe-area-inset-bottom))]">
         {/* 【续 50 D2】路由级错误边界:页面组件抛错只换内容区,顶栏/底栏导航仍可用 */}
         {/* 【续 65】页面切换淡入:边界按 pathname remount,anim-fade 随之重放 */}
         <RouteErrorBoundary key={location.pathname}>

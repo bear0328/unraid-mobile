@@ -288,15 +288,16 @@ describe('DockerList', () => {
     expect(screen.getByRole('menuitem', { name: /停止/ })).toBeDisabled();
   });
 
-  // ==== 续 55 商业化:容器详情/日志 → Pro(单个动作保持免费) ====
-  it('未解锁 → 详情/日志菜单项带锁图标,点击不调 onViewLogs/onViewDetails', async () => {
+  // ==== 续 90 门控调整:详情/日志(纯 GraphQL 查看)免费,启停/重启操作 → Pro ====
+  it('未解锁 → 详情/日志菜单项仍免费可用(不再带锁)', async () => {
     __setLicenseStateForTest({ status: 'none' });
     const user = userEvent.setup();
     const onViewLogs = vi.fn();
     const onViewDetails = vi.fn();
+    const container = makeContainer({ state: 'running' });
     renderWithRouter(
       <DockerList
-        containers={[makeContainer({ state: 'running' })]}
+        containers={[container]}
         actionLoading={null}
         restartingContainers={new Set()}
         onAction={() => {}}
@@ -305,11 +306,90 @@ describe('DockerList', () => {
       />
     );
     await openActionMenu(user);
-    // 锁占位项在,原动作项(重启/停止)保持免费不受影响
-    expect(screen.getByRole('menuitem', { name: /详情/ })).toBeInTheDocument();
-    expect(screen.getByRole('menuitem', { name: /重启/ })).toBeInTheDocument();
+    await user.click(screen.getByRole('menuitem', { name: /详情/ }));
+    expect(onViewDetails).toHaveBeenCalledWith(container);
+    await openActionMenu(user);
     await user.click(screen.getByRole('menuitem', { name: /日志/ }));
-    expect(onViewLogs).not.toHaveBeenCalled();
+    expect(onViewLogs).toHaveBeenCalledWith(container);
+  });
+
+  it('未解锁 → 启停/重启菜单项换锁占位,点击跳设置页不调 onAction', async () => {
+    __setLicenseStateForTest({ status: 'none' });
+    const user = userEvent.setup();
+    const onAction = vi.fn();
+    renderWithRouter(
+      <DockerList
+        containers={[makeContainer({ state: 'running' })]}
+        actionLoading={null}
+        restartingContainers={new Set()}
+        onAction={onAction}
+        onViewLogs={() => {}}
+      />
+    );
+    await openActionMenu(user);
+    // 操作项 label 保留(换 🔒 占位),点击不调真实动作
+    await user.click(screen.getByRole('menuitem', { name: /重启/ }));
+    await openActionMenu(user);
+    await user.click(screen.getByRole('menuitem', { name: /停止/ }));
+    expect(onAction).not.toHaveBeenCalled();
+  });
+
+  // ==== 续 90 详情入口统一:docker 整行可点进详情 ====
+  it('点击容器卡片 → onViewDetails(container)(未解锁同样生效)', async () => {
+    __setLicenseStateForTest({ status: 'none' });
+    const user = userEvent.setup();
+    const onViewDetails = vi.fn();
+    const container = makeContainer({ name: 'nginx' });
+    renderWithRouter(
+      <DockerList
+        containers={[container]}
+        actionLoading={null}
+        restartingContainers={new Set()}
+        onAction={() => {}}
+        onViewLogs={() => {}}
+        onViewDetails={onViewDetails}
+      />
+    );
+    await user.click(screen.getByText('nginx'));
+    expect(onViewDetails).toHaveBeenCalledWith(container);
+  });
+
+  it('点击 ⋮ 更多操作 → 不穿透触发卡片 onClick(不开详情)', async () => {
+    const user = userEvent.setup();
+    const onViewDetails = vi.fn();
+    renderWithRouter(
+      <DockerList
+        containers={[makeContainer()]}
+        actionLoading={null}
+        restartingContainers={new Set()}
+        onAction={() => {}}
+        onViewLogs={() => {}}
+        onViewDetails={onViewDetails}
+      />
+    );
+    await openActionMenu(user);
+    expect(screen.getByRole('menuitem', { name: /日志/ })).toBeInTheDocument();
+    expect(onViewDetails).not.toHaveBeenCalled();
+  });
+
+  it('点击行内 checkbox → 只勾选不穿透触发卡片 onClick', async () => {
+    const user = userEvent.setup();
+    const onViewDetails = vi.fn();
+    const onToggleOne = vi.fn();
+    renderWithRouter(
+      <DockerList
+        containers={[makeContainer()]}
+        actionLoading={null}
+        restartingContainers={new Set()}
+        onAction={() => {}}
+        onViewLogs={() => {}}
+        onViewDetails={onViewDetails}
+        selected={new Set()}
+        onToggleOne={onToggleOne}
+      />
+    );
+    await user.click(screen.getByLabelText('选择 nginx'));
+    expect(onToggleOne).toHaveBeenCalledWith('nginx');
     expect(onViewDetails).not.toHaveBeenCalled();
   });
 
@@ -469,26 +549,28 @@ describe('VmList', () => {
     expect(screen.getByText('等待恢复运行…')).toBeInTheDocument();
   });
 
-  // ==== 续 55 商业化:VM 详情(点卡片) → Pro(动作按钮保持免费) ====
-  it('未解锁 → 点击 VM 卡片不调 onVmClick(跳设置页),动作菜单仍可用', async () => {
+  // ==== 续 90 门控调整:VM 详情(点卡片)免费,VM 启停/重启/暂停/恢复操作 → Pro ====
+  it('未解锁 → 点击 VM 卡片仍调 onVmClick(详情免费),操作菜单项换锁不调 onAction', async () => {
     __setLicenseStateForTest({ status: 'none' });
     const user = userEvent.setup();
     const onVmClick = vi.fn();
     const onAction = vi.fn();
+    const vm = makeVm({ name: 'win11', state: 'STOPPED' });
     renderWithRouter(
       <VmList
-        vms={[makeVm({ name: 'win11', state: 'STOPPED' })]}
+        vms={[vm]}
         actionLoading={null}
         rebootingVms={new Set()}
         onAction={onAction}
         onVmClick={onVmClick}
       />
     );
+    // 详情免费:点卡片直接开
     await user.click(screen.getByText('win11'));
-    expect(onVmClick).not.toHaveBeenCalled();
-    // 免费的启动动作不受影响
+    expect(onVmClick).toHaveBeenCalledWith(vm);
+    // 操作 → Pro:启动项换 🔒 占位,点击不调真实动作
     await openActionMenu(user);
     await user.click(screen.getByRole('menuitem', { name: /启动/ }));
-    expect(onAction).toHaveBeenCalledWith('win11', 'start');
+    expect(onAction).not.toHaveBeenCalled();
   });
 });

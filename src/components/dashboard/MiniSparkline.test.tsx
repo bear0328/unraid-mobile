@@ -36,4 +36,21 @@ describe('MiniSparkline', () => {
     const { container } = render(<MiniSparkline data={[42]} />);
     expect(container.querySelector('svg')).toBeInTheDocument();
   });
+
+  it('【续 90】同页多个同色 sparkline,gradient id 互不冲突(useId)', () => {
+    const { container } = render(
+      <>
+        <MiniSparkline data={[1, 2, 3]} color="#3b82f6" />
+        <MiniSparkline data={[3, 2, 1]} color="#3b82f6" />
+      </>
+    );
+    const gradients = container.querySelectorAll('linearGradient');
+    expect(gradients.length).toBe(2);
+    expect(gradients[0].id).not.toBe(gradients[1].id);
+    // fill 引用与各自 gradient id 对应
+    const fills = container.querySelectorAll('path[fill^="url(#"]');
+    expect(fills.length).toBe(2);
+    expect(fills[0].getAttribute('fill')).toBe(`url(#${gradients[0].id})`);
+    expect(fills[1].getAttribute('fill')).toBe(`url(#${gradients[1].id})`);
+  });
 });

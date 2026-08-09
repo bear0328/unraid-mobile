@@ -28,6 +28,17 @@ import { useFavorites } from '../hooks/useFavorites';
 import { useToast } from '../hooks/useToast';
 import { useDialog } from '../hooks/useDialog';
 import { usePro } from '../hooks/usePro';
+import {
+  FILE_SORT_OPTIONS,
+  SHARE_SORT_OPTIONS,
+  loadSharesSort,
+  saveSharesSort,
+  sortFileItems,
+  sortRootShares,
+  type FileSortKey,
+  type ShareSortKey,
+  type SharesSortState,
+} from '../utils/sharesSort';
 
 const SEARCH_DEBOUNCE_MS = 300;
 
@@ -62,6 +73,17 @@ export default function Shares() {
     const t = setTimeout(() => setSearchActive(searchInput), SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(t);
   }, [searchInput]);
+
+  // 【续 90】排序:文件(名称/修改日期/大小) + 根 share(名称/已用/剩余)各存一份,
+  // 初始读 LS,变更即写回(unraid-mobile-shares-sort);目录永远排文件前
+  const [sort, setSort] = useState<SharesSortState>(loadSharesSort);
+  const patchSort = useCallback((patch: Partial<SharesSortState>) => {
+    setSort((prev) => {
+      const next = { ...prev, ...patch };
+      saveSharesSort(next);
+      return next;
+    });
+  }, []);
 
   // 切换目录时重置批量选择 + 搜索
   useEffect(() => {
@@ -152,12 +174,18 @@ export default function Shares() {
     void actions.handleBatchDelete(selectedPaths, exitSelectMode);
   };
 
+  // 【续 90】先排序再搜索过滤:根目录走 share 排序(名称/已用/剩余),子目录走文件排序
+  const sortedItems = useMemo(
+    () => (path === '' ? sortRootShares(items, sort.share) : sortFileItems(items, sort.file)),
+    [items, path, sort]
+  );
+
   // 搜索过滤
   const filteredItems = useMemo(() => {
-    if (!searchActive.trim()) return items;
+    if (!searchActive.trim()) return sortedItems;
     const q = searchActive.toLowerCase();
-    return items.filter((i) => i.name.toLowerCase().includes(q));
-  }, [items, searchActive]);
+    return sortedItems.filter((i) => i.name.toLowerCase().includes(q));
+  }, [sortedItems, searchActive]);
 
   const inRoot = path !== '';
   const allSelected = filteredItems.length > 0 && selectedPaths.size === filteredItems.length;
@@ -177,6 +205,19 @@ export default function Shares() {
         onToggleSelect={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
         onCleanup={() => setCleanupOpen(true)}
         selectedCount={selectedPaths.size}
+        sortKey={inRoot ? sort.file.key : sort.share.key}
+        sortDir={inRoot ? sort.file.dir : sort.share.dir}
+        sortOptions={inRoot ? FILE_SORT_OPTIONS : SHARE_SORT_OPTIONS}
+        onSortKeyChange={(key) =>
+          inRoot
+            ? patchSort({ file: { ...sort.file, key: key as FileSortKey } })
+            : patchSort({ share: { ...sort.share, key: key as ShareSortKey } })
+        }
+        onToggleSortDir={() =>
+          inRoot
+            ? patchSort({ file: { ...sort.file, dir: sort.file.dir === 'asc' ? 'desc' : 'asc' } })
+            : patchSort({ share: { ...sort.share, dir: sort.share.dir === 'asc' ? 'desc' : 'asc' } })
+        }
       />
 
       {/* 搜索框 */}

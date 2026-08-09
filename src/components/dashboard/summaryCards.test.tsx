@@ -1,6 +1,7 @@
 // 【续 89】VmSummaryCard + ContainerSummaryCard 展开框 单测
 // 覆盖:VM 卡 空态 null / 计数+列表 / ?tab=vm 深链 / >5 折叠提示;
 //       容器卡 收起 Top 5 / 展开全部(running + 其他状态)/ 收起还原
+// 【续 90】展开态「收起」置顶(列表上方)+ 每态仅一个 toggle 的断言
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -63,8 +64,18 @@ describe('VmSummaryCard', () => {
     expect(screen.getByText('已停止')).toBeInTheDocument();
     expect(screen.getByText('已暂停')).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: /收起/ }));
+    // 【续 90】展开态只有一个 toggle,且「收起」置顶(在列表第一行之前)
+    const collapseBtn = screen.getByRole('button', { name: '收起' });
+    expect(
+      collapseBtn.compareDocumentPosition(screen.getByText('win11')) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /展开列表/ })).not.toBeInTheDocument();
+
+    await user.click(collapseBtn);
     expect(screen.queryByText('win11')).not.toBeInTheDocument();
+    // 收起后回到底部「展开列表 (N)」
+    expect(screen.getByRole('button', { name: /展开列表 \(3\)/ })).toBeInTheDocument();
   });
 
   it('「管理 →」深链 /containers?tab=vm', () => {
@@ -98,7 +109,7 @@ describe('ContainerSummaryCard 展开框', () => {
     expect(screen.getByRole('button', { name: /展开容器列表 \(9\)/ })).toBeInTheDocument();
   });
 
-  it('点击展开 → 全部 running + 其他状态简化行;再点收起还原', async () => {
+  it('点击展开 → 全部 running + 其他状态简化行;收起置顶;再点收起还原', async () => {
     const user = userEvent.setup();
     renderWithRouter(<ContainerSummaryCard containers={containers} />);
     await user.click(screen.getByRole('button', { name: /展开容器列表/ }));
@@ -110,8 +121,18 @@ describe('ContainerSummaryCard 展开框', () => {
     expect(screen.getAllByText('已停止').length).toBeGreaterThanOrEqual(2);
     expect(screen.getAllByText('已暂停').length).toBeGreaterThanOrEqual(2);
 
-    await user.click(screen.getByRole('button', { name: /收起/ }));
+    // 【续 90】展开态只有一个 toggle,且「收起」置顶(在列表第一行之前)
+    const collapseBtn = screen.getByRole('button', { name: '收起' });
+    expect(
+      collapseBtn.compareDocumentPosition(screen.getByText('run0')) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /展开容器列表/ })).not.toBeInTheDocument();
+
+    await user.click(collapseBtn);
     expect(screen.queryByText('run0')).not.toBeInTheDocument();
     expect(screen.queryByText('stopped1')).not.toBeInTheDocument();
+    // 收起后回到底部「展开容器列表 (N)」
+    expect(screen.getByRole('button', { name: /展开容器列表 \(9\)/ })).toBeInTheDocument();
   });
 });

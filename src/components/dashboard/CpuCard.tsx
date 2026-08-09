@@ -7,7 +7,7 @@
 // 【续 51 2026-07-19】温度改由 compose-api 提供(后端直读 /sys/class/hwmon,不唤盘);
 //   cpuTemp=0 表示温度不可用(未装 compose-api/无 CPU 传感器),显示占位
 import { useState, memo } from 'react';
-import { Cpu, Lock, Thermometer, ChevronRight, ChevronDown } from 'lucide-react';
+import { Cpu, Lock, Thermometer } from 'lucide-react';
 import { UnraidSystemInfo } from '../../services';
 import { usePro } from '../../hooks/usePro';
 import ProgressBar from '../ProgressBar';
@@ -16,6 +16,7 @@ import { getCpuColor } from '../../utils/formatters';
 import MiniSparkline from './MiniSparkline';
 import StaleBadge from '../ui/StaleBadge';
 import { cardClass, iconChipClass } from '../ui/Card';
+import ExpandToggle from '../ui/ExpandToggle';
 import { useCountUp } from '../../hooks/useCountUp';
 
 interface CpuCardProps {
@@ -122,17 +123,15 @@ function CpuCard({ systemInfo, history, cacheAgeMs }: CpuCardProps) {
         </div>
       )}
 
-      {/* 每核心 CPU 条 */}
+      {/* 每核心 CPU 条(【续 90】展开入口统一 ExpandToggle) */}
       {systemInfo?.cpus && systemInfo.cpus.length > 0 && (
         <div className="mt-3">
-          <button
-            onClick={() => setCoresCollapsed(!coresCollapsed)}
-            className="flex items-center gap-1 text-xs text-gray-700 dark:text-gray-300 font-medium mb-2 hover:text-primary-600 dark:hover:text-primary-400 hover:underline underline-offset-2 transition-colors"
-          >
-            <Icon icon={coresCollapsed ? ChevronRight : ChevronDown} size={12} />
-            <span>{coresCollapsed ? '展开' : '收起'}</span>
-            <span className="text-gray-500 dark:text-gray-400">({systemInfo.cpus.length} 核心)</span>
-          </button>
+          <ExpandToggle
+            expanded={!coresCollapsed}
+            onToggle={() => setCoresCollapsed(!coresCollapsed)}
+            expandText={`展开 (${systemInfo.cpus.length} 核心)`}
+            collapseText={`收起 (${systemInfo.cpus.length} 核心)`}
+          />
           {!coresCollapsed && (
             <div className="space-y-1">
               {systemInfo.cpus.map((core, i) => {

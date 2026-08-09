@@ -26,15 +26,17 @@ detects the missing schema fields and degrades gracefully).
 
 | Free (works out of the box) | Pro (unlocked with a license key) |
 |------|------|
-| Full dashboard monitoring: CPU / memory / network / disks / array / history charts / favorites | Container details (ports/mounts/network/disk usage), container logs |
-| Container & VM lists + single start/stop / restart / pause | VM details |
-| Shares file browsing / download / image preview | **Compose stack management** (list/logs/up/down/pull/rebuild/yaml editing)¹ |
-| Host system logs (syslog) | **CPU temperature**¹ (reads /sys/class/hwmon directly, never spins up disks), Shares write operations (upload/mkdir/delete/rename/text editing) |
+| Full dashboard monitoring: CPU / memory / network / disks / array / history charts / favorites | Container & VM start/stop / restart / pause / resume operations |
+| Container & VM lists, container details (ports/mounts/network/disk usage), container logs, VM basic details | **Compose stack management** (list/logs/up/down/pull/rebuild/yaml editing)¹ |
+| Shares file browsing / download / image preview, host system logs (syslog) | **CPU temperature**¹ (reads /sys/class/hwmon directly, never spins up disks), Shares write operations (upload/mkdir/delete/rename/text editing) |
 | Global search, command palette, config backup/import, single server, dark theme, PWA | Container batch operations, **multi-server**, alert notifications (Webhook), disk cleanup |
 
 ¹ Requires the host agent (compose-api) — a small component installed on the unRAID host as described
 in "Pro host agent" below. **Installation modifies the boot script `/boot/config/go`; read the risk
 notice there first.** The free version requires no host installation at all.
+
+**Host-agent rule:** Compose management / CPU temperature rely on the host-side `api.php`
+(installed under `/boot/config/plugins/unraid-mobile/`); these features are Pro.
 
 Pro is a **one-time purchase**: pay once, use forever (includes 1 year of updates). Enter the key in
 "Settings → License" to unlock — verification is fully offline, no network calls, no data uploaded.
@@ -191,9 +193,8 @@ Check the server URL format (no trailing slash), that the API key is valid, and 
 can reach the unRAID webGui.
 
 **Q: Ports/labels/network empty in container details?**
-Ports/mounts/network/disk usage are Pro features and appear in the details view once activated;
-if still empty, the container genuinely has no such config (e.g. host networking has no port
-mappings).
+Container details (ports/mounts/network/disk usage) are free — if empty, the container genuinely
+has no such config (e.g. host networking has no port mappings).
 
 **Q: Need to re-enter the API key after switching phone/browser?**
 Yes. The API key lives only in the browser's localStorage and does not travel between devices;

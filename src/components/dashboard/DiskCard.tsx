@@ -3,7 +3,9 @@
 // 【阶段 P1-2 - 2026-06-15 续 8】React.memo 包装
 // 【续 39-1 候选 - 2026-06-18】每盘加 ⏱ 温度历史 sparkline
 // 【续 45.8 2026-07-04】头部 🔄 不再刷磁盘(避免唤醒 array),本卡加独立的"刷新磁盘"按钮
-import { memo } from 'react';
+// 【续 90】ArrayCard 删除,「阵列使用率 X%」并入本卡标题右侧;>6 盘折叠 + ExpandToggle;
+//   卡片头统一走 CardHeader
+import { memo, useState } from 'react';
 import { Thermometer, RefreshCw, Timer, Moon, HardDrive } from 'lucide-react';
 import { UnraidDisk } from '../../services';
 import ProgressBar from '../ProgressBar';
@@ -11,7 +13,8 @@ import Icon from '../ui/Icon';
 import { formatBytes, getDiskUsage } from '../../utils/formatters';
 import { useDiskHistory } from '../../utils/diskHistory';
 import StaleBadge from '../ui/StaleBadge';
-import { cardClass, iconChipClass } from '../ui/Card';
+import { cardClass, CardHeader } from '../ui/Card';
+import ExpandToggle from '../ui/ExpandToggle';
 
 interface DiskCardProps {
   disks: UnraidDisk[];
@@ -45,39 +48,55 @@ export function SleepBadge() {
   );
 }
 
+/** 【续 45.8】刷新磁盘按钮(空态/正常态头部共用) */
+function RefreshDisksButton({
+  onRefreshDisks,
+  isRefreshing,
+}: {
+  onRefreshDisks: () => void;
+  isRefreshing?: boolean;
+}) {
+  return (
+    <button
+      onClick={onRefreshDisks}
+      disabled={isRefreshing}
+      className="ml-auto inline-flex items-center gap-1 text-xs px-2 py-1 text-gray-700 dark:text-gray-300 font-medium hover:text-primary-600 dark:hover:text-primary-400 hover:underline underline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+      aria-label="刷新磁盘数据(会唤醒休眠的阵列盘)"
+      title="拉取最新磁盘温度/容量(会唤醒休眠的 array 盘)"
+    >
+      {isRefreshing ? (
+        <>
+          <Icon icon={RefreshCw} size={12} className="animate-spin" />
+          刷新中…
+        </>
+      ) : (
+        <>
+          <Icon icon={Thermometer} size={12} />
+          刷新磁盘
+        </>
+      )}
+    </button>
+  );
+}
+
+// 【续 90】>6 盘默认折叠,点「展开全部 (N)」显示全部(带滚动上限,与 VM 卡同模式)
+const COLLAPSE_THRESHOLD = 6;
+
 function DiskCard({ disks, cacheAgeMs, onRefreshDisks, isRefreshing, spinMap }: DiskCardProps) {
+  const [expanded, setExpanded] = useState(false);
+
   // 【续 46.3 2026-07-18】冷启动不再自动拉磁盘(防唤盘) — 空态渲染说明卡+显式加载入口,
   // 取代旧的 return null(否则新设备/LS 被清的用户永远看不到加载按钮)
   if (disks.length === 0) {
     return (
       <div className={cardClass}>
-        <div className="flex items-center mb-2">
-          <span className={`${iconChipClass} mr-2`}>
-            <Icon icon={HardDrive} size={18} />
-          </span>
-          <h3 className="text-base font-semibold text-gray-900 dark:text-white">磁盘状态</h3>
-          {onRefreshDisks && (
-            <button
-              onClick={onRefreshDisks}
-              disabled={isRefreshing}
-              className="ml-auto inline-flex items-center gap-1 text-xs px-2 py-1 text-gray-700 dark:text-gray-300 font-medium hover:text-primary-600 dark:hover:text-primary-400 hover:underline underline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              aria-label="刷新磁盘数据(会唤醒休眠的阵列盘)"
-              title="拉取最新磁盘温度/容量(会唤醒休眠的 array 盘)"
-            >
-              {isRefreshing ? (
-                <>
-                  <Icon icon={RefreshCw} size={12} className="animate-spin" />
-                  刷新中…
-                </>
-              ) : (
-                <>
-                  <Icon icon={Thermometer} size={12} />
-                  刷新磁盘
-                </>
-              )}
-            </button>
+        <CardHeader
+          icon={HardDrive}
+          title="磁盘状态"
+          action={onRefreshDisks && (
+            <RefreshDisksButton onRefreshDisks={onRefreshDisks} isRefreshing={isRefreshing} />
           )}
-        </div>
+        />
         <p className="text-xs text-gray-400 dark:text-gray-500">
           磁盘数据未加载 — 为避免唤醒休眠盘,打开页面不再自动拉取;点右上角「刷新磁盘」显式加载。
         </p>
@@ -110,45 +129,52 @@ function DiskCard({ disks, cacheAgeMs, onRefreshDisks, isRefreshing, spinMap }: 
     );
   }
 
+  // 【续 90】阵列平均使用率(data 盘),并入标题右侧(原 ArrayCard 的唯一增量信息)
+  const dataDisks = disks.filter((d) => d.type === 'data');
+  const avgUsage =
+    dataDisks.length > 0
+      ? dataDisks.reduce((acc, d) => acc + getDiskUsage(d), 0) / dataDisks.length
+      : null;
+  const shownDisks = expanded ? disks : disks.slice(0, COLLAPSE_THRESHOLD);
+
   return (
     <div className={cardClass}>
-      <div className="flex items-center gap-1.5 mb-4">
-        <span className={`${iconChipClass} mr-1`}>
-          <Icon icon={HardDrive} size={18} />
-        </span>
-        <h3 className="text-base font-semibold text-gray-900 dark:text-white">磁盘状态</h3>
-        <StaleBadge
-          cacheAgeMs={cacheAgeMs}
-          thresholdMs={60 * 1000}
-          title="磁盘数据不会自动刷新(避免唤醒 array),点右侧按钮主动刷新"
-        />
-        {onRefreshDisks && (
-          <button
-            onClick={onRefreshDisks}
-            disabled={isRefreshing}
-            className="ml-auto inline-flex items-center gap-1 text-xs px-2 py-1 text-gray-700 dark:text-gray-300 font-medium hover:text-primary-600 dark:hover:text-primary-400 hover:underline underline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            aria-label="刷新磁盘数据(会唤醒休眠的阵列盘)"
-            title="拉取最新磁盘温度/容量(会唤醒休眠的 array 盘)"
-          >
-            {isRefreshing ? (
-              <>
-                <Icon icon={RefreshCw} size={12} className="animate-spin" />
-                刷新中…
-              </>
-            ) : (
-              <>
-                <Icon icon={Thermometer} size={12} />
-                刷新磁盘
-              </>
+      <CardHeader
+        icon={HardDrive}
+        title="磁盘状态"
+        badge={
+          <>
+            {avgUsage !== null && (
+              <span className="text-xs text-gray-500 dark:text-gray-400 font-normal">
+                阵列使用率 {avgUsage.toFixed(0)}%
+              </span>
             )}
-          </button>
+            <StaleBadge
+              cacheAgeMs={cacheAgeMs}
+              thresholdMs={60 * 1000}
+              title="磁盘数据不会自动刷新(避免唤醒 array),点右侧按钮主动刷新"
+            />
+          </>
+        }
+        action={onRefreshDisks && (
+          <RefreshDisksButton onRefreshDisks={onRefreshDisks} isRefreshing={isRefreshing} />
         )}
-      </div>
-      <div className="space-y-3">
-        {disks.map((disk) => (
+      />
+      <div
+        className={`space-y-3 ${expanded && disks.length > COLLAPSE_THRESHOLD ? 'max-h-96 overflow-y-auto' : ''}`}
+      >
+        {shownDisks.map((disk) => (
           <DiskRow key={disk.name} disk={disk} spinning={spinningOf(spinMap, disk)} />
         ))}
       </div>
+      {disks.length > COLLAPSE_THRESHOLD && (
+        <ExpandToggle
+          expanded={expanded}
+          onToggle={() => setExpanded(!expanded)}
+          expandText="展开全部"
+          count={disks.length}
+        />
+      )}
     </div>
   );
 }

@@ -4,6 +4,8 @@
 //   <DraggableCard id="cpu" index={0} onMove={...} totalCount={6}>
 //     <CpuCard ... />
 //   </DraggableCard>
+// 【续 90】移动端拖拽修复:手柄常显(触屏无 hover)+ draggable 移到手柄
+//   (整卡不再 draggable,顺带修卡片内链接被误拖);圆角统一 rounded-2xl
 import { useState, type ReactNode } from 'react';
 import { GripVertical } from 'lucide-react';
 import Icon from '../ui/Icon';
@@ -28,16 +30,6 @@ export default function DraggableCard({
 
   return (
     <div
-      draggable
-      onDragStart={(e) => {
-        e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/plain', String(index));
-        setIsDragging(true);
-      }}
-      onDragEnd={() => {
-        setIsDragging(false);
-        setIsOver(false);
-      }}
       onDragOver={(e) => {
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
@@ -52,14 +44,25 @@ export default function DraggableCard({
           onMove(from, index);
         }
       }}
-      className={`transition-all rounded-xl ${
+      className={`transition-all rounded-2xl ${
         isDragging ? 'opacity-40 scale-95' : ''
       } ${isOver ? 'ring-2 ring-primary-500 ring-offset-2 dark:ring-offset-gray-900' : ''}`}
     >
       <div className="relative group">
-        {/* 拖动手柄(hover 时显示,放在卡片左上) */}
+        {/* 【续 90】拖动手柄常显(触屏无 hover),draggable 在手柄上 —— 整卡不再可拖,
+            卡片内链接/按钮不会再被误拖 */}
         <div
-          className="absolute top-1.5 left-1.5 z-10 px-1.5 py-0.5 rounded bg-gray-100/80 dark:bg-gray-700/80 text-gray-400 dark:text-gray-500 text-xs opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing select-none transition-opacity"
+          draggable
+          onDragStart={(e) => {
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', String(index));
+            setIsDragging(true);
+          }}
+          onDragEnd={() => {
+            setIsDragging(false);
+            setIsOver(false);
+          }}
+          className="absolute top-1.5 left-1.5 z-10 px-1.5 py-0.5 rounded bg-gray-100/80 dark:bg-gray-700/80 text-gray-400 dark:text-gray-500 text-xs cursor-grab active:cursor-grabbing select-none transition-opacity"
           title="拖动重排"
           aria-label={`拖动重排 ${id} (位置 ${index + 1}/${totalCount})`}
         >

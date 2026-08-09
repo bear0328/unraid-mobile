@@ -5,16 +5,18 @@
 // 【续 50 C12b】删掉续 45.5 的 sparkline shouldSkipTick:续 46.4 后 getAllContainerStats
 // 只读本地 containerStatsStream 的 Map(零网络),cache 新鲜期跳 tick 不省任何请求,
 // 只是单纯不采样,会让 Top5 sparkline 冻结 30 分钟
+// 【续 90】卡片头统一 CardHeader;展开/收起统一 ExpandToggle,
+//   展开态「收起」按钮置顶(列表上方),收起态底部「展开容器列表 (N)」
 import { memo, useMemo, useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Package, ChevronDown, ChevronRight } from 'lucide-react';
+import { Package } from 'lucide-react';
 import { UnraidDockerContainer, UnraidApiService } from '../../services';
 import { useApiConfig, useUnraidApi } from '../../hooks/useUnraidApi';
 import { useMultiContainerStats } from '../../hooks/useMultiContainerStats';
 import MiniSparkline from './MiniSparkline';
 import StaleBadge from '../ui/StaleBadge';
-import Icon from '../ui/Icon';
-import { cardClass, iconChipClass } from '../ui/Card';
+import { cardClass, CardHeader } from '../ui/Card';
+import ExpandToggle from '../ui/ExpandToggle';
 
 interface ContainerSummaryCardProps {
   containers: UnraidDockerContainer[];
@@ -106,34 +108,36 @@ function ContainerSummaryCard({ containers, loading, api: apiProp, cacheAgeMs }:
 
   return (
     <div className={cardClass}>
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-base font-semibold text-gray-900 dark:text-white flex items-center gap-1.5">
-          <span className={iconChipClass}>
-            <Icon icon={Package} size={18} />
-          </span>
-          容器状态
-          {total > 0 && (
-            <span className="text-xs text-gray-500 dark:text-gray-400 font-normal">
-              {runningCount}/{total} 运行中
-            </span>
-          )}
-          {/* 【续 45.3 2026-06-28】staleness 提示:cache age > 30s 时显示,避免 Dashboard 31/33 vs /containers 33 的困惑 */}
-          {/* 【续 45.7 2026-07-01】改用 <StaleBadge> 通用组件 */}
-          {total > 0 && (
-            <StaleBadge
-              cacheAgeMs={cacheAgeMs}
-              thresholdMs={30_000}
-              title="Dashboard 缓存中的容器数据,切到 /containers 页会拉最新"
-            />
-          )}
-        </h3>
-        <Link
-          to="/containers"
-          className="text-xs text-primary-600 dark:text-primary-400 hover:underline"
-        >
-          管理 →
-        </Link>
-      </div>
+      <CardHeader
+        icon={Package}
+        title="容器状态"
+        badge={
+          <>
+            {total > 0 && (
+              <span className="text-xs text-gray-500 dark:text-gray-400 font-normal">
+                {runningCount}/{total} 运行中
+              </span>
+            )}
+            {/* 【续 45.3 2026-06-28】staleness 提示:cache age > 30s 时显示,避免 Dashboard 31/33 vs /containers 33 的困惑 */}
+            {/* 【续 45.7 2026-07-01】改用 <StaleBadge> 通用组件 */}
+            {total > 0 && (
+              <StaleBadge
+                cacheAgeMs={cacheAgeMs}
+                thresholdMs={30_000}
+                title="Dashboard 缓存中的容器数据,切到 /containers 页会拉最新"
+              />
+            )}
+          </>
+        }
+        action={
+          <Link
+            to="/containers"
+            className="text-xs text-primary-600 dark:text-primary-400 hover:underline"
+          >
+            管理 →
+          </Link>
+        }
+      />
 
       {total === 0 ? (
         <p className="text-xs text-gray-500 dark:text-gray-400">暂无容器数据</p>
@@ -201,6 +205,16 @@ function ContainerSummaryCard({ containers, loading, api: apiProp, cacheAgeMs }:
               {Object.keys(stats).length === 0 && <div className="text-gray-500 dark:text-gray-400">无数据</div>}
             </div>
           </div>
+
+          {/* 【续 90】展开态「收起」置顶(列表上方,长列表滚到底前就能收起) */}
+          {expanded && (
+            <ExpandToggle
+              expanded
+              onToggle={() => setExpanded(false)}
+              expandText="展开容器列表"
+              count={total}
+            />
+          )}
 
           {/* 运行中(收起 Top 5,展开全部) */}
           {shownRunning.length > 0 && (
@@ -278,14 +292,15 @@ function ContainerSummaryCard({ containers, loading, api: apiProp, cacheAgeMs }:
             </div>
           )}
 
-          {/* 【续 89b】展开/收起容器列表(默认收起,首屏只有圆环+计数) */}
-          <button
-            onClick={() => setExpanded(!expanded)}
-            className="flex items-center justify-center gap-1 w-full text-[10px] text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 pt-1 transition-colors"
-          >
-            <Icon icon={expanded ? ChevronDown : ChevronRight} size={12} />
-            {expanded ? '收起' : `展开容器列表 (${total})`}
-          </button>
+          {/* 【续 90】收起态:底部「展开容器列表 (N)」(统一 ExpandToggle) */}
+          {!expanded && (
+            <ExpandToggle
+              expanded={false}
+              onToggle={() => setExpanded(true)}
+              expandText="展开容器列表"
+              count={total}
+            />
+          )}
         </>
       )}
     </div>

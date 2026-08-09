@@ -3,13 +3,15 @@
 // libvirt 内存数据不唤盘),这里只消费 vms prop,零新增网络/polling。
 // 加载完成后无 VM → 返回 null,不占无 VM 用户的首页空间
 // 【续 89b】列表默认收起:首屏只有计数,点「展开列表」显示全部 VM(带滚动上限)
+// 【续 90】卡片头统一 CardHeader;展开/收起统一 ExpandToggle,
+//   展开态「收起」按钮置顶(列表上方),收起态底部「展开列表 (N)」
 import { memo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Monitor, ChevronDown, ChevronRight } from 'lucide-react';
+import { Monitor } from 'lucide-react';
 import { UnraidVM } from '../../services';
 import StaleBadge from '../ui/StaleBadge';
-import Icon from '../ui/Icon';
-import { cardClass, iconChipClass } from '../ui/Card';
+import { cardClass, CardHeader } from '../ui/Card';
+import ExpandToggle from '../ui/ExpandToggle';
 
 interface VmSummaryCardProps {
   vms: UnraidVM[];
@@ -53,28 +55,35 @@ function VmSummaryCard({ vms, loading, cacheAgeMs }: VmSummaryCardProps) {
 
   return (
     <div className={cardClass}>
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-base font-semibold text-gray-900 dark:text-white flex items-center gap-1.5">
-          <span className={iconChipClass}>
-            <Icon icon={Monitor} size={18} />
-          </span>
-          虚拟机
-          <span className="text-xs text-gray-500 dark:text-gray-400 font-normal">
-            {runningCount}/{vms.length} 运行中
-          </span>
-          <StaleBadge
-            cacheAgeMs={cacheAgeMs}
-            thresholdMs={30_000}
-            title="Dashboard 缓存中的虚拟机数据,切到 /containers 页会拉最新"
-          />
-        </h3>
-        <Link
-          to="/containers?tab=vm"
-          className="text-xs text-primary-600 dark:text-primary-400 hover:underline"
-        >
-          管理 →
-        </Link>
-      </div>
+      <CardHeader
+        icon={Monitor}
+        title="虚拟机"
+        badge={
+          <>
+            <span className="text-xs text-gray-500 dark:text-gray-400 font-normal">
+              {runningCount}/{vms.length} 运行中
+            </span>
+            <StaleBadge
+              cacheAgeMs={cacheAgeMs}
+              thresholdMs={30_000}
+              title="Dashboard 缓存中的虚拟机数据,切到 /containers 页会拉最新"
+            />
+          </>
+        }
+        action={
+          <Link
+            to="/containers?tab=vm"
+            className="text-xs text-primary-600 dark:text-primary-400 hover:underline"
+          >
+            管理 →
+          </Link>
+        }
+      />
+
+      {/* 【续 90】展开态「收起」置顶(列表上方) */}
+      {expanded && (
+        <ExpandToggle expanded onToggle={() => setExpanded(false)} expandText="展开列表" count={vms.length} />
+      )}
 
       {/* 【续 89b】列表默认收起,展开显示全部(带滚动上限防 VM 多撑爆卡片) */}
       {expanded && (
@@ -99,13 +108,15 @@ function VmSummaryCard({ vms, loading, cacheAgeMs }: VmSummaryCardProps) {
         </div>
       )}
 
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="flex items-center justify-center gap-1 w-full text-[10px] text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 pt-1 transition-colors"
-      >
-        <Icon icon={expanded ? ChevronDown : ChevronRight} size={12} />
-        {expanded ? '收起' : `展开列表 (${vms.length})`}
-      </button>
+      {/* 【续 90】收起态:底部「展开列表 (N)」(统一 ExpandToggle) */}
+      {!expanded && (
+        <ExpandToggle
+          expanded={false}
+          onToggle={() => setExpanded(true)}
+          expandText="展开列表"
+          count={vms.length}
+        />
+      )}
     </div>
   );
 }

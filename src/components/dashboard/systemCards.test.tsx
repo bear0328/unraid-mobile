@@ -40,7 +40,7 @@ describe('CpuCard', () => {
   it('systemInfo=null → 显示 "CPU" 标题 + "0.0%"', () => {
     render(<CpuCard systemInfo={null} />);
     expect(screen.getByText('CPU')).toBeInTheDocument();
-    // 【续 68】大数字统一 toFixed(1) → 与 ProgressBar 各显示一次 0.0%
+    // 【续 68】大数字统一 toFixed(1);【续 90】ProgressBar 空标签不再重复显示百分比
     expect(screen.getAllByText('0.0%').length).toBeGreaterThanOrEqual(1);
   });
 
@@ -50,8 +50,8 @@ describe('CpuCard', () => {
       cpuInfo: { cores: 8, threads: 16, brand: 'AMD Ryzen 7 5800X' },
     });
     render(<CpuCard systemInfo={info} />);
-    // 35.7% 在顶部大数字 + ProgressBar 各显示一次,getAllByText 验证 ≥ 2
-    expect(screen.getAllByText('35.7%').length).toBeGreaterThanOrEqual(2);
+    // 【续 90】35.7% 只在顶部大数字显示(进度条行去重,不再渲染标签行百分比)
+    expect(screen.getAllByText('35.7%').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('AMD Ryzen 7 5800X')).toBeInTheDocument();
     expect(screen.getByText(/8 核心 \/ 16 线程/)).toBeInTheDocument();
   });
@@ -147,15 +147,15 @@ describe('MemoryCard', () => {
   it('systemInfo=null → 显示 "0.0%" 和 "0% 已用"', () => {
     render(<MemoryCard systemInfo={null} />);
     expect(screen.getByText('内存')).toBeInTheDocument();
-    // 【续 68】大数字统一 toFixed(1) → 与 ProgressBar 各显示一次 0.0%
+    // 【续 68】大数字统一 toFixed(1);【续 90】ProgressBar 空标签不再重复显示百分比
     expect(screen.getAllByText('0.0%').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('0% 已用')).toBeInTheDocument();
   });
 
   it('基本渲染:memory=60 → 显示 "60.0%"', () => {
     render(<MemoryCard systemInfo={makeSystem({ memory: 60 })} />);
-    // 60.0% 在顶部大数字 + ProgressBar 各显示一次
-    expect(screen.getAllByText('60.0%').length).toBeGreaterThanOrEqual(2);
+    // 【续 90】60.0% 只在顶部大数字显示(进度条行去重)
+    expect(screen.getAllByText('60.0%').length).toBeGreaterThanOrEqual(1);
   });
 
   it('memory > 90 → 红色样式', () => {

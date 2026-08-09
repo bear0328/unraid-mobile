@@ -1,4 +1,5 @@
 interface ProgressBarProps {
+  /** 标签文本;【续 90】传 '' 时不渲染标签行(占比交给卡片大数字/sparkline current 显示,去重) */
   label: string;
   value: number;
   max?: number;
@@ -24,14 +25,17 @@ export default function ProgressBar({
 
   return (
     <div className="mb-4">
-      <div className="flex justify-between items-center mb-2">
-        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{label}</span>
-        {showPercent && (
-          <span className="text-sm font-semibold text-gray-900 dark:text-white">
-            {percent.toFixed(1)}%
-          </span>
-        )}
-      </div>
+      {/* 【续 90】label==='' 时整行不渲染(原来渲染空标签 + 重复百分比) */}
+      {label !== '' && (
+        <div className="flex justify-between items-center mb-2">
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{label}</span>
+          {showPercent && (
+            <span className="text-sm font-semibold text-gray-900 dark:text-white">
+              {percent.toFixed(1)}%
+            </span>
+          )}
+        </div>
+      )}
       <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5 overflow-hidden">
         <div
           className={`${colorClasses[color]} h-2.5 rounded-full transition-all duration-500`}

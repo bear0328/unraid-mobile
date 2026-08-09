@@ -27,8 +27,8 @@ vi.mock('../services/unraidApi/cache', () => ({
 const GRAPHQL_SHARES_RESPONSE = {
   data: {
     shares: [
-      { name: 'photos', used: 1024 },
-      { name: 'docs', used: 0 },
+      { name: 'photos', used: 1024, free: 2048 },
+      { name: 'docs', used: 0, free: 4096 },
     ],
   },
 };
@@ -81,6 +81,8 @@ describe('useShares', () => {
     expect(result.current.items[0].name).toBe('photos');
     expect(result.current.items[0].isDir).toBe(true);
     expect(result.current.items[0].size).toBe(1024);
+    // 【续 90】根 share 行带 free(根列表按「剩余」排序用)
+    expect(result.current.items[0].free).toBe(2048);
     // 调了一次 GraphQL(POST /graphql)
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     const [url] = fetchSpy.mock.calls[0];

@@ -3,7 +3,7 @@
 // 【阶段 P1-2 - 2026-06-15 续 8】React.memo 包装
 // 【阶段 P2-监控图 - 2026-06-17 续 32-7】接收 history 显示折线图
 import { useState, memo } from 'react';
-import { MemoryStick, ChevronRight, ChevronDown } from 'lucide-react';
+import { MemoryStick } from 'lucide-react';
 import { UnraidSystemInfo } from '../../services';
 import ProgressBar from '../ProgressBar';
 import Icon from '../ui/Icon';
@@ -11,6 +11,7 @@ import { formatBytes, getMemoryColor } from '../../utils/formatters';
 import MiniSparkline from './MiniSparkline';
 import StaleBadge from '../ui/StaleBadge';
 import { cardClass, iconChipClass } from '../ui/Card';
+import ExpandToggle from '../ui/ExpandToggle';
 import { useCountUp } from '../../hooks/useCountUp';
 
 interface MemoryCardProps {
@@ -86,13 +87,12 @@ function MemoryCard({ systemInfo, history, cacheAgeMs }: MemoryCardProps) {
         </div>
       )}
 
-      <button
-        onClick={() => setMemoryCollapsed(!memoryCollapsed)}
-        className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 mt-2 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
-      >
-        <Icon icon={memoryCollapsed ? ChevronRight : ChevronDown} size={12} />
-        <span>{memoryCollapsed ? '展开' : '收起'}</span>
-      </button>
+      {/* 【续 90】展开入口统一 ExpandToggle */}
+      <ExpandToggle
+        expanded={!memoryCollapsed}
+        onToggle={() => setMemoryCollapsed(!memoryCollapsed)}
+        expandText="展开"
+      />
 
       {!memoryCollapsed && (
         <div className="mt-3 space-y-3">
