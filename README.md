@@ -11,22 +11,14 @@ detects the missing schema fields and degrades gracefully).
 
 ## Screenshots
 
-<p>
-  <img src="docs/screenshots/01-dashboard.png" width="250" alt="Dashboard" />
-  <img src="docs/screenshots/02-containers.png" width="250" alt="Containers" />
-  <img src="docs/screenshots/03-compose.png" width="250" alt="Compose stacks (Pro)" />
-</p>
-<p>
-  <img src="docs/screenshots/04-shares.png" width="250" alt="Shares file manager" />
-  <img src="docs/screenshots/05-logs.png" width="250" alt="System logs" />
-  <img src="docs/screenshots/06-settings-license.png" width="250" alt="Settings &amp; License" />
-</p>
+> App screenshots will be added to `docs/screenshots/` in a future release. In the meantime,
+> real-world UI shots shared by users can be found in the Telegram group or GitHub Discussions.
 
 ## Features (Free / Pro)
 
 | Free (works out of the box) | Pro (unlocked with a license key) |
 |------|------|
-| Full dashboard monitoring: CPU / memory / network / disks / array / parity-check progress / history charts / favorites, unRAID alert badge | Container & VM start/stop / restart / pause / resume operations |
+| Full dashboard monitoring: CPU / memory / network / disks / array / parity-check progress / history charts / favorites, unRAID alert badge | Container & VM start/stop / restart / pause / resume operations, **VM enhanced details**¹ (CPU/memory/disks/network/passthrough/snapshots, read from libvirt XML) |
 | Container & VM lists, container details (ports/mounts/network/disk usage), container logs, VM basic details | **Compose stack management** (list/logs/up/down/pull/rebuild/yaml editing)¹ |
 | Shares file browsing / download / image preview, host system logs (syslog) | **CPU temperature**¹ (reads /sys/class/hwmon directly, never spins up disks), Shares write operations (upload/mkdir/delete/rename/text editing) |
 | Global search, command palette, config backup/import, single server, dark theme, PWA | **One-click container updates** (single/batch, same as webGui), **UPS monitoring** (charge/runtime/load), container batch operations, **multi-server**, alert notifications (Webhook), disk cleanup |
@@ -122,13 +114,27 @@ The Compose tab and CPU temperature (both Pro features) rely on a small host-sid
 Without it, those features show an install guide or a placeholder; **everything else is unaffected**.
 
 > ⚠️ **Risk notice (read before installing)**
-> The install script modifies the unRAID boot script **`/boot/config/go`** (a core script executed
-> at system startup) so the agent is restored after reboots. Safeguards:
-> - The original file is backed up to `/boot/config/go.unraid-mobile-bak` before any change
-> - Only 3 lines are appended (tagged with 【unraid-mobile】); none of your existing lines are touched
+> The install script modifies the following host files (all tagged 【unraid-mobile】, fully
+> restorable):
+> - `/boot/config/go`: the boot script — a 6-line restore hook is appended so the flash copies
+>   are restored to the tmpfs execution paths after reboots, and stale Compose locks are cleaned
+> - `/usr/local/emhttp/plugins/compose.manager/api.php`: execution entry for Pro features
+>   (Compose / CPU temperature / VM details) — tmpfs, lost on reboot, restored by the `go` hook
+> - `/usr/local/emhttp/plugins/compose.manager/update-status.php`: Compose update-badge
+>   write-back script — tmpfs, lost on reboot, restored by the `go` hook
+> - `/boot/config/plugins/unraid-mobile/api.php` + `update-status.php`: flash masters of the
+>   two tmpfs files above
+> - `/boot/config/plugins/unraid-mobile/apikey`: API key stored as a sha256 hash (mode 600,
+>   plaintext never touches the flash drive)
+> - `/boot/config/plugins/unraid-mobile/audit.log`: audit log of key api.php operations
+> - `/boot/config/go.unraid-mobile-bak`: automatic backup of `go` taken before any change
+>
+> Safeguards:
+> - The original `/boot/config/go` is backed up to `/boot/config/go.unraid-mobile-bak` first
+> - Only tagged 【unraid-mobile】 hook lines are appended; none of your existing lines are touched
 > - The script asks you to type `YES` explicitly before doing anything
-> - Uninstall: delete `/boot/config/plugins/unraid-mobile/` and the 3 tagged lines in `go` to fully
->   restore
+> - Uninstall: delete `/boot/config/plugins/unraid-mobile/` and the 6 tagged lines in `go` to
+>   fully restore
 >
 > If you do not accept any modification to the boot script, do not install — every free feature
 > works without it.
@@ -181,7 +187,7 @@ docker build -t unraid-mobile .
 |------|------|------|
 | List | ✅ | domains { name, uuid, state } |
 | Start/stop | ✅ | mutation |
-| Logs / memory / CPU / disks | ❌ | No such fields in the API |
+| Logs / memory / CPU / disks / network / passthrough / snapshots | ✅ (Pro) | Read from libvirt XML via compose-api / api.php (no such GraphQL fields) |
 
 ## FAQ
 

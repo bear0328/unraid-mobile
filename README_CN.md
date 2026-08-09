@@ -10,22 +10,13 @@ unRAID 7.3+ / unraid-api ≥ 4.20,老版本会自动降级,仅缺少这两项,�
 
 ## 界面截图
 
-<p>
-  <img src="docs/screenshots/01-dashboard.png" width="250" alt="仪表盘" />
-  <img src="docs/screenshots/02-containers.png" width="250" alt="容器管理" />
-  <img src="docs/screenshots/03-compose.png" width="250" alt="Compose 栈(Pro)" />
-</p>
-<p>
-  <img src="docs/screenshots/04-shares.png" width="250" alt="文件管理" />
-  <img src="docs/screenshots/05-logs.png" width="250" alt="系统日志" />
-  <img src="docs/screenshots/06-settings-license.png" width="250" alt="设置与 License" />
-</p>
+> 应用截图将在后续版本补充到 `docs/screenshots/`。当前可在 Telegram 交流群或 GitHub Discussions 查看用户分享的实机界面。
 
 ## 功能(免费版 / Pro)
 
 | 免费版(开箱即用) | Pro(License key 解锁) |
 |------|------|
-| 仪表盘全部监控:CPU / 内存 / 网络 / 磁盘 / 阵列 / parity 校验进度 / 历史曲线 / 收藏、unRAID 告警徽章 | 容器 / VM 启停 / 重启 / 暂停 / 恢复操作 |
+| 仪表盘全部监控:CPU / 内存 / 网络 / 磁盘 / 阵列 / parity 校验进度 / 历史曲线 / 收藏、unRAID 告警徽章 | 容器 / VM 启停 / 重启 / 暂停 / 恢复操作、**VM 增强详情**¹(CPU/内存/磁盘/网络/直通/快照,读 libvirt XML) |
 | 容器 / VM 列表、容器详情(端口/挂载/网络/磁盘占用)、容器日志、VM 基础详情 | **Compose 栈管理**(列表/日志/up/down/pull/rebuild/yaml 编辑)¹ |
 | Shares 文件浏览 / 下载 / 图片预览、宿主系统日志(syslog) | **CPU 温度**¹(直读 /sys/class/hwmon,不唤盘)、Shares 写操作(上传/新建/删除/重命名/文本编辑) |
 | 全局搜索、命令面板、配置备份/导入、单服务器、深色主题、PWA | **容器一键更新**(单个/批量,webGui 同款)、**UPS 监控**(电量/续航/负载)、容器批量操作、**多服务器**、告警通知(Webhook)、磁盘清理 |
@@ -116,12 +107,20 @@ Compose tab 和 CPU 温度(均为 Pro 功能)依赖一个宿主端小组件(`api
 未安装时对应功能显示安装指引或占位,**其余功能不受影响**。
 
 > ⚠️ **风险说明(安装前必读)**
-> 安装脚本会修改 unRAID 开机脚本 **`/boot/config/go`**(系统启动时执行的核心脚本),
-> 用于重启后恢复本组件。保障措施:
-> - 修改前自动备份为 `/boot/config/go.unraid-mobile-bak`
-> - 仅追加 3 行(带【unraid-mobile】标记),不改动你已有的任何行
+> 安装脚本会修改以下宿主文件(均带【unraid-mobile】标记,可完整还原):
+> - `/boot/config/go`:开机脚本,追加恢复钩子(6 行),用于重启后把 flash 正本复制到 tmpfs 执行位置、清理 Compose 残留锁
+> - `/usr/local/emhttp/plugins/compose.manager/api.php`:Compose / CPU 温度 / VM 详情等 Pro 功能的执行入口(tmpfs,重启丢失,由 go 钩子恢复)
+> - `/usr/local/emhttp/plugins/compose.manager/update-status.php`:Compose 更新徽章回写脚本(tmpfs,重启丢失,由 go 钩子恢复)
+> - `/boot/config/plugins/unraid-mobile/api.php` + `update-status.php`:上述两个 tmpfs 文件的 flash 正本
+> - `/boot/config/plugins/unraid-mobile/apikey`:sha256 哈希存储的 API key(600,明文不落盘)
+> - `/boot/config/plugins/unraid-mobile/audit.log`:api.php 关键操作审计日志
+> - `/boot/config/go.unraid-mobile-bak`:`go` 文件修改前自动备份
+>
+> 保障措施:
+> - 修改前自动备份 `/boot/config/go` 为 `/boot/config/go.unraid-mobile-bak`
+> - 仅追加带【unraid-mobile】标记的恢复钩子,不改动你已有的任何行
 > - 脚本执行时会要求输入 `YES` 显式确认
-> - 卸载:删除 `/boot/config/plugins/unraid-mobile/` 和 go 里标记的 3 行即完全还原
+> - 卸载:删除 `/boot/config/plugins/unraid-mobile/` 和 `go` 里标记的 6 行即完全还原
 >
 > 如果你不接受对开机脚本的任何修改,不要安装 —— 免费版的全部功能都不需要它。
 
@@ -170,7 +169,7 @@ docker build -t unraid-mobile .
 |------|------|------|
 | 列表 | ✅ | domains { name, uuid, state } |
 | 启停 | ✅ | mutation |
-| 日志 / 内存 / CPU / 磁盘 | ❌ | API 无此字段 |
+| 日志 / 内存 / CPU / 磁盘 / 网络 / 直通 / 快照 | ✅(Pro) | 通过 compose-api / api.php 读取 libvirt XML(GraphQL 无此字段) |
 
 ## 常见问题
 
