@@ -1,7 +1,7 @@
 // 【阶段 1 P0 - 2026-06-15】Dashboard cache 工具
 // 从 Dashboard.tsx 拆出，纯 localStorage 读写
 // 【续 45 2026-06-26】加 timestamp 字段 + fresh 判定:刷新页面时若 cache < TTL 则跳过 mount fetch
-import { UnraidSystemInfo, UnraidDisk, UnraidNetworkInfo } from '../../services';
+import { UnraidSystemInfo, UnraidDisk, UnraidNetworkInfo, UnraidServerMeta } from '../../services';
 
 const DASHBOARD_CACHE_KEY = 'unraid-mobile-dashboard-cache';
 // 【续 45 2026-06-26】TTL:60s 内复用 cache,避免刷新页面立即拉 getDisks 唤醒 array
@@ -12,6 +12,8 @@ export type DashboardCache = {
   systemInfo: UnraidSystemInfo | null;
   disks: UnraidDisk[];
   networks: UnraidNetworkInfo[];
+  /** 【续 89b】头卡元信息(版本/license/更新提醒),可选(旧 cache 无此字段) */
+  serverMeta?: UnraidServerMeta | null;
 };
 
 /** 【续 45 2026-06-26】带 timestamp 的 cache 形状(写入时使用,旧数据兼容) */

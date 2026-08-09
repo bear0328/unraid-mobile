@@ -43,6 +43,11 @@ export class UnraidApiService {
     return systemApi.getSystemInfo(this.baseUrl, this.apiKey, this.useProxy);
   }
 
+  /** 【续 89b】头卡元信息(版本/license/OS 更新提醒),独立查询不影响主流程 */
+  getServerMeta() {
+    return systemApi.getServerMeta(this.baseUrl, this.apiKey, this.useProxy);
+  }
+
   // 【续 39-1 候选 - 2026-06-18】启动期轻量探活
   checkOnline(): Promise<CheckOnlineResult> {
     return systemApi.checkOnline(this.baseUrl, this.apiKey, this.useProxy);

@@ -36,6 +36,18 @@ export interface UnraidSystemInfo {
   swap?: UnraidSwapInfo;
 }
 
+/** 【续 89b】头卡元信息:版本/license 类型/OS 更新提醒(getServerMeta,独立查询) */
+export interface UnraidServerMeta {
+  /** unRAID 版本号,如 "7.3.0" */
+  version?: string;
+  /** license 类型原始值,如 "LIFETIME"/"TRIAL"/"PLUS"/"PRO"/"STARTER" */
+  regTy?: string;
+  /** 注册人名 */
+  regTo?: string;
+  /** 匹配到的 OS 更新通知(webGui 铃铛同源),无则 null */
+  osUpdate?: { subject: string; link?: string } | null;
+}
+
 export interface UnraidDisk {
   name: string;
   device: string;

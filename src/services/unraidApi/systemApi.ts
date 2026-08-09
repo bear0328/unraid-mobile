@@ -1,8 +1,13 @@
 // 系统信息 API
-import { UnraidSystemInfo } from '../types';
-import { SystemInfoResponse } from '../graphqlTypes';
-import { graphqlRequest, buildGraphqlEndpoint } from './graphql';
-import { SYSTEM_INFO_QUERY, ONLINE_QUERY } from './queries';
+import { UnraidSystemInfo, UnraidServerMeta } from '../types';
+import { SystemInfoResponse, ServerMetaResponse, ServerMetaNotification } from '../graphqlTypes';
+import { graphqlRequest, buildGraphqlEndpoint, isSchemaValidationError } from './graphql';
+import {
+  SYSTEM_INFO_QUERY,
+  ONLINE_QUERY,
+  SERVER_META_QUERY,
+  SERVER_META_QUERY_VARS_ONLY,
+} from './queries';
 import { formatUptimeFromDate } from './normalizers';
 import { getCpuTemp } from '../composeApi';
 import { isPro } from '../license';
@@ -141,4 +146,69 @@ export async function getSystemInfo(
   }
 
   return null;
+}
+
+/**
+ * 【续 89b】头卡元信息:unRAID 版本/license 类型/OS 更新提醒。
+ * 独立于 SYSTEM_INFO_QUERY + 独立 namespace 缓存('serverMeta'):
+ * 老版本 unraid-api 可能无 registration/notifications 字段,schema 校验失败
+ * 降级 vars-only 查询(沿用 DISKS_QUERY_NO_SPIN 同款模式);仍失败静默 null,
+ * 绝不影响 Dashboard 主流程。零宿主改动,全是 unraid-api 既有只读字段。
+ */
+export async function getServerMeta(
+  baseUrl: string,
+  apiKey: string,
+  useProxy: boolean
+): Promise<UnraidServerMeta | null> {
+  const endpoint = buildGraphqlEndpoint(baseUrl, useProxy);
+  let result = await graphqlRequest<ServerMetaResponse>(
+    endpoint,
+    apiKey,
+    SERVER_META_QUERY,
+    undefined,
+    { namespace: 'serverMeta' }
+  );
+  if (!result.success && isSchemaValidationError(result.error)) {
+    result = await graphqlRequest<ServerMetaResponse>(
+      endpoint,
+      apiKey,
+      SERVER_META_QUERY_VARS_ONLY,
+      undefined,
+      { namespace: 'serverMeta' }
+    );
+  }
+  if (!result.success || !result.data) return null;
+
+  const d = result.data;
+  return {
+    version: d.vars?.version || undefined,
+    regTy: d.registration?.type || d.vars?.regTy || undefined,
+    regTo: d.vars?.regTo || undefined,
+    osUpdate: findOsUpdateNotification(d.notifications?.list),
+  };
+}
+
+/**
+ * OS 更新通知匹配:unRAID 发新版时会推通知(webGui 铃铛同源)。
+ * 规则:link 指向 /Tools/Update*,或 标题/正文 含 unraid/os 且含
+ * update/upgrade/new version/release(大小写不敏感)。误报代价低(只是个徽章)。
+ */
+function findOsUpdateNotification(
+  list: ServerMetaNotification[] | undefined
+): { subject: string; link?: string } | null {
+  if (!Array.isArray(list)) return null;
+  const hit = list.find((n) => {
+    const text = `${n?.title || ''} ${n?.subject || ''}`.toLowerCase();
+    const link = (n?.link || '').toLowerCase();
+    if (link.includes('/tools/update')) return true;
+    return (
+      (text.includes('unraid') || text.includes('os')) &&
+      /(update|upgrade|new version|release)/.test(text)
+    );
+  });
+  if (!hit) return null;
+  return {
+    subject: hit.subject || hit.title || '系统有更新',
+    link: hit.link || undefined,
+  };
 }

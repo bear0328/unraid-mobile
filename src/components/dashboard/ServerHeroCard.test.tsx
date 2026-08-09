@@ -4,6 +4,14 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import ServerHeroCard from './ServerHeroCard';
 import { markRefreshed } from '../../utils/lastRefresh';
 
+// 【续 89b】meta.osUpdate 链接需要 serverUrl;组件只读 useApiConfig
+vi.mock('../../hooks/useUnraidApi', () => ({
+  useApiConfig: vi.fn(() => ({
+    config: { serverUrl: 'http://192.168.6.140:8001' },
+    isConfigured: true,
+  })),
+}));
+
 describe('ServerHeroCard', () => {
   beforeEach(() => {
     localStorage.clear();
@@ -54,5 +62,72 @@ describe('ServerHeroCard', () => {
       <ServerHeroCard name="T" isRefreshing={false} onRefresh={() => {}} />
     );
     expect(container.innerHTML).toMatch(/bg-gradient-to-br from-primary-600 to-primary-500/);
+  });
+
+  // ==== 续 89b:版本/license/更新提醒/外网地址 ====
+  it('meta → 信息行显示版本 + license 标签 + 运行时长', () => {
+    render(
+      <ServerHeroCard
+        name="T"
+        uptime="1d 2h"
+        meta={{ version: '7.3.0', regTy: 'LIFETIME', osUpdate: null }}
+        isRefreshing={false}
+        onRefresh={() => {}}
+      />
+    );
+    expect(screen.getByText(/Unraid OS 7\.3\.0 · Lifetime · 运行时长: 1d 2h/)).toBeInTheDocument();
+  });
+
+  it('meta 缺失 → 信息行只有运行时长', () => {
+    render(<ServerHeroCard name="T" uptime="3h" isRefreshing={false} onRefresh={() => {}} />);
+    expect(screen.getByText('运行时长: 3h')).toBeInTheDocument();
+    expect(screen.queryByText(/Unraid OS/)).not.toBeInTheDocument();
+  });
+
+  it('osUpdate → 显示「系统有更新」徽章,链接 serverUrl+link;无更新不显示', () => {
+    const { rerender } = render(
+      <ServerHeroCard
+        name="T"
+        meta={{ version: '7.3.0', regTy: 'PRO', osUpdate: { subject: 'Unraid 7.4.0 available', link: '/Tools/UpdateOS' } }}
+        isRefreshing={false}
+        onRefresh={() => {}}
+      />
+    );
+    const badge = screen.getByText('系统有更新').closest('a');
+    expect(badge).toHaveAttribute('href', 'http://192.168.6.140:8001/Tools/UpdateOS');
+    expect(badge).toHaveAttribute('target', '_blank');
+
+    rerender(
+      <ServerHeroCard
+        name="T"
+        meta={{ version: '7.3.0', regTy: 'PRO', osUpdate: null }}
+        isRefreshing={false}
+        onRefresh={() => {}}
+      />
+    );
+    expect(screen.queryByText('系统有更新')).not.toBeInTheDocument();
+  });
+
+  it('外网地址默认掩码,点 Eye 显示,显示态点击复制', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    render(<ServerHeroCard name="T" isRefreshing={false} onRefresh={() => {}} />);
+    const origin = window.location.origin;
+
+    // 默认掩码,不显示真实地址
+    expect(screen.getByText('••••••••')).toBeInTheDocument();
+    expect(screen.queryByText(origin)).not.toBeInTheDocument();
+
+    // 点 Eye → 显示
+    fireEvent.click(screen.getByRole('button', { name: '显示外网地址' }));
+    expect(screen.getByText(new RegExp(origin.replace(/[.:/]/g, '\\$&')))).toBeInTheDocument();
+
+    // 点击地址 → 复制
+    fireEvent.click(screen.getByTitle('点击复制'));
+    expect(writeText).toHaveBeenCalledWith(origin);
+
+    // 再点 EyeOff → 回到掩码
+    fireEvent.click(screen.getByRole('button', { name: '隐藏外网地址' }));
+    expect(screen.queryByText(new RegExp(origin.replace(/[.:/]/g, '\\$&')))).not.toBeInTheDocument();
   });
 });

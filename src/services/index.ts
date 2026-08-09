@@ -11,6 +11,7 @@ export {
 } from './unraidApi';
 export type {
   UnraidSystemInfo,
+  UnraidServerMeta,
   UnraidDisk,
   UnraidDockerContainer,
   UnraidVM,

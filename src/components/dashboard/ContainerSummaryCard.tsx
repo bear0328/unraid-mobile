@@ -63,13 +63,13 @@ function ContainerSummaryCard({ containers, loading, api: apiProp, cacheAgeMs }:
   const C = 2 * Math.PI * R;
   const dashOffset = C * (1 - runningPct / 100);
 
-  // 【续 89】展开框:收起默认 Top 5 running,展开列出全部(running 带 sparkline,
-  // 其余状态简化行)。stats fetcher 读本地订阅 Map 零网络,展开后 ids 覆盖全部
-  // running 也无额外请求
+  // 【续 89b】列表默认整体收起:首屏只有圆环+计数,点「展开容器列表」才显示
+  // 全部容器(running 带 sparkline,其余状态简化行);stats 轮询 ids 收起时为空
+  // (零采样),展开后覆盖全部 running(fetcher 读本地订阅 Map 零网络)
   const [expanded, setExpanded] = useState(false);
   const runningList = useMemo(() => containers.filter((c) => c.state === 'running'), [containers]);
   const othersList = useMemo(() => containers.filter((c) => c.state !== 'running'), [containers]);
-  const shownRunning = expanded ? runningList : runningList.slice(0, 5);
+  const shownRunning = useMemo(() => (expanded ? runningList : []), [expanded, runningList]);
 
   // 【续 36-3】多容器 stats 轮询
   const ids = useMemo(() => shownRunning.map((c) => c.name), [shownRunning]);
@@ -278,16 +278,14 @@ function ContainerSummaryCard({ containers, loading, api: apiProp, cacheAgeMs }:
             </div>
           )}
 
-          {/* 【续 89】展开/收起全部(容器数超 Top 5 或有非 running 时才需要) */}
-          {(runningList.length > 5 || othersList.length > 0) && (
-            <button
-              onClick={() => setExpanded(!expanded)}
-              className="flex items-center justify-center gap-1 w-full text-[10px] text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 pt-1 transition-colors"
-            >
-              <Icon icon={expanded ? ChevronDown : ChevronRight} size={12} />
-              {expanded ? '收起' : `展开全部 (${total})`}
-            </button>
-          )}
+          {/* 【续 89b】展开/收起容器列表(默认收起,首屏只有圆环+计数) */}
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="flex items-center justify-center gap-1 w-full text-[10px] text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 pt-1 transition-colors"
+          >
+            <Icon icon={expanded ? ChevronDown : ChevronRight} size={12} />
+            {expanded ? '收起' : `展开容器列表 (${total})`}
+          </button>
         </>
       )}
     </div>

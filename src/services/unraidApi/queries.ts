@@ -8,6 +8,44 @@
 // 【续 51 2026-07-19】CPU 温度已改由 compose-api ?action=cputemp 提供(后端直读
 // /sys/class/hwmon,不唤盘);本红线依旧有效,勿恢复 GraphQL temperature 查询。
 
+// 【续 89b】头卡元信息:版本/license 类型/OS 更新提醒。
+// 独立于 SYSTEM_INFO_QUERY:老版本 unraid-api 可能无 registration/notifications,
+// 拖垮主查询代价太大;schema 校验失败时降级 SERVER_META_QUERY_VARS_ONLY。
+// notifications 是 emhttp 内存态(webGui 铃铛同源),不唤盘
+export const SERVER_META_QUERY = `
+  query {
+    vars {
+      version
+      regTy
+      regTo
+    }
+    registration {
+      type
+      updateExpiration
+    }
+    notifications {
+      list(filter: { type: UNREAD, offset: 0, limit: 10 }) {
+        title
+        subject
+        importance
+        link
+        timestamp
+      }
+    }
+  }
+`;
+
+// 【续 89b】降级查询:只含 vars(上古字段,unraid-api 任意版本都有)
+export const SERVER_META_QUERY_VARS_ONLY = `
+  query {
+    vars {
+      version
+      regTy
+      regTo
+    }
+  }
+`;
+
 export const SYSTEM_INFO_QUERY = `
   query {
     info {

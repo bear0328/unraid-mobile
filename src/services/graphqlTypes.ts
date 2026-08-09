@@ -76,6 +76,30 @@ export interface SystemInfoResponse {
   };
 }
 
+/** 【续 89b】SERVER_META_QUERY 响应(registration/notifications 老版本可能缺,全部可选) */
+export interface ServerMetaNotification {
+  title?: string;
+  subject?: string;
+  importance?: string;
+  link?: string | null;
+  timestamp?: string;
+}
+
+export interface ServerMetaResponse {
+  vars?: {
+    version?: string;
+    regTy?: string;
+    regTo?: string;
+  };
+  registration?: {
+    type?: string;
+    updateExpiration?: string | null;
+  } | null;
+  notifications?: {
+    list?: ServerMetaNotification[];
+  };
+}
+
 // ==================== Disks ====================
 
 export interface DiskInfo {

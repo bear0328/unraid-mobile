@@ -11,6 +11,7 @@ import {
   UnraidNetworkInfo,
   UnraidDockerContainer,
   UnraidVM,
+  UnraidServerMeta,
 } from '../services';
 import { useApiConfig, useUnraidApi } from '../hooks/useUnraidApi';
 import { usePolling } from '../hooks/usePolling';
@@ -51,6 +52,8 @@ export default function Dashboard() {
   const [systemInfo, setSystemInfo] = useState<UnraidSystemInfo | null>(cache?.systemInfo ?? null);
   const [disks, setDisks] = useState<UnraidDisk[]>(cache?.disks ?? []);
   const [networks, setNetworks] = useState<UnraidNetworkInfo[]>(cache?.networks ?? []);
+  // 【续 89b】头卡元信息(版本/license/OS 更新提醒)
+  const [serverMeta, setServerMeta] = useState<UnraidServerMeta | null>(cache?.serverMeta ?? null);
   // 【续 66】磁盘休眠状态(轻查询,不唤盘,随每次真实刷新更新;不进 LS 缓存)
   const [spinMap, setSpinMap] = useState<Map<string, boolean>>(new Map());
   const [loading, setLoading] = useState(!cache);
@@ -122,21 +125,27 @@ export default function Dashboard() {
       try {
         if (manual) setIsRefreshing(true);
         // 并行获取所有数据(磁盘按需;spin 轻查询常拉,实测不唤盘)
+        // 【续 89b】getServerMeta 随同一节拍(独立 namespace 缓存,失败静默 null)
         const tasks: Promise<unknown>[] = [
           api.getSystemInfo(),
           api.getNetworkInfo(),
           api.getSpinStatus(),
+          api.getServerMeta(),
         ];
         if (shouldFetchDisks) tasks.push(api.getDisks());
-        const [sysInfo, networkData, spinStatus, diskRaw] = (await Promise.all(tasks)) as [
+        const [sysInfo, networkData, spinStatus, meta, diskRaw] = (await Promise.all(tasks)) as [
           UnraidSystemInfo | null,
           UnraidNetworkInfo[],
           Map<string, boolean>,
+          UnraidServerMeta | null,
           UnraidDisk[] | undefined,
         ];
 
         if (sysInfo) {
           setSystemInfo(sysInfo);
+        }
+        if (meta) {
+          setServerMeta(meta);
         }
 
         setNetworks(networkData);
@@ -205,7 +214,12 @@ export default function Dashboard() {
         if (sysInfo) {
           const diskForSave = diskDataForCache ?? disks;
           saveDashboardCache(
-            { systemInfo: sysInfo, disks: diskForSave, networks: networkData },
+            {
+              systemInfo: sysInfo,
+              disks: diskForSave,
+              networks: networkData,
+              serverMeta: meta ?? serverMeta,
+            },
             shouldFetchDisks
           );
         }
@@ -231,7 +245,7 @@ export default function Dashboard() {
         setLoading(false);
       }
     },
-    [api, isConfigured, disks]
+    [api, isConfigured, disks, serverMeta]
   );
 
   // 【续 45.7 2026-07-01】手动刷新按钮:只清 CPU/内存 cache,**不**清 disks cache
@@ -242,6 +256,7 @@ export default function Dashboard() {
   const handleManualRefresh = useCallback(async () => {
     try {
       localStorage.removeItem(getCacheKey('systemInfo'));
+      localStorage.removeItem(getCacheKey('serverMeta'));
     } catch {
       /* LS 不可用忽略 */
     }
@@ -264,7 +279,9 @@ export default function Dashboard() {
       // 【续 73】tick 放行 = dashboard cache 年龄 ≥ pollInterval,此时必须失效
       // 'systemInfo' 的 30min graphql cache,否则 getSystemInfo 喂旧数据,
       // 设置间隔仍被 namespace cache 架空(network/spin 本就不带 cache)
+      // 【续 89b】serverMeta 同理(版本/license/更新提醒随同一节拍)
       invalidateNamespace('systemInfo');
+      invalidateNamespace('serverMeta');
       return refreshDashboard();
     },
     pollInterval,
@@ -300,6 +317,7 @@ export default function Dashboard() {
         name={systemInfo?.name}
         uptime={systemInfo?.uptime}
         arrayStatus={systemInfo?.arrayStatus}
+        meta={serverMeta}
         isRefreshing={isRefreshing}
         onRefresh={handleManualRefresh}
       />

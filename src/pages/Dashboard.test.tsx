@@ -45,12 +45,14 @@ const mockGetSystemInfo = vi.fn();
 const mockGetDisks = vi.fn();
 const mockGetNetworkInfo = vi.fn();
 const mockGetSpinStatus = vi.fn();
+const mockGetServerMeta = vi.fn();
 vi.mock('../hooks/useUnraidApi', () => ({
   useUnraidApi: vi.fn(() => ({
     getSystemInfo: mockGetSystemInfo,
     getDisks: mockGetDisks,
     getNetworkInfo: mockGetNetworkInfo,
     getSpinStatus: mockGetSpinStatus,
+    getServerMeta: mockGetServerMeta,
   })),
   useApiConfig: vi.fn(() => ({ isConfigured: true })),
 }));
@@ -122,12 +124,15 @@ beforeEach(() => {
   mockGetDisks.mockReset();
   mockGetNetworkInfo.mockReset();
   mockGetSpinStatus.mockReset();
+  mockGetServerMeta.mockReset();
   // 默认成功路径
   mockGetSystemInfo.mockResolvedValue(makeSystem());
   mockGetDisks.mockResolvedValue([makeDisk()]);
   mockGetNetworkInfo.mockResolvedValue([makeNetwork()]);
   // 【续 66】spin 轻查询默认空 Map(测试不感知徽章)
   mockGetSpinStatus.mockResolvedValue(new Map());
+  // 【续 89b】serverMeta 默认版本+license,无更新提醒
+  mockGetServerMeta.mockResolvedValue({ version: '7.3.0', regTy: 'LIFETIME', osUpdate: null });
 });
 
 afterEach(() => {

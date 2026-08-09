@@ -47,14 +47,24 @@ describe('VmSummaryCard', () => {
     expect(container.innerHTML).toBe('');
   });
 
-  it('计数 + 列表 + 状态徽章', () => {
+  it('【续 89b】默认收起:只显示计数,无列表;点「展开列表」显示全部', async () => {
+    const user = userEvent.setup();
     const vms = [makeVm('win11', 'running'), makeVm('ubuntu', 'shut off'), makeVm('pve', 'paused')];
     renderWithRouter(<VmSummaryCard vms={vms} />);
     expect(screen.getByText('虚拟机')).toBeInTheDocument();
     expect(screen.getByText('1/3 运行中')).toBeInTheDocument();
+    // 收起:无列表
+    expect(screen.queryByText('win11')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /展开列表 \(3\)/ }));
     expect(screen.getByText('win11')).toBeInTheDocument();
+    expect(screen.getByText('ubuntu')).toBeInTheDocument();
+    expect(screen.getByText('pve')).toBeInTheDocument();
     expect(screen.getByText('已停止')).toBeInTheDocument();
     expect(screen.getByText('已暂停')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /收起/ }));
+    expect(screen.queryByText('win11')).not.toBeInTheDocument();
   });
 
   it('「管理 →」深链 /containers?tab=vm', () => {
@@ -63,12 +73,13 @@ describe('VmSummaryCard', () => {
     expect(link).toHaveAttribute('href', '/containers?tab=vm');
   });
 
-  it('超过 5 个 → 折叠提示', () => {
+  it('【续 89b】VM 多于 5 个:展开后全部显示(无截断)', async () => {
+    const user = userEvent.setup();
     const vms = Array.from({ length: 7 }, (_, i) => makeVm(`vm${i}`, 'running'));
     renderWithRouter(<VmSummaryCard vms={vms} />);
-    expect(screen.getByText('vm4')).toBeInTheDocument();
-    expect(screen.queryByText('vm5')).not.toBeInTheDocument();
-    expect(screen.getByText('还有 2 个 →')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /展开列表 \(7\)/ }));
+    expect(screen.getByText('vm0')).toBeInTheDocument();
+    expect(screen.getByText('vm6')).toBeInTheDocument();
   });
 });
 
@@ -79,18 +90,18 @@ describe('ContainerSummaryCard 展开框', () => {
     makeContainer('paused1', 'paused'),
   ];
 
-  it('收起默认 Top 5 running,含「展开全部」按钮', () => {
+  it('【续 89b】默认收起:只有圆环+计数,无容器行', () => {
     renderWithRouter(<ContainerSummaryCard containers={containers} />);
-    expect(screen.getByText('run4')).toBeInTheDocument();
-    expect(screen.queryByText('run5')).not.toBeInTheDocument();
+    expect(screen.getByText('7/9 运行中')).toBeInTheDocument();
+    expect(screen.queryByText('run0')).not.toBeInTheDocument();
     expect(screen.queryByText('stopped1')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /展开全部 \(9\)/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /展开容器列表 \(9\)/ })).toBeInTheDocument();
   });
 
   it('点击展开 → 全部 running + 其他状态简化行;再点收起还原', async () => {
     const user = userEvent.setup();
     renderWithRouter(<ContainerSummaryCard containers={containers} />);
-    await user.click(screen.getByRole('button', { name: /展开全部/ }));
+    await user.click(screen.getByRole('button', { name: /展开容器列表/ }));
 
     expect(screen.getByText('run6')).toBeInTheDocument();
     expect(screen.getByText('stopped1')).toBeInTheDocument();
@@ -100,14 +111,7 @@ describe('ContainerSummaryCard 展开框', () => {
     expect(screen.getAllByText('已暂停').length).toBeGreaterThanOrEqual(2);
 
     await user.click(screen.getByRole('button', { name: /收起/ }));
-    expect(screen.queryByText('run5')).not.toBeInTheDocument();
+    expect(screen.queryByText('run0')).not.toBeInTheDocument();
     expect(screen.queryByText('stopped1')).not.toBeInTheDocument();
-  });
-
-  it('容器数 ≤5 且无其他状态 → 无展开按钮', () => {
-    renderWithRouter(
-      <ContainerSummaryCard containers={[makeContainer('a', 'running'), makeContainer('b', 'running')]} />
-    );
-    expect(screen.queryByRole('button', { name: /展开全部/ })).not.toBeInTheDocument();
   });
 });

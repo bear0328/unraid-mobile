@@ -1,10 +1,11 @@
-// 【续 89】VM 摘要卡片:首页显示虚拟机(running/其他计数 + 最多 5 条列表 + 跳 /containers?tab=vm)
+// 【续 89】VM 摘要卡片:首页显示虚拟机(running/其他计数 + 列表 + 跳 /containers?tab=vm)
 // 数据源零成本:Dashboard 的 useContainersData 本就并行拉 getVMs(60s 地板 polling,
 // libvirt 内存数据不唤盘),这里只消费 vms prop,零新增网络/polling。
 // 加载完成后无 VM → 返回 null,不占无 VM 用户的首页空间
-import { memo } from 'react';
+// 【续 89b】列表默认收起:首屏只有计数,点「展开列表」显示全部 VM(带滚动上限)
+import { memo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Monitor } from 'lucide-react';
+import { Monitor, ChevronDown, ChevronRight } from 'lucide-react';
 import { UnraidVM } from '../../services';
 import StaleBadge from '../ui/StaleBadge';
 import Icon from '../ui/Icon';
@@ -34,6 +35,9 @@ const isRunning = (state: string) => {
 };
 
 function VmSummaryCard({ vms, loading, cacheAgeMs }: VmSummaryCardProps) {
+  // 【续 89b】hook 必须在 early return 之前
+  const [expanded, setExpanded] = useState(false);
+
   if (loading) {
     return (
       <div className={cardClass}>
@@ -46,7 +50,6 @@ function VmSummaryCard({ vms, loading, cacheAgeMs }: VmSummaryCardProps) {
   if (vms.length === 0) return null;
 
   const runningCount = vms.filter((v) => isRunning(v.state)).length;
-  const shown = vms.slice(0, 5);
 
   return (
     <div className={cardClass}>
@@ -73,33 +76,36 @@ function VmSummaryCard({ vms, loading, cacheAgeMs }: VmSummaryCardProps) {
         </Link>
       </div>
 
-      <div className="space-y-1.5">
-        {shown.map((vm) => {
-          const m = vmStateMeta(vm.state);
-          return (
-            <div key={vm.vmUuid} className="flex items-center gap-2 text-xs">
-              <span
-                className="w-1.5 h-1.5 rounded-full shrink-0"
-                style={{ backgroundColor: m.color }}
-              />
-              <span className="font-medium text-gray-700 dark:text-gray-200 truncate flex-1">
-                {vm.name}
-              </span>
-              <span className="text-gray-400 dark:text-gray-500 text-[10px] shrink-0">
-                {m.label}
-              </span>
-            </div>
-          );
-        })}
-        {vms.length > shown.length && (
-          <Link
-            to="/containers?tab=vm"
-            className="block text-center text-[10px] text-gray-500 dark:text-gray-400 hover:text-primary-600 pt-1"
-          >
-            还有 {vms.length - shown.length} 个 →
-          </Link>
-        )}
-      </div>
+      {/* 【续 89b】列表默认收起,展开显示全部(带滚动上限防 VM 多撑爆卡片) */}
+      {expanded && (
+        <div className="space-y-1.5 max-h-64 overflow-y-auto">
+          {vms.map((vm) => {
+            const m = vmStateMeta(vm.state);
+            return (
+              <div key={vm.vmUuid} className="flex items-center gap-2 text-xs">
+                <span
+                  className="w-1.5 h-1.5 rounded-full shrink-0"
+                  style={{ backgroundColor: m.color }}
+                />
+                <span className="font-medium text-gray-700 dark:text-gray-200 truncate flex-1">
+                  {vm.name}
+                </span>
+                <span className="text-gray-400 dark:text-gray-500 text-[10px] shrink-0">
+                  {m.label}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex items-center justify-center gap-1 w-full text-[10px] text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 pt-1 transition-colors"
+      >
+        <Icon icon={expanded ? ChevronDown : ChevronRight} size={12} />
+        {expanded ? '收起' : `展开列表 (${vms.length})`}
+      </button>
     </div>
   );
 }

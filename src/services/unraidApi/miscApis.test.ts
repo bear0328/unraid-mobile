@@ -1,7 +1,7 @@
 // 【阶段 P2-1 - 2026-06-16 续 13】systemApi + diskApi + networkApi + shareApi 测试
 // 覆盖:字段映射 / 归一化 / 容量计算 / 共享过滤
 import { describe, it, expect, vi, beforeEach, afterEach, type MockInstance } from 'vitest';
-import { getSystemInfo } from './systemApi';
+import { getSystemInfo, getServerMeta } from './systemApi';
 import { getDisks, getSpinStatus } from './diskApi';
 import { getNetworkInfo } from './networkApi';
 import { getShares } from './shareApi';
@@ -506,6 +506,119 @@ describe('systemApi / diskApi / networkApi / shareApi', () => {
     it('失败返 []', async () => {
       fetchSpy.mockResolvedValueOnce(mockFetchOnce({ errors: [{ message: 'x' }] }));
       expect(await getShares(BASE, KEY, PROXY)).toEqual([]);
+    });
+  });
+
+  // 【续 89b】头卡元信息:版本/license/OS 更新提醒 + schema 降级
+  describe('getServerMeta', () => {
+    it('正常解析:vars + registration + OS 更新通知(link 命中)', async () => {
+      fetchSpy.mockResolvedValueOnce(
+        mockFetchOnce({
+          data: {
+            vars: { version: '7.3.0', regTy: 'PLUS', regTo: 'Bear' },
+            registration: { type: 'LIFETIME', updateExpiration: null },
+            notifications: {
+              list: [
+                {
+                  title: 'unRAID OS Update',
+                  subject: 'unRAID OS 7.4.0 is available',
+                  importance: 'NORMAL',
+                  link: '/Tools/UpdateOS',
+                  timestamp: '2026-08-01T00:00:00Z',
+                },
+              ],
+            },
+          },
+        })
+      );
+      const meta = await getServerMeta(BASE, KEY, PROXY);
+      // registration.type 优先于 vars.regTy
+      expect(meta).toEqual({
+        version: '7.3.0',
+        regTy: 'LIFETIME',
+        regTo: 'Bear',
+        osUpdate: { subject: 'unRAID OS 7.4.0 is available', link: '/Tools/UpdateOS' },
+      });
+    });
+
+    it('无 OS 更新通知 → osUpdate null', async () => {
+      fetchSpy.mockResolvedValueOnce(
+        mockFetchOnce({
+          data: {
+            vars: { version: '7.3.0', regTy: 'PRO', regTo: 'Bear' },
+            registration: { type: 'PRO', updateExpiration: null },
+            notifications: {
+              list: [
+                {
+                  title: 'Disk 1 error',
+                  subject: 'device has read errors',
+                  importance: 'ALERT',
+                  link: '',
+                  timestamp: '2026-08-01T00:00:00Z',
+                },
+              ],
+            },
+          },
+        })
+      );
+      const meta = await getServerMeta(BASE, KEY, PROXY);
+      expect(meta?.version).toBe('7.3.0');
+      expect(meta?.regTy).toBe('PRO');
+      expect(meta?.osUpdate).toBeNull();
+    });
+
+    it('标题/正文含 unraid+update(无 link)也命中 osUpdate', async () => {
+      fetchSpy.mockResolvedValueOnce(
+        mockFetchOnce({
+          data: {
+            vars: { version: '7.3.0', regTy: 'PRO', regTo: 'Bear' },
+            registration: null,
+            notifications: {
+              list: [
+                {
+                  title: 'New Unraid release',
+                  subject: '',
+                  importance: 'NORMAL',
+                  link: '',
+                  timestamp: '2026-08-01T00:00:00Z',
+                },
+              ],
+            },
+          },
+        })
+      );
+      const meta = await getServerMeta(BASE, KEY, PROXY);
+      expect(meta?.osUpdate).toEqual({ subject: 'New Unraid release', link: undefined });
+    });
+
+    it('schema 校验失败(老版本无 registration 字段)→ 降级 vars-only 二次请求', async () => {
+      fetchSpy.mockResolvedValueOnce(
+        mockFetchOnce({
+          errors: [{ message: 'Cannot query field "registration" on type "Query".' }],
+        })
+      );
+      fetchSpy.mockResolvedValueOnce(
+        mockFetchOnce({
+          data: { vars: { version: '7.2.0', regTy: 'TRIAL', regTo: 'Trial User' } },
+        })
+      );
+      const meta = await getServerMeta(BASE, KEY, PROXY);
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+      const retryBody = JSON.parse((fetchSpy.mock.calls[1][1] as RequestInit).body as string);
+      expect(retryBody.query).not.toMatch(/registration|notifications/);
+      expect(retryBody.query).toMatch(/vars/);
+      expect(meta).toEqual({
+        version: '7.2.0',
+        regTy: 'TRIAL',
+        regTo: 'Trial User',
+        osUpdate: null,
+      });
+    });
+
+    it('非 schema 错误 → 不重试,静默 null', async () => {
+      fetchSpy.mockResolvedValueOnce(mockFetchOnce({ errors: [{ message: 'boom' }] }));
+      expect(await getServerMeta(BASE, KEY, PROXY)).toBeNull();
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
     });
   });
 });
