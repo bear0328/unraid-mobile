@@ -3,6 +3,7 @@
 // 替代 VmDetailsModal / ContainerDetailsModal / Notifications / DiskCleanupModal / ShareModals 的样板
 // 子组件 ModalHeader / ModalBody / ModalFooter 单纯 className,不带状态
 import { useEffect, useId, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import Icon from './ui/Icon';
 import { useFocusTrap } from '../hooks/useFocusTrap';
@@ -45,7 +46,11 @@ export function Modal({
 
   if (!open) return null;
 
-  return (
+  // 【续 95-5 2026-08-09】portal 到 document.body:Modal 若渲染在 Layout header
+  // (backdrop-blur = backdrop-filter)内部,fixed 后代的包含块会变成 header 而非
+  // viewport,导致 backdrop 盖不住全屏、弹层顶部被裁(iOS PWA 实测)。
+  // portal 跳出祖先 transform/filter 包含块,fixed inset-0 重新相对 viewport。
+  return createPortal(
     <div
       className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-overlay anim-fade"
       style={{
@@ -82,7 +87,8 @@ export function Modal({
         )}
         {children}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -104,16 +110,18 @@ export function ModalHeader({
   return (
     <div className="flex items-start justify-between -mt-1">
       <div className="flex-1 min-w-0">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white truncate">{title}</h3>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white break-words">{title}</h3>
         {subtitle != null && <div className="text-sm mt-0.5">{subtitle}</div>}
       </div>
       {children}
       <button
         onClick={onClose}
-        className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 leading-none ml-2 p-0.5"
+        // 【续 95-1】移动端关闭体验:图标 28px + 44px 触达面积 + 明确 hover/active
+        // 背景与对比色(原 22px/p-0.5/gray-400,触屏几乎点不到也看不见)
+        className="ml-2 p-2 min-w-[44px] min-h-[44px] inline-flex items-center justify-center rounded-full leading-none text-gray-500 dark:text-gray-300 hover:text-gray-700 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 active:bg-gray-200 dark:active:bg-gray-600"
         aria-label="关闭"
       >
-        <Icon icon={X} size={22} />
+        <Icon icon={X} size={28} />
       </button>
     </div>
   );

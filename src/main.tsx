@@ -66,12 +66,27 @@ createRoot(document.getElementById('root')!).render(
 // 【阶段 P2-PWA - 2026-06-17 续 32-8】注册 Service Worker
 // 只在生产环境注册(dev 模式 HMR 会冲突)
 // 注册失败也不影响主流程(降级到无 SW 模式)
+// 【续 93】PWA 缓存根治(iOS 每次部署仍跑旧 bundle):
+//   - updateViaCache:'none' → SW 更新检查不走 HTTP 缓存(双保险,nginx 侧 sw.js 已 no-cache)
+//   - 回到前台(visibilitychange)→ reg.update() 主动检查新版(iOS PWA resume 不重载页面)
+//   - controllerchange → 自动 reload 一次(新 SW skipWaiting+claim 接管,页面换跑新 bundle)
+//   - 首次安装不刷新(load 时无 controller = 首访,避免 double-load)
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  const hadController = !!navigator.serviceWorker.controller;
+  let refreshing = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (refreshing || !hadController) return;
+    refreshing = true;
+    window.location.reload();
+  });
   window.addEventListener('load', () => {
     navigator.serviceWorker
-      .register('/sw.js', { scope: '/' })
+      .register('/sw.js', { scope: '/', updateViaCache: 'none' })
       .then((reg) => {
         console.info('[PWA] SW registered:', reg.scope);
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible') reg.update().catch(() => {});
+        });
       })
       .catch((err) => {
         console.warn('[PWA] SW registration failed:', err);

@@ -166,6 +166,22 @@ describe('DiskCard', () => {
     expect(screen.queryByText(/阵列使用率/)).not.toBeInTheDocument();
   });
 
+  it('【续 97 P1-2】阵列使用率按容量加权:1TB 90% + 4TB 10% → 26%(非算术 50%)', () => {
+    const disks = [
+      makeDisk({ name: 'disk1', type: 'data', size: 100, used: 90 }),
+      makeDisk({ name: 'disk2', type: 'data', size: 400, used: 40 }),
+    ];
+    render(<DiskCard disks={disks} />);
+    expect(screen.getByText('阵列使用率 26%')).toBeInTheDocument();
+  });
+
+  it('【续 97 P1-2】data 盘 size 全 0(脏数据)→ 不显示阵列使用率', () => {
+    render(
+      <DiskCard disks={[makeDisk({ name: 'disk1', type: 'data', size: 0, used: 0 })]} />
+    );
+    expect(screen.queryByText(/阵列使用率/)).not.toBeInTheDocument();
+  });
+
   it('【续 90】>6 盘默认折叠 + 「展开全部 (N)」;展开后全部显示,再点收起还原', async () => {
     const user = userEvent.setup();
     const disks = Array.from({ length: 8 }, (_, i) => makeDisk({ name: `disk${i + 1}` }));

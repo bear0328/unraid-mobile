@@ -6,7 +6,10 @@
 //   API 请求(/graphql /files /dav /var/log /config /api): 透传网络,不缓存(实时数据)
 //   通知点击: 聚焦/打开对应 URL
 
-const CACHE_VERSION = 'unraid-mobile-v1';
+// 【续 93】CACHE_VERSION 每次构建注入 bundle hash(vite.config.ts swVersionPlugin):
+// sw.js 字节随部署变化 → 浏览器 SW 更新检查必然发现新版;
+// 缓存名随版本变 → activate 的旧缓存清理真正生效。占位符仅在源码,构建产物是真实 hash。
+const CACHE_VERSION = 'unraid-mobile-__BUILD_HASH__';
 const CORE_ASSETS = ['/', '/index.html', '/icon.svg', '/manifest.webmanifest'];
 
 self.addEventListener('install', (event) => {

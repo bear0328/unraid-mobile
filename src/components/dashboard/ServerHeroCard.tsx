@@ -3,12 +3,12 @@
 // 白字显示服务器名 + 阵列状态 pill + uptime + 幽灵刷新按钮。
 // 替换原「黑字标题 + 灰色 uptime」朴素头部(Dashboard.tsx)。
 // 【续 89b】信息增强:unRAID 版本/license 类型(并入信息行)、OS 更新提醒徽章
-// (notifications 同源 webGui 铃铛,点击跳 webGui 更新页)、外网地址(=当前访问地址,
-// 默认掩码点 Eye 显示,显示态点击复制,截屏友好)
-// 【续 90】外网地址显示值 origin → host(去 http:// scheme,显示纯 IP:端口/域名:端口);
-//   padding 去 sm:p-5,恒 p-4(与其它卡一致)
-import { memo, useState } from 'react';
-import { RefreshCw, Eye, EyeOff, Copy, Check, ArrowUpCircle } from 'lucide-react';
+// (notifications 同源 webGui 铃铛,点击跳 webGui 更新页)
+// 【续 90】padding 去 sm:p-5,恒 p-4(与其它卡一致)
+// 【续 94】外网地址行(续 89b 加、掩码 Eye + 复制)整行移除:想要的外网 IP 无法自动
+//   获取,显示当前访问地址/内网 IP/域名都无意义(用户拍板)
+import { memo } from 'react';
+import { RefreshCw, ArrowUpCircle } from 'lucide-react';
 import { UnraidServerMeta } from '../../services';
 import Icon from '../ui/Icon';
 import LastRefreshText from '../ui/LastRefreshText';
@@ -56,52 +56,6 @@ function ServerHeroCard({
 }: ServerHeroCardProps) {
   const isStarted = arrayStatus === 'Started';
   const { config } = useApiConfig();
-  // 【续 89b】外网地址显隐 + 复制反馈(均组件内 state,不持久化)
-  const [showAddress, setShowAddress] = useState(false);
-  const [copied, setCopied] = useState(false);
-  // 【续 91】复制失败也要给反馈(不静默)
-  const [copyFailed, setCopyFailed] = useState(false);
-  // 【续 90】host 而非 origin:去 scheme,显示纯 IP:端口(域名访问则域名:端口)
-  const address = typeof window !== 'undefined' ? window.location.host : '';
-
-  // 【续 91】clipboard API 回退:http 非安全上下文 navigator.clipboard 不存在,
-  // 用隐藏 textarea + execCommand('copy')
-  const fallbackCopy = (text: string): boolean => {
-    try {
-      const ta = document.createElement('textarea');
-      ta.value = text;
-      ta.style.position = 'fixed';
-      ta.style.opacity = '0';
-      document.body.appendChild(ta);
-      ta.focus();
-      ta.select();
-      const ok = document.execCommand('copy');
-      document.body.removeChild(ta);
-      return ok;
-    } catch {
-      return false;
-    }
-  };
-
-  const copyAddress = async () => {
-    let ok = false;
-    if (navigator.clipboard?.writeText) {
-      try {
-        await navigator.clipboard.writeText(address);
-        ok = true;
-      } catch {
-        /* 落入回退 */
-      }
-    }
-    if (!ok) ok = fallbackCopy(address);
-    if (ok) {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } else {
-      setCopyFailed(true);
-      setTimeout(() => setCopyFailed(false), 1500);
-    }
-  };
 
   // 信息行:版本 · license · 运行时长(有啥显示啥)
   const license = licenseLabel(meta?.regTy);
@@ -154,35 +108,6 @@ function ServerHeroCard({
             )}
           </div>
           <p className="text-sm text-white/80 mt-1">{infoParts.join(' · ')}</p>
-          {/* 【续 89b】外网地址(=当前访问地址):默认掩码,Eye 切换显隐,显示态点击复制 */}
-          {address && (
-            <p className="flex items-center gap-1.5 text-xs text-white/70 mt-1">
-              <span>外网地址:</span>
-              {showAddress ? (
-                <>
-                  <button
-                    onClick={copyAddress}
-                    className="inline-flex items-center gap-1 font-mono hover:text-white transition-colors"
-                    title="点击复制"
-                  >
-                    {address}
-                    <Icon icon={copied ? Check : Copy} size={11} />
-                  </button>
-                  {copied && <span className="text-green-300">已复制</span>}
-                  {copyFailed && <span className="text-red-300">复制失败</span>}
-                </>
-              ) : (
-                <span className="font-mono tracking-wider">••••••••</span>
-              )}
-              <button
-                onClick={() => setShowAddress(!showAddress)}
-                className="inline-flex items-center hover:text-white transition-colors"
-                aria-label={showAddress ? '隐藏外网地址' : '显示外网地址'}
-              >
-                <Icon icon={showAddress ? EyeOff : Eye} size={12} />
-              </button>
-            </p>
-          )}
         </div>
 
         {/* 幽灵刷新按钮:invalidate cache + 强制 fetch(不拉磁盘,不唤醒硬盘) */}

@@ -175,7 +175,9 @@ export default function FavoritesCard() {
               </Link>
               <button
                 onClick={() => remove(fav.id)}
-                className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 text-base leading-none ml-1 transition-opacity"
+                // 【续 95 P1-2】原 opacity-0 + group-hover:触屏无 hover,× 永远不可见;
+                // 改常态半透明(opacity-40),hover/键盘聚焦加深
+                className="opacity-40 hover:opacity-100 focus-visible:opacity-100 text-gray-400 hover:text-red-500 text-base leading-none ml-1 transition-opacity"
                 aria-label={`移除收藏 ${fav.label}`}
                 title="移除"
               >

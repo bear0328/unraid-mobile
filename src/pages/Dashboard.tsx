@@ -6,7 +6,7 @@
 // 【续 91】数据层 bug 全修:失败返 null 约定(A1)/不谎报刷新(A2)/single-flight(M3)/
 //   切服务器重置(M4)/错误降级 banner(M5)/惰性初始化+ref 化(L9/L10)/spinMap 浅比较(L11)
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { RotateCcw, AlertTriangle } from 'lucide-react';
+import { RotateCcw, AlertTriangle, RefreshCw } from 'lucide-react';
 import {
   UnraidSystemInfo,
   UnraidDisk,
@@ -411,13 +411,13 @@ export default function Dashboard() {
   // 用户要看磁盘温度→显式点 DiskCard 上的"刷新磁盘"按钮
   // 【续 88 2026-08-08】删掉原清 getCacheKey('networks') 死代码:networkApi 已不带
   // namespace cache,该 key 永不存在(network/spin 本就不带 cache,见下方 polling 注释)
+  // 【续 95 P0】失效口径与轮询 tick 对齐(:442-445 同 4 namespace):原来漏了
+  // parity/ups,手动刷新后这两张卡最长 30min 旧数据(30min namespace 缓存)
   const handleManualRefresh = useCallback(async () => {
-    try {
-      localStorage.removeItem(getCacheKey('systemInfo'));
-      localStorage.removeItem(getCacheKey('serverMeta'));
-    } catch {
-      /* LS 不可用忽略 */
-    }
+    invalidateNamespace('systemInfo');
+    invalidateNamespace('serverMeta');
+    invalidateNamespace('parity');
+    invalidateNamespace('ups');
     await refreshDashboard({ manual: true });
   }, [refreshDashboard]);
 
@@ -432,6 +432,9 @@ export default function Dashboard() {
   }, [refreshDashboard]);
 
   const pollInterval = usePollInterval();
+  // 【续 95 P1-1】趋势图实际时间窗口 = 采样点数 × 轮询间隔(原 label 写死 10 分钟,
+  // 用户改刷新间隔后窗口变了 label 不变,误导)
+  const historyWindowMin = Math.max(1, Math.round((HISTORY_POINTS * pollInterval) / 60_000));
   usePolling(
     () => {
       // 【续 73】tick 放行 = dashboard cache 年龄 ≥ pollInterval,此时必须失效
@@ -483,6 +486,16 @@ export default function Dashboard() {
             className="mr-2 shrink-0 text-red-500 dark:text-red-400"
           />
           <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
+          {/* 【续 97 P1-3】banner 内直接给重试入口(原要回头卡找刷新按钮) */}
+          <button
+            onClick={handleManualRefresh}
+            disabled={isRefreshing}
+            className="ml-auto shrink-0 inline-flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg font-medium text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/40 hover:bg-red-200 dark:hover:bg-red-900/60 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            aria-label="重试刷新"
+          >
+            <Icon icon={RefreshCw} size={12} className={isRefreshing ? 'animate-spin' : ''} />
+            重试
+          </button>
         </div>
       )}
 
@@ -515,6 +528,7 @@ export default function Dashboard() {
           spinMap,
           parity,
           ups,
+          historyWindowMin,
         });
         return (
           <DraggableCard key={key} id={key} index={idx} totalCount={order.length} onMove={move}>
@@ -575,6 +589,8 @@ function renderCard(
     parity?: UnraidParityStatus | null;
     /** 【续 91 G】UPS 设备(null=无 UPS/查询失败,UpsCard 不渲染;未解锁走 ProGate) */
     ups?: UnraidUpsDevice | null;
+    /** 【续 95 P1-1】趋势图实际时间窗口(分钟),给 CpuCard/MemoryCard 的 label 用 */
+    historyWindowMin: number;
   }
 ) {
   switch (key) {
@@ -586,6 +602,7 @@ function renderCard(
           systemInfo={props.systemInfo}
           history={props.history}
           cacheAgeMs={props.dashboardCacheAge}
+          historyWindowMin={props.historyWindowMin}
         />
       );
     case 'memory':
@@ -594,6 +611,7 @@ function renderCard(
           systemInfo={props.systemInfo}
           history={props.history}
           cacheAgeMs={props.dashboardCacheAge}
+          historyWindowMin={props.historyWindowMin}
         />
       );
     case 'containers':

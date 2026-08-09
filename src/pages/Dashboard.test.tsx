@@ -84,6 +84,7 @@ vi.mock('../hooks/useContainersData', () => ({
 
 import { useApiConfig, useUnraidApi } from '../hooks/useUnraidApi';
 import * as pollingMock from '../hooks/usePolling';
+import { getCacheKey } from '../services/unraidApi/cache';
 import Dashboard from './Dashboard';
 
 function makeSystem(overrides: Partial<UnraidSystemInfo> = {}): UnraidSystemInfo {
@@ -326,6 +327,29 @@ describe('Dashboard 页面', () => {
     expect(parsed.timestamp).toBeUndefined();
   });
 
+  it('【续 97 P1-3】错误 banner 带「重试」按钮:点击重拉成功 → banner 消失', async () => {
+    localStorage.setItem(
+      'unraid-mobile-dashboard-cache',
+      JSON.stringify({
+        systemInfo: makeSystem({ name: 'cached-tower' }),
+        disks: [],
+        networks: [makeNetwork()],
+      })
+    );
+    // mount 刷新失败 → 降级 banner(有旧数据不整屏)
+    mockGetSystemInfo.mockResolvedValueOnce(null);
+    renderWithRouter(<Dashboard />);
+    await vi.advanceTimersByTimeAsync(10);
+    expect(screen.getByText('无法连接到 unRAID 服务器')).toBeInTheDocument();
+
+    // 点 banner 上的「重试」(后续调用走默认成功 mock)→ 重拉成功,banner 消失
+    await act(async () => {
+      screen.getByRole('button', { name: '重试刷新' }).click();
+    });
+    expect(screen.queryByText('无法连接到 unRAID 服务器')).not.toBeInTheDocument();
+    expect(screen.getByText('tower')).toBeInTheDocument();
+  });
+
   it('【续 91 M3】single-flight:轻量刷新在飞时点「刷新磁盘」→ 排队执行,不吞也不重复', async () => {
     // 预置 cache:页面在 mount 刷新在飞时已渲染(loading=false),磁盘按钮可点
     localStorage.setItem(
@@ -357,6 +381,35 @@ describe('Dashboard 页面', () => {
     expect(mockGetDisks).toHaveBeenCalledTimes(1); // 排队后恰好执行一次
     expect(mockGetSystemInfo).toHaveBeenCalledTimes(2);
     expect(screen.getByText('DISK1')).toBeInTheDocument();
+  });
+
+  it('【续 95 P0】手动刷新 → 失效 systemInfo/serverMeta/parity/ups 缓存,disks 缓存保留(不唤盘)', async () => {
+    // 预置 dashboard cache:页面 mount 即渲染(loading=false),刷新按钮可点
+    localStorage.setItem(
+      'unraid-mobile-dashboard-cache',
+      JSON.stringify({
+        systemInfo: makeSystem(),
+        disks: [makeDisk()],
+        networks: [makeNetwork()],
+      })
+    );
+    // 预置 5 个 namespace 缓存(disks 用于验证绝不被清)
+    for (const ns of ['systemInfo', 'serverMeta', 'parity', 'ups', 'disks']) {
+      localStorage.setItem(getCacheKey(ns), JSON.stringify({ data: null, timestamp: Date.now() }));
+    }
+    renderWithRouter(<Dashboard />);
+    await vi.advanceTimersByTimeAsync(10);
+
+    await act(async () => {
+      screen.getByRole('button', { name: '手动刷新 Dashboard 数据' }).click();
+    });
+
+    // 4 个轻量 namespace 全部失效(与轮询 tick 口径对齐,原漏 parity/ups)
+    for (const ns of ['systemInfo', 'serverMeta', 'parity', 'ups']) {
+      expect(localStorage.getItem(getCacheKey(ns))).toBeNull();
+    }
+    // disks namespace 绝不清(避免下次轮询拉 getDisks 唤盘)
+    expect(localStorage.getItem(getCacheKey('disks'))).not.toBeNull();
   });
 
   it('【续 91 M4】切服务器(serverUrl 变 + api 重建)→ 内存 state 重置并立即重拉', async () => {

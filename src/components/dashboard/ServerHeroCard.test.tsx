@@ -108,56 +108,12 @@ describe('ServerHeroCard', () => {
     expect(screen.queryByText('系统有更新')).not.toBeInTheDocument();
   });
 
-  it('外网地址默认掩码,点 Eye 显示,显示态点击复制(【续 90】host 纯 IP:端口,无 scheme)', async () => {
-    const writeText = vi.fn().mockResolvedValue(undefined);
-    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+  // 【续 94】外网地址行已整行移除(掩码/复制/aria-label 用例一并删除)
+  it('【续 94】地址行不再渲染(无掩码/Eye/复制按钮)', () => {
     render(<ServerHeroCard name="T" isRefreshing={false} onRefresh={() => {}} />);
-    const host = window.location.host;
-    const hostRe = new RegExp(host.replace(/[.:]/g, '\\$&'));
-
-    // 默认掩码,不显示真实地址
-    expect(screen.getByText('••••••••')).toBeInTheDocument();
-    expect(screen.queryByText(hostRe)).not.toBeInTheDocument();
-
-    // 点 Eye → 显示(纯 host,无 http:// 前缀)
-    fireEvent.click(screen.getByRole('button', { name: '显示外网地址' }));
-    expect(screen.getByText(hostRe)).toBeInTheDocument();
-    expect(screen.queryByText(/https?:\/\//)).not.toBeInTheDocument();
-
-    // 点击地址 → 复制
-    fireEvent.click(screen.getByTitle('点击复制'));
-    expect(writeText).toHaveBeenCalledWith(host);
-
-    // 再点 EyeOff → 回到掩码
-    fireEvent.click(screen.getByRole('button', { name: '隐藏外网地址' }));
-    expect(screen.queryByText(hostRe)).not.toBeInTheDocument();
-  });
-
-  // ==== 【续 91】复制回退:clipboard 不可用 → textarea + execCommand;仍失败给「复制失败」 ====
-  it('【续 91】navigator.clipboard 不可用 → 回退 execCommand 复制,成功仍显示「已复制」', async () => {
-    Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true });
-    const execCommand = vi.fn().mockReturnValue(true);
-    document.execCommand = execCommand;
-    render(<ServerHeroCard name="T" isRefreshing={false} onRefresh={() => {}} />);
-
-    fireEvent.click(screen.getByRole('button', { name: '显示外网地址' }));
-    fireEvent.click(screen.getByTitle('点击复制'));
-
-    expect(execCommand).toHaveBeenCalledWith('copy');
-    expect(await screen.findByText('已复制')).toBeInTheDocument();
-    expect(screen.queryByText('复制失败')).not.toBeInTheDocument();
-  });
-
-  it('【续 91】clipboard 抛错 + execCommand 也失败 → 显示「复制失败」(不静默)', async () => {
-    const writeText = vi.fn().mockRejectedValue(new Error('denied'));
-    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
-    document.execCommand = vi.fn().mockReturnValue(false);
-    render(<ServerHeroCard name="T" isRefreshing={false} onRefresh={() => {}} />);
-
-    fireEvent.click(screen.getByRole('button', { name: '显示外网地址' }));
-    fireEvent.click(screen.getByTitle('点击复制'));
-
-    expect(await screen.findByText('复制失败')).toBeInTheDocument();
-    expect(screen.queryByText('已复制')).not.toBeInTheDocument();
+    expect(screen.queryByText('••••••••')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '显示外网地址' })).not.toBeInTheDocument();
+    expect(screen.queryByTitle('点击复制')).not.toBeInTheDocument();
+    expect(screen.queryByText(/外网地址/)).not.toBeInTheDocument();
   });
 });

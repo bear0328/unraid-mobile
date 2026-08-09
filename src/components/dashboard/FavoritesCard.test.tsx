@@ -82,4 +82,16 @@ describe('FavoritesCard', () => {
     await userEvent.click(removeBtn);
     expect(screen.queryByText('Nginx')).not.toBeInTheDocument();
   });
+
+  it('【续 95 P1-2】移除按钮常态可见(无 opacity-0,触屏无 hover 也能点)', () => {
+    addFavorite({ kind: 'container', value: 'nginx', label: 'Nginx' });
+    render(
+      <MemoryRouter>
+        <FavoritesCard />
+      </MemoryRouter>
+    );
+    const removeBtn = screen.getByLabelText(/移除收藏 Nginx/);
+    expect(removeBtn.className).not.toMatch(/\bopacity-0\b/);
+    expect(removeBtn.className).toContain('opacity-40');
+  });
 });

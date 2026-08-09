@@ -130,11 +130,18 @@ function DiskCard({ disks, cacheAgeMs, onRefreshDisks, isRefreshing, spinMap }: 
   }
 
   // 【续 90】阵列平均使用率(data 盘),并入标题右侧(原 ArrayCard 的唯一增量信息)
+  // 【续 97 P1-2】算术平均 → 按容量加权(Σused/Σsize):大小盘混插时算术平均失真
+  // (1TB 90% + 4TB 10% 算术得 50%,加权实际 26%);Number()||0 guard 脏数据,
+  // totalSize=0(全 0 size 脏数据)→ null 不显示
   const dataDisks = disks.filter((d) => d.type === 'data');
-  const avgUsage =
-    dataDisks.length > 0
-      ? dataDisks.reduce((acc, d) => acc + getDiskUsage(d), 0) / dataDisks.length
-      : null;
+  const { totalUsed, totalSize } = dataDisks.reduce(
+    (acc, d) => ({
+      totalUsed: acc.totalUsed + (Number(d.used) || 0),
+      totalSize: acc.totalSize + (Number(d.size) || 0),
+    }),
+    { totalUsed: 0, totalSize: 0 }
+  );
+  const avgUsage = totalSize > 0 ? (totalUsed / totalSize) * 100 : null;
   const shownDisks = expanded ? disks : disks.slice(0, COLLAPSE_THRESHOLD);
 
   return (

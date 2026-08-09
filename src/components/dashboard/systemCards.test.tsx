@@ -56,6 +56,16 @@ describe('CpuCard', () => {
     expect(screen.getByText(/8 核心 \/ 16 线程/)).toBeInTheDocument();
   });
 
+  it('【续 95 P1-1】historyWindowMin=120 → 趋势 label 显示「约 120 分钟」', () => {
+    render(<CpuCard systemInfo={makeSystem()} history={[10, 20, 30]} historyWindowMin={120} />);
+    expect(screen.getByText('趋势 (约 120 分钟)')).toBeInTheDocument();
+  });
+
+  it('【续 95 P1-1】不传 historyWindowMin → 趋势 label 默认 10 分钟', () => {
+    render(<CpuCard systemInfo={makeSystem()} history={[10, 20, 30]} />);
+    expect(screen.getByText('趋势 (约 10 分钟)')).toBeInTheDocument();
+  });
+
   it('cpuInfo 缺失 → 不显示品牌行', () => {
     render(<CpuCard systemInfo={makeSystem({ cpu: 50 })} />);
     // 没有 brand 文本
@@ -156,6 +166,11 @@ describe('MemoryCard', () => {
     render(<MemoryCard systemInfo={makeSystem({ memory: 60 })} />);
     // 【续 90】60.0% 只在顶部大数字显示(进度条行去重)
     expect(screen.getAllByText('60.0%').length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('【续 95 P1-1】historyWindowMin=60 → 趋势 label 显示「约 60 分钟」,缺省 10 分钟', () => {
+    render(<MemoryCard systemInfo={makeSystem()} history={[10, 20, 30]} historyWindowMin={60} />);
+    expect(screen.getByText('趋势 (约 60 分钟)')).toBeInTheDocument();
   });
 
   it('memory > 90 → 红色样式', () => {

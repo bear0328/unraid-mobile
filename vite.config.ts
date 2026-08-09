@@ -29,8 +29,28 @@ const dashboardPreloadPlugin: Plugin = {
   },
 }
 
+// 【续 93】构建后把 dist/sw.js 的 __BUILD_HASH__ 替换为入口 bundle hash:
+// 每次 build 产物变化 → sw.js 字节变化 → 浏览器 SW 更新检查发现新版
+// (配合 default.conf 的 sw.js no-cache 与 main.tsx 的 controllerchange 自动刷新)
+const swVersionPlugin: Plugin = {
+  name: 'sw-build-hash',
+  apply: 'build',
+  closeBundle() {
+    const indexPath = path.join(process.cwd(), 'dist', 'index.html')
+    const swPath = path.join(process.cwd(), 'dist', 'sw.js')
+    if (!fs.existsSync(indexPath) || !fs.existsSync(swPath)) return
+    const html = fs.readFileSync(indexPath, 'utf-8')
+    const match = html.match(/index-([A-Za-z0-9_-]+)\.js/)
+    if (!match) return
+    let sw = fs.readFileSync(swPath, 'utf-8')
+    if (!sw.includes('__BUILD_HASH__')) return
+    sw = sw.replaceAll('__BUILD_HASH__', match[1])
+    fs.writeFileSync(swPath, sw)
+  },
+}
+
 export default defineConfig({
-  plugins: [react(), dashboardPreloadPlugin],
+  plugins: [react(), dashboardPreloadPlugin, swVersionPlugin],
   server: {
     host: true,
     port: 5173

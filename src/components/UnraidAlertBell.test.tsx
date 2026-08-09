@@ -68,15 +68,72 @@ describe('UnraidAlertBell', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('点击 → 新窗打开 {serverUrl}/Tools/Notifications(尾部斜杠已去)', async () => {
-    mockGetServerMeta.mockResolvedValue(metaWith([makeAlert('ALERT')]));
+  it('【续 95 P1-3】点击铃铛 → 打开本地告警列表弹层(不直接跳 webGui)', async () => {
+    mockGetServerMeta.mockResolvedValue(
+      metaWith([
+        makeAlert('ALERT', 'a1'),
+        { ...makeAlert('WARNING', 'w1'), link: '/Tools/Notifications?x=1' },
+      ])
+    );
     render(<UnraidAlertBell />);
     const btn = await screen.findByLabelText('unRAID 告警');
     fireEvent.click(btn);
+    // 弹层打开,列表渲染 2 条,级别徽章正确
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByText('unRAID 告警 (2)')).toBeInTheDocument();
+    expect(screen.getByText('ALERT')).toBeInTheDocument();
+    expect(screen.getByText('WARNING')).toBeInTheDocument();
+    expect(screen.getByText('a1')).toBeInTheDocument();
+    expect(screen.getByText('s-w1')).toBeInTheDocument();
+    // 点击瞬间不跳 webGui
+    expect(openSpy).not.toHaveBeenCalled();
+  });
+
+  it('【续 95 P1-3】带 link 的告警 → 渲染为新窗 <a>,href 拼 serverUrl', async () => {
+    mockGetServerMeta.mockResolvedValue(
+      metaWith([{ ...makeAlert('ALERT', 'a1'), link: '/Tools/Notifications?x=1' }])
+    );
+    render(<UnraidAlertBell />);
+    fireEvent.click(await screen.findByLabelText('unRAID 告警'));
+    const link = await screen.findByRole('link', { name: /a1/ });
+    expect(link).toHaveAttribute('href', 'http://nas.local:8001/Tools/Notifications?x=1');
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'));
+  });
+
+  it('【续 95 P1-3】点「在 webGui 查看全部」→ 新窗打开 {serverUrl}/Tools/Notifications(尾部斜杠已去)', async () => {
+    mockGetServerMeta.mockResolvedValue(metaWith([makeAlert('ALERT')]));
+    render(<UnraidAlertBell />);
+    fireEvent.click(await screen.findByLabelText('unRAID 告警'));
+    fireEvent.click(await screen.findByText('在 webGui 查看全部'));
     expect(openSpy).toHaveBeenCalledWith(
       'http://nas.local:8001/Tools/Notifications',
       '_blank',
       'noopener,noreferrer'
     );
+  });
+
+  it('【续 95 P1-3】点头部 × → 弹层消失', async () => {
+    mockGetServerMeta.mockResolvedValue(metaWith([makeAlert('ALERT')]));
+    render(<UnraidAlertBell />);
+    fireEvent.click(await screen.findByLabelText('unRAID 告警'));
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    // getByLabelText 只匹配 aria-label(头部 ×),不匹配底部「关闭」文字按钮
+    fireEvent.click(screen.getByLabelText('关闭'));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('【续 95-1】ModalFooter 有「关闭」按钮,点击 → 弹层消失', async () => {
+    mockGetServerMeta.mockResolvedValue(metaWith([makeAlert('ALERT')]));
+    render(<UnraidAlertBell />);
+    fireEvent.click(await screen.findByLabelText('unRAID 告警'));
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    // 头部 ×(aria-label)与底部「关闭」(文字)可访问名同为「关闭」,按文字内容区分底部按钮
+    const footerClose = screen
+      .getAllByRole('button', { name: '关闭' })
+      .find((b) => b.textContent === '关闭');
+    expect(footerClose).toBeDefined();
+    fireEvent.click(footerClose!);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 });

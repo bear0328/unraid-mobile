@@ -20,9 +20,11 @@ interface MemoryCardProps {
   history?: number[];
   /** 【续 45.7 2026-07-01】dashboard 数据 cache age(ms),>30min 显示 staleness 提示 */
   cacheAgeMs?: number | null;
+  /** 【续 95 P1-1】趋势图实际时间窗口(分钟)= 采样点数 × 轮询间隔,缺省 10 */
+  historyWindowMin?: number;
 }
 
-function MemoryCard({ systemInfo, history, cacheAgeMs }: MemoryCardProps) {
+function MemoryCard({ systemInfo, history, cacheAgeMs, historyWindowMin }: MemoryCardProps) {
   const [memoryCollapsed, setMemoryCollapsed] = useState(true);
   const memory = systemInfo?.memory || 0;
   // 【续 68】大数字变化时 300ms 平滑过渡(首帧直接终值,reduced-motion 关闭)
@@ -73,7 +75,7 @@ function MemoryCard({ systemInfo, history, cacheAgeMs }: MemoryCardProps) {
 
       <ProgressBar label="" value={memory} color={memColor} />
 
-      {/* 【续 32-7】趋势折线图(过去 10 分钟) */}
+      {/* 【续 32-7】趋势折线图;【续 95 P1-1】窗口分钟数跟随轮询间隔(原写死 10) */}
       {history && history.length > 1 && (
         <div className="mt-2 -mb-1">
           <MiniSparkline
@@ -81,7 +83,7 @@ function MemoryCard({ systemInfo, history, cacheAgeMs }: MemoryCardProps) {
             color="#a855f7"
             fillColor="rgba(168, 85, 247, 0.15)"
             height={40}
-            label="趋势 (10 分钟)"
+            label={`趋势 (约 ${historyWindowMin ?? 10} 分钟)`}
             current={`${memory.toFixed(0)}%`}
           />
         </div>

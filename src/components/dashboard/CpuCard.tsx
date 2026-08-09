@@ -25,9 +25,11 @@ interface CpuCardProps {
   history?: number[];
   /** 【续 45.7 2026-07-01】dashboard 数据 cache age(ms),>30min 显示 staleness 提示 */
   cacheAgeMs?: number | null;
+  /** 【续 95 P1-1】趋势图实际时间窗口(分钟)= 采样点数 × 轮询间隔,缺省 10 */
+  historyWindowMin?: number;
 }
 
-function CpuCard({ systemInfo, history, cacheAgeMs }: CpuCardProps) {
+function CpuCard({ systemInfo, history, cacheAgeMs, historyWindowMin }: CpuCardProps) {
   const [coresCollapsed, setCoresCollapsed] = useState(true);
   const pro = usePro();
   const cpu = systemInfo?.cpu || 0;
@@ -109,7 +111,7 @@ function CpuCard({ systemInfo, history, cacheAgeMs }: CpuCardProps) {
 
       <ProgressBar label="" value={cpu} color={cpuColor} />
 
-      {/* 【续 32-7】趋势折线图(过去 10 分钟) */}
+      {/* 【续 32-7】趋势折线图;【续 95 P1-1】窗口分钟数跟随轮询间隔(原写死 10) */}
       {history && history.length > 1 && (
         <div className="mt-2 -mb-1">
           <MiniSparkline
@@ -117,7 +119,7 @@ function CpuCard({ systemInfo, history, cacheAgeMs }: CpuCardProps) {
             color="#3b82f6"
             fillColor="rgba(59, 130, 246, 0.15)"
             height={40}
-            label="趋势 (10 分钟)"
+            label={`趋势 (约 ${historyWindowMin ?? 10} 分钟)`}
             current={`${cpu.toFixed(0)}%`}
           />
         </div>
