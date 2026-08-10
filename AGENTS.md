@@ -45,6 +45,6 @@
 
 ## 3. 当前项目状态（2026-08-10，供参考）
 
-- 当前版本 **v1.2.0**(GitHub commit `21b8a98` + tag;Docker Hub `:1.2.0`/`:latest` 已推送；digest `sha256:f8658c723301123e2e1469d66f5a4a761d1afd4bb211e4281dd420d71542a403`）。
-- dev(3998)/prod(3999) 均运行 bundle `index-J1vZ0F1u.js`。
+- 当前版本 **v1.2.1**(GitHub commit `e97de1c` + tag;Docker Hub `:1.2.1`/`:latest` 已推送；digest `sha256:458c04aca2db2de79ffa0123d6a23b707d4a91e2ea9a057157e7655dd5e3f6f4`）。
+- dev(3998)/prod(3999) 均运行 bundle `index-RoB7ta90.js`。
 - 最新状态以 `DEV_PROGRESS.md` 头部「最后更新」行为准，本段只作快照。
