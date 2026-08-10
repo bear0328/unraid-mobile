@@ -85,7 +85,8 @@ export default function ImageLightbox({
     let objUrl: string | null = null;
     setImgUrl(null);
     setImgError(null);
-    davFetch(urlFor(item.path))
+    // 【续 103 P1-4】大图放宽到 120s(默认 15s 外网慢链路必超时)
+    davFetch(urlFor(item.path), {}, 120_000)
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.blob();

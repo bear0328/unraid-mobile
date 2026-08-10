@@ -46,14 +46,27 @@ const METHOD_MAP: Partial<Record<string, AuditAction>> = {
 };
 
 // 包装 fetch：自动加 Basic auth header + 401 检错友好提示 + 危险方法审计
-export async function davFetch(url: string, options: RequestInit = {}): Promise<Response> {
+// 【续 103 P1-4】timeoutMs 可调:默认 15s(列表/小请求轻快);
+// 大文件下载/图片预览/文本编辑传 120s,避免外网慢链路必超时
+export async function davFetch(
+  url: string,
+  options: RequestInit = {},
+  timeoutMs: number = DAV_TIMEOUT_MS
+): Promise<Response> {
   const method = (options.method || 'GET').toUpperCase();
   const auditAction = METHOD_MAP[method];
 
   // 【续 42.5.3】用 AbortSignal.timeout() — 原生计时器,不受 setTimeout throttle 影响
   // 浏览器支持:Chrome 103+ / Firefox 100+ / Safari 15.4+
-  const timeoutSignal = AbortSignal.timeout(DAV_TIMEOUT_MS);
-  const signal = options.signal ? composeSignals(options.signal, timeoutSignal) : timeoutSignal;
+  const signals: AbortSignal[] = [];
+  if (options.signal) signals.push(options.signal);
+  if (timeoutMs > 0) signals.push(AbortSignal.timeout(timeoutMs));
+  const signal =
+    signals.length === 0
+      ? undefined
+      : signals.length === 1
+        ? signals[0]
+        : composeSignals(...signals);
 
   let response: Response;
   try {
@@ -68,7 +81,7 @@ export async function davFetch(url: string, options: RequestInit = {}): Promise<
   } catch (err) {
     const anyErr = err as { name?: string; message?: string } | null | undefined;
     if (anyErr?.name === 'TimeoutError' || anyErr?.name === 'AbortError') {
-      throw new Error(`WebDAV 请求超时 (${DAV_TIMEOUT_MS / 1000}s)。请检查 nginx / 网络是否可达。`);
+      throw new Error(`WebDAV 请求超时 (${Math.round(timeoutMs / 1000)}s)。请检查 nginx / 网络是否可达。`);
     }
     throw err;
   }

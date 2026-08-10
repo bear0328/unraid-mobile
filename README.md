@@ -56,7 +56,7 @@ Open `http://<unraid-IP>:3999`, go to "Settings" and fill in:
 > The API key lives only in your own browser's localStorage and is **never** written to any file on
 > the server.
 
-Image tags: `latest` (newest stable) / `1.2.0` (pinned version). linux/amd64 only (unRAID platform).
+Image tags: `latest` (newest stable) / `1.2.1` (pinned version). linux/amd64 only (unRAID platform).
 
 ### Alternative: unRAID Docker UI template
 
@@ -143,9 +143,9 @@ Prerequisite: the **compose.manager** plugin installed from Community Applicatio
 # Run as root on the unRAID host
 mkdir -p /tmp/um-install && cd /tmp/um-install
 curl -fsSL -o install-compose-api.sh \
-  https://raw.githubusercontent.com/bear0328/unraid-mobile/v1.2.0/compose-api/install-compose-api.sh
+  https://raw.githubusercontent.com/bear0328/unraid-mobile/v1.2.1/compose-api/install-compose-api.sh
 curl -fsSL -o api.php \
-  https://raw.githubusercontent.com/bear0328/unraid-mobile/v1.2.0/compose-api/api.php
+  https://raw.githubusercontent.com/bear0328/unraid-mobile/v1.2.1/compose-api/api.php
 bash install-compose-api.sh
 ```
 
@@ -187,7 +187,26 @@ docker build -t unraid-mobile .
 | Start/stop | ✅ | mutation |
 | Logs / memory / CPU / disks / network / passthrough / snapshots | ✅ (Pro) | Read from libvirt XML via compose-api / api.php (no such GraphQL fields) |
 
+## Changelog
+
+Full history in [CHANGELOG.md](CHANGELOG.md).
+
+### v1.2.1 (2026-08-10)
+
+- Fix Shares file manager: `#` filenames truncated by URL fragment, and Chinese rename/move/copy failures (unified DAV path encoding)
+- Fix Shares root manual refresh being a no-op within the 30-minute cache window
+- Fix Shares large-file download/preview killed by the 15s timeout (raised to 120s)
+- Fix Shares share links double-encoded, causing 404 for Chinese paths
+- Fix Safari date parsing in file listings possibly producing NaN
+- Fix Settings server URL with spaces/missing protocol/invalid format causing broken saves (unified normalization and validation)
+- Fix the Settings "About" version being hardcoded for a long time (now injected at build time from package.json)
+
 ## FAQ
+
+**Q: Added multiple servers, but switching shows the same data or 401?**
+Known limitation: switching servers currently only swaps the API key — data requests still go
+through this container's same-origin proxy (i.e. the unRAID host running this container).
+Single-server usage is unaffected; direct cross-host connections are on the roadmap.
 
 **Q: Where can I ask questions or give feedback?**
 Join the Telegram group: <https://t.me/+l1iA02ZkOK1lNmEx>, or open a GitHub issue.

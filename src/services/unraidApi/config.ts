@@ -40,6 +40,30 @@ function clearServerScopedCaches(): void {
   }
 }
 
+// 【续 104 P0-2 2026-08-10】serverUrl 归一化 + 校验
+// 根因:续 92 prod 事故 — settings.json 落进 "http:// 192.168.6.140"(协议后空格),
+// 三条保存路径(Settings/ServerList/PUT settings.json)都原样落盘,无任何清洗。
+// 规则:trim → 缺协议补 http:// → 去协议后空白 → 去尾斜杠 → new URL 校验
+// (必须 http/https 且有 hostname)。返回:'' = 未设置(允许);null = 非法(调用方拒绝保存)
+export function normalizeServerUrl(input: string): string | null {
+  const trimmed = input.trim();
+  if (!trimmed) return ''; // 未设置状态,允许
+  // 缺协议补 http://(如 192.168.1.100 → http://192.168.1.100)
+  let s = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(trimmed) ? trimmed : `http://${trimmed}`;
+  // 协议后空格(续 92 事故形态):"http:// 192.168.6.140" → "http://192.168.6.140"
+  s = s.replace(/^(https?:\/\/)\s+/i, '$1');
+  // 去尾斜杠
+  s = s.replace(/\/+$/, '');
+  try {
+    const u = new URL(s);
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
+    if (!u.hostname) return null;
+    return s;
+  } catch {
+    return null;
+  }
+}
+
 export interface Server {
   id: string;
   name: string;
@@ -144,7 +168,8 @@ export function addServer(input: Omit<Server, 'id'> & { apiKey?: string }): Serv
   const servers = getServers();
   // 【续 50 A4】apiKey 不铺进 server 对象(servers 列表会被备份导出,UI 承诺不含密钥)
   const { apiKey, ...fields } = input;
-  const srv: Server = { ...fields, id: nextId() };
+  // 【续 104 P0-2】入口归一化:非法值兜底 ''(UI 层已先校验拒绝,这里防御脏数据)
+  const srv: Server = { ...fields, serverUrl: normalizeServerUrl(fields.serverUrl) ?? '', id: nextId() };
   if (apiKey && typeof localStorage !== 'undefined') {
     localStorage.setItem(`${API_KEY_KEY}-${srv.id}`, apiKey);
   }
@@ -169,6 +194,10 @@ export function updateServer(
   const prev = servers.find((s) => s.id === id);
   // 【续 50 A4】同 addServer:apiKey 不铺进 server 对象
   const { apiKey, ...fields } = patch;
+  // 【续 104 P0-2】serverUrl 变更先归一化;非法值保留旧值,不写脏数据
+  if (fields.serverUrl !== undefined) {
+    fields.serverUrl = normalizeServerUrl(fields.serverUrl) ?? prev?.serverUrl ?? '';
+  }
   const next = servers.map((s) => (s.id === id ? { ...s, ...fields } : s));
   writeServers(next);
   if (apiKey && typeof localStorage !== 'undefined') {
@@ -179,11 +208,11 @@ export function updateServer(
       localStorage.setItem(API_KEY_KEY, apiKey);
     }
   }
-  // 同步 active server 的旧格式 LS
-  if (id === getActiveServerId() && patch.serverUrl) {
-    localStorage.setItem(SERVER_URL_KEY, patch.serverUrl);
+  // 同步 active server 的旧格式 LS(用归一化后的值)
+  if (id === getActiveServerId() && fields.serverUrl) {
+    localStorage.setItem(SERVER_URL_KEY, fields.serverUrl);
     // 【续 50 B3】active 服务器地址变更 → 清服务器维度 cache,防串旧服务器数据
-    if (prev && prev.serverUrl !== patch.serverUrl) {
+    if (prev && prev.serverUrl !== fields.serverUrl) {
       clearServerScopedCaches();
     }
   }
@@ -250,20 +279,22 @@ export function subscribeServersChange(callback: () => void): () => void {
 
 export const saveApiConfig = (config: ApiConfig): void => {
   const prevUrl = typeof localStorage !== 'undefined' ? localStorage.getItem(SERVER_URL_KEY) : null;
-  if (config.serverUrl) {
+  // 【续 104 P0-2】归一化;非法值视为空(跳过写入,不落脏数据)
+  const serverUrl = config.serverUrl ? (normalizeServerUrl(config.serverUrl) ?? '') : '';
+  if (serverUrl) {
     // 看是否已有 active server,有就更新 serverUrl,没有就创建
     const activeId = getActiveServerId();
     if (activeId) {
       const servers = getServers();
       const active = servers.find((s) => s.id === activeId);
       if (active) {
-        updateServer(activeId, { serverUrl: config.serverUrl });
+        updateServer(activeId, { serverUrl });
       } else {
-        localStorage.setItem(SERVER_URL_KEY, config.serverUrl);
+        localStorage.setItem(SERVER_URL_KEY, serverUrl);
       }
     } else {
       // 旧格式:无 servers 列表,直接写旧 key
-      localStorage.setItem(SERVER_URL_KEY, config.serverUrl);
+      localStorage.setItem(SERVER_URL_KEY, serverUrl);
     }
   }
   if (config.apiKey) {
@@ -276,15 +307,17 @@ export const saveApiConfig = (config: ApiConfig): void => {
     }
   }
   // 【续 50 B3】serverUrl 实际变更 → 清服务器维度 cache(防新地址显示旧服务器数据)
-  if (config.serverUrl && prevUrl && prevUrl !== config.serverUrl) {
+  if (serverUrl && prevUrl && prevUrl !== serverUrl) {
     clearServerScopedCaches();
   }
   emitApiConfigChange();
 };
 
 export const getApiConfig = (): ApiConfig | null => {
-  const serverUrl = localStorage.getItem(SERVER_URL_KEY);
+  const rawUrl = localStorage.getItem(SERVER_URL_KEY);
   const apiKey = localStorage.getItem(API_KEY_KEY);
+  // 【续 104 P0-2】读侧防御:历史脏数据(如协议后空格)归一化;非法视为未配置
+  const serverUrl = rawUrl ? (normalizeServerUrl(rawUrl) ?? '') : rawUrl;
   if (!serverUrl || !apiKey) return null;
   return { serverUrl, apiKey };
 };
@@ -305,7 +338,11 @@ export async function loadConfigFromFile(): Promise<ApiConfig | null> {
     // 只有 serverUrl 也返回(apiKey 给空串):调用方据此预填设置页,
     // App 冷启动判 needsSetup 时再区分有没有 apiKey
     if (data && data.serverUrl) {
-      return { serverUrl: data.serverUrl, apiKey: data.apiKey || '' };
+      // 【续 104 P0-2】settings.json 可能落过脏数据(续 92 空格事故),读入即归一化;
+      // 非法值视为无配置,返回 null 走 needsSetup
+      const serverUrl = normalizeServerUrl(String(data.serverUrl));
+      if (!serverUrl) return null;
+      return { serverUrl, apiKey: data.apiKey || '' };
     }
   } catch {
     // ignore

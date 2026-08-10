@@ -11,6 +11,7 @@ import {
   updateServer,
   setActiveServer,
   getServers,
+  normalizeServerUrl,
 } from './config';
 
 const SERVER_KEY = 'unraid-mobile-server-url';
@@ -125,11 +126,89 @@ describe('config', () => {
   describe('clearApiConfig', () => {
     it('同时清 serverUrl + apiKey 两个 LS key', () => {
       saveApiConfig({ serverUrl: 'a', apiKey: 'b' });
-      expect(localStorage.getItem(SERVER_KEY)).toBe('a');
+      // 【续 104 P0-2】写入前归一化:'a' 缺协议 → 补 http://
+      expect(localStorage.getItem(SERVER_KEY)).toBe('http://a');
       expect(localStorage.getItem(API_KEY_KEY)).toBe('b');
       clearApiConfig();
       expect(localStorage.getItem(SERVER_KEY)).toBeNull();
       expect(localStorage.getItem(API_KEY_KEY)).toBeNull();
+    });
+  });
+
+  // 【续 104 P0-2】serverUrl 归一化 + 校验(续 92 空格事故根因修复)
+  describe('normalizeServerUrl(续 104)', () => {
+    it('正常 URL 原样返回', () => {
+      expect(normalizeServerUrl('http://192.168.1.100')).toBe('http://192.168.1.100');
+      expect(normalizeServerUrl('https://nas.local:8443')).toBe('https://nas.local:8443');
+    });
+
+    it('首尾空白 trim', () => {
+      expect(normalizeServerUrl('  http://nas.local  ')).toBe('http://nas.local');
+    });
+
+    it('协议后空格去掉(续 92 事故形态)', () => {
+      expect(normalizeServerUrl('http:// 192.168.6.140')).toBe('http://192.168.6.140');
+      expect(normalizeServerUrl('https://  nas.local')).toBe('https://nas.local');
+    });
+
+    it('缺协议补 http://', () => {
+      expect(normalizeServerUrl('192.168.1.100')).toBe('http://192.168.1.100');
+      expect(normalizeServerUrl('nas.local:3998')).toBe('http://nas.local:3998');
+    });
+
+    it('尾部斜杠去掉', () => {
+      expect(normalizeServerUrl('http://nas.local/')).toBe('http://nas.local');
+      expect(normalizeServerUrl('http://nas.local///')).toBe('http://nas.local');
+    });
+
+    it('空串/纯空格 → 返 ""(未设置状态,允许)', () => {
+      expect(normalizeServerUrl('')).toBe('');
+      expect(normalizeServerUrl('   ')).toBe('');
+    });
+
+    it('非法协议 → null', () => {
+      expect(normalizeServerUrl('ftp://nas.local')).toBeNull();
+    });
+
+    it('无 hostname / 残缺 URL → null', () => {
+      expect(normalizeServerUrl('http://')).toBeNull();
+      expect(normalizeServerUrl('http:///')).toBeNull();
+    });
+
+    it('大小写协议可通过校验', () => {
+      expect(normalizeServerUrl('HTTP://NAS.LOCAL')).toBe('HTTP://NAS.LOCAL');
+    });
+
+    it('saveApiConfig 落盘前归一化', () => {
+      saveApiConfig({ serverUrl: 'http:// 192.168.6.140/', apiKey: 'k' });
+      expect(localStorage.getItem(SERVER_KEY)).toBe('http://192.168.6.140');
+    });
+
+    it('saveApiConfig 非法 URL → 跳过写入', () => {
+      saveApiConfig({ serverUrl: 'ftp://x', apiKey: 'k' });
+      expect(localStorage.getItem(SERVER_KEY)).toBeNull();
+    });
+
+    it('getApiConfig 读侧归一化历史脏数据', () => {
+      localStorage.setItem(SERVER_KEY, 'http:// 192.168.6.140');
+      localStorage.setItem(API_KEY_KEY, 'k');
+      expect(getApiConfig()).toEqual({ serverUrl: 'http://192.168.6.140', apiKey: 'k' });
+    });
+
+    it('loadConfigFromFile 读到脏 serverUrl → 归一化;非法 → null', async () => {
+      const fetchSpy = vi.spyOn(global, 'fetch');
+      fetchSpy.mockResolvedValueOnce(
+        new Response(JSON.stringify({ serverUrl: 'http:// 192.168.6.140' }), { status: 200 })
+      );
+      await expect(loadConfigFromFile()).resolves.toEqual({
+        serverUrl: 'http://192.168.6.140',
+        apiKey: '',
+      });
+      fetchSpy.mockResolvedValueOnce(
+        new Response(JSON.stringify({ serverUrl: 'ftp://x' }), { status: 200 })
+      );
+      await expect(loadConfigFromFile()).resolves.toBeNull();
+      fetchSpy.mockRestore();
     });
   });
 

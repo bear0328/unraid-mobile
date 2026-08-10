@@ -38,17 +38,22 @@ vi.mock('../services', async () => {
 import { saveApiConfig } from '../services';
 import { MemoryRouter } from 'react-router-dom';
 import Settings from './Settings';
+import ToastContainer from '../components/ToastContainer';
+// 【续 104 P1-2】版本号与 package.json 单一来源断言
+import { version } from '../../package.json';
 // 【续 55 商业化】ProGate 跳设置页依赖 Router;测试直接置 license 状态控制 pro
 import { __setLicenseStateForTest, __resetLicenseForTest } from '../services/license';
 
 const DAV_KEY = 'unraid-mobile-dav-password';
 const LOG_KEY = 'unraid-mobile-log-password';
 
-// Settings 用了 useLocation(续 55 focusLicense 滚动),必须包 Router
+// Settings 用了 useLocation(续 55 focusLicense 滚动),必须包 Router;
+// ToastContainer 挂载后 toast.error/success 才能在断言中可见(role="alert")
 const renderSettings = () =>
   render(
     <MemoryRouter>
       <Settings />
+      <ToastContainer />
     </MemoryRouter>
   );
 
@@ -106,6 +111,43 @@ describe('Settings 页面', () => {
     );
     expect(putBody).toEqual({ serverUrl: 'http://nas:3998' });
     expect(putBody).not.toHaveProperty('apiKey');
+  });
+
+  // ==== 续 104 P0-2:serverUrl 归一化 + 校验 ====
+  it('无效服务器地址(非法协议)→ toast.error + 不保存不 PUT', async () => {
+    const user: UserEvent = userEvent.setup();
+    renderSettings();
+    await user.type(screen.getByPlaceholderText('http://192.168.1.100'), 'ftp://nas');
+    await user.type(screen.getByPlaceholderText('输入您的 unRAID API 密钥'), 'my-key-123');
+    await user.click(screen.getByRole('button', { name: /保存设置/ }));
+    expect(await screen.findByText('服务器地址格式无效')).toBeInTheDocument();
+    expect(saveApiConfig).not.toHaveBeenCalled();
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('serverUrl 带协议后空格 + 尾斜杠(续 92 事故形态)→ 保存时自动归一化', async () => {
+    const user: UserEvent = userEvent.setup();
+    renderSettings();
+    await user.type(screen.getByPlaceholderText('http://192.168.1.100'), 'http:// 192.168.6.140/');
+    await user.type(screen.getByPlaceholderText('输入您的 unRAID API 密钥'), 'my-key-123');
+    await user.click(screen.getByRole('button', { name: /保存设置/ }));
+    await waitFor(() => {
+      expect(saveApiConfig).toHaveBeenCalledWith({
+        serverUrl: 'http://192.168.6.140',
+        apiKey: 'my-key-123',
+      });
+    });
+    // PUT 出去的也是归一化后的值,settings.json 不再落脏数据
+    const putBody = JSON.parse(
+      (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][1].body as string
+    );
+    expect(putBody).toEqual({ serverUrl: 'http://192.168.6.140' });
+  });
+
+  // ==== 续 104 P1-2:版本号构建注入 ====
+  it('关于区显示 package.json 注入的版本号(不再硬编码 v0.1.0)', () => {
+    renderSettings();
+    expect(screen.getByText(`unRAID Mobile v${version}`)).toBeInTheDocument();
   });
 
   it('点击显示密钥按钮切换 API Key input type:password → text', async () => {

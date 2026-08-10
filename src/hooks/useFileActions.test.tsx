@@ -23,6 +23,7 @@ import * as useToastModule from './useToast';
 import * as davAuth from '../components/shares/davAuth';
 import { useFileActions, type UseFileActionsArgs } from './useFileActions';
 import type { FileItem } from '../components/shares/davAuth';
+import { encodeDavPath } from '../utils/davPath';
 
 type ToastApi = {
   success: ReturnType<typeof vi.fn>;
@@ -680,5 +681,90 @@ describe('useFileActions / openers', () => {
       result.current.openMove(makeItem());
     });
     expect(result.current.showMoveCopy?.mode).toBe('move');
+  });
+});
+
+// 【续 103 P0-1/P0-2】DAV 出口编码:paths.toDavPath 用真实 encodeDavPath 实现,
+// 验证中文/特殊字符经编码后进入 URL 与 MOVE Destination header
+// (原实现 Destination 含中文直接抛 ByteString TypeError;# 文件名被 fragment 截断)
+describe('useFileActions / DAV 出口编码(续 103)', () => {
+  const encArgs = (): UseFileActionsArgs => ({
+    ...baseArgs(),
+    paths: { toDavPath: (p: string) => '/dav/' + encodeDavPath(p) },
+  });
+
+  it('重命名为中文名 → Destination 为编码态,不抛 ByteString', async () => {
+    davFetchSpy.mockResolvedValueOnce({
+      ok: true,
+      status: 204,
+      text: async () => '',
+      blob: async () => new Blob(),
+    });
+    const { result } = renderHook(() => useFileActions(encArgs()));
+    act(() => {
+      result.current.openRename(makeItem({ name: 'test.txt', path: '/share/test.txt' }));
+    });
+    act(() => {
+      result.current.setRenameName('中文名.txt');
+    });
+    await act(async () => {
+      await result.current.handleRename();
+    });
+    expect(davFetchSpy).toHaveBeenCalledWith(
+      '/dav/share/test.txt',
+      expect.objectContaining({
+        method: 'MOVE',
+        headers: { Destination: '/dav/share/%E4%B8%AD%E6%96%87%E5%90%8D.txt' },
+      })
+    );
+  });
+
+  it('新建文件夹名含 # → MKCOL URL 编码为 %23,不被 fragment 截断', async () => {
+    davFetchSpy.mockResolvedValueOnce({
+      ok: true,
+      status: 201,
+      text: async () => '',
+      blob: async () => new Blob(),
+    });
+    const { result } = renderHook(() => useFileActions(encArgs()));
+    act(() => {
+      result.current.openNewFolder();
+    });
+    act(() => {
+      result.current.setNewFolderName('a#b');
+    });
+    await act(async () => {
+      await result.current.handleCreateFolder();
+    });
+    expect(davFetchSpy).toHaveBeenCalledWith(
+      '/dav/share/a%23b/',
+      expect.objectContaining({ method: 'MKCOL' })
+    );
+  });
+
+  it('删除原始态路径含 % 的文件 → MOVE Destination 编码为 %25', async () => {
+    mockDialog.confirm.mockResolvedValueOnce(true);
+    davFetchSpy.mockResolvedValue({
+      ok: true,
+      status: 204,
+      text: async () => '',
+      blob: async () => new Blob(),
+    });
+    const { result } = renderHook(() => useFileActions(encArgs()));
+    await act(async () => {
+      await result.current.handleDelete(
+        makeItem({ name: '100%.txt', path: '/share/100%.txt' })
+      );
+    });
+    // 第一次 MKCOL .trash,第二次 MOVE 到 .trash/<ts>_100%25.txt
+    const moveCall = davFetchSpy.mock.calls.find(
+      (c) => (c[1] as RequestInit)?.method === 'MOVE'
+    );
+    expect(moveCall?.[0]).toBe('/dav/share/100%25.txt');
+    expect((moveCall?.[1] as RequestInit).headers).toEqual(
+      expect.objectContaining({
+        Destination: expect.stringMatching(/^\/dav\/\.trash\/\d+_100%25\.txt$/),
+      })
+    );
   });
 });

@@ -254,7 +254,8 @@ export function useFileActions({
   const handleDownload = useCallback(
     async (item: FileItem) => {
       try {
-        const response = await davFetch(paths.toDavPath(item.path));
+        // 【续 103 P1-4】整文件下载放宽到 120s(默认 15s 外网大文件必超时)
+        const response = await davFetch(paths.toDavPath(item.path), {}, 120_000);
         if (!response.ok) throw new Error('Download failed');
         const blob = await response.blob();
         const url = URL.createObjectURL(blob);

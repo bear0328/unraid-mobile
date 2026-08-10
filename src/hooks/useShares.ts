@@ -9,6 +9,8 @@ import { getApiConfig, UnraidApiService } from '../services';
 import { FileItem, davFetch } from '../components/shares/davAuth';
 import { parseAutoindexHtml } from '../components/shares/parseAutoindex';
 import { markRefreshed } from '../utils/lastRefresh';
+import { invalidateNamespace } from '../services/unraidApi/cache';
+import { encodeDavPath } from '../utils/davPath';
 
 export interface SharesPaths {
   /** /files/user/... 列 user 共享（取自 /mnt/user/） */
@@ -84,8 +86,10 @@ export function useShares(): UseSharesResult {
     () => ({
       filesUrl,
       davUrl,
-      toFilesPath: (p: string) => (p ? `${filesUrl}/${p}` : `${filesUrl}/`),
-      toDavPath: (p: string) => (p ? `${davUrl}/${p}` : `${davUrl}/`),
+      // 【续 103】内部路径统一原始态,拼 URL 时经 encodeDavPath 编码一次
+      // (# ? % 中文 不再截断/抛 ByteString;P0-1/P0-2)
+      toFilesPath: (p: string) => (p ? `${filesUrl}/${encodeDavPath(p)}` : `${filesUrl}/`),
+      toDavPath: (p: string) => (p ? `${davUrl}/${encodeDavPath(p)}` : `${davUrl}/`),
     }),
     [filesUrl, davUrl]
   );
@@ -162,7 +166,12 @@ export function useShares(): UseSharesResult {
     fetchDirRef.current(path);
   }, [path]);
 
-  const refresh = useCallback(() => fetchDir(path), [fetchDir, path]);
+  // 【续 103 P1-3】手动刷新先清 shares namespace cache(CACHE_TTL 30min 为减 statfs 唤盘,
+  // 但手动刷新=用户显式动作,对齐 Dashboard 续 95 P0 口径);子目录走 autoindex 无 cache,无害
+  const refresh = useCallback(async () => {
+    invalidateNamespace('shares');
+    await fetchDir(path);
+  }, [fetchDir, path]);
 
   const navigateTo = useCallback(
     (item: FileItem) => {

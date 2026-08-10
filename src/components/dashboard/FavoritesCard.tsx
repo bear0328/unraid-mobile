@@ -14,6 +14,7 @@ import { Link } from 'react-router-dom';
 import { Package, Folder, FolderOpen, Star, Download, Upload, type LucideIcon } from 'lucide-react';
 import { useFavorites, type Favorite, type FavoriteKind } from '../../hooks/useFavorites';
 import { useToast } from '../../hooks/useToast';
+import { encodeDavPath } from '../../utils/davPath';
 import Icon from '../ui/Icon';
 import { cardClass } from '../ui/Card';
 
@@ -47,8 +48,8 @@ function buildHref(fav: Favorite): string {
     case 'share':
     case 'path':
       // 【续 50 C8】pathname 风格(/shares/appdata),与 useShares navigateTo 一致;
-      // 去前导斜杠防 // 双斜杠,encodeURI 保留路径分隔符(同 navigateTo)
-      return `/shares/${encodeURI(fav.value.replace(/^\/+/, ''))}`;
+      // 【续 103】encodeURI 不转义 # ?,fav.value 现为原始态,改走 encodeDavPath 逐段编码
+      return `/shares/${encodeDavPath(fav.value.replace(/^\/+/, ''))}`;
   }
 }
 

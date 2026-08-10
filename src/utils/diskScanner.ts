@@ -6,6 +6,7 @@
 import { parseAutoindexHtml } from '../components/shares/parseAutoindex';
 import { getDavAuthHeader, type FileItem } from '../components/shares/davAuth';
 import { formatBytesLong, formatMtime } from './formatters';
+import { encodeDavPath } from './davPath';
 
 export const formatBytes = formatBytesLong;
 export { formatMtime };
@@ -106,7 +107,8 @@ export async function scanDisk(baseUrl: string, opts: ScanOptions = {}): Promise
         truncated = true;
         return;
       }
-      const url = path ? `${baseUrl}/${path}` : `${baseUrl}/`;
+      // 【续 103】item.path 现为原始态,拼 URL 经 encodeDavPath(# ? % 中文 不截断)
+      const url = path ? `${baseUrl}/${encodeDavPath(path)}` : `${baseUrl}/`;
       let items: FileItem[] = [];
       try {
         items = await fetchDir(url, cfg.signal);

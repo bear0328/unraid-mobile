@@ -51,7 +51,7 @@ docker run -d \
 
 > apiKey 只存在你自己浏览器的 localStorage,**不会**写到服务器任何文件。
 
-镜像 tag:`latest`(最新稳定) / `1.2.0`(固定版本)。仅 linux/amd64(unRAID 平台)。
+镜像 tag:`latest`(最新稳定) / `1.2.1`(固定版本)。仅 linux/amd64(unRAID 平台)。
 
 ### 方式二:unRAID Docker UI 模板
 
@@ -129,9 +129,9 @@ Compose tab 和 CPU 温度(均为 Pro 功能)依赖一个宿主端小组件(`api
 # 在 unRAID 宿主上以 root 执行
 mkdir -p /tmp/um-install && cd /tmp/um-install
 curl -fsSL -o install-compose-api.sh \
-  https://raw.githubusercontent.com/bear0328/unraid-mobile/v1.2.0/compose-api/install-compose-api.sh
+  https://raw.githubusercontent.com/bear0328/unraid-mobile/v1.2.1/compose-api/install-compose-api.sh
 curl -fsSL -o api.php \
-  https://raw.githubusercontent.com/bear0328/unraid-mobile/v1.2.0/compose-api/api.php
+  https://raw.githubusercontent.com/bear0328/unraid-mobile/v1.2.1/compose-api/api.php
 bash install-compose-api.sh
 ```
 
@@ -170,7 +170,25 @@ docker build -t unraid-mobile .
 | 启停 | ✅ | mutation |
 | 日志 / 内存 / CPU / 磁盘 / 网络 / 直通 / 快照 | ✅(Pro) | 通过 compose-api / api.php 读取 libvirt XML(GraphQL 无此字段) |
 
+## 更新日志
+
+完整历史见 [CHANGELOG_CN.md](CHANGELOG_CN.md)。
+
+### v1.2.1(2026-08-10)
+
+- 修复 Shares 文件管理:`#` 文件名被 URL fragment 截断、中文重命名/移动/拷贝失败(DAV 路径统一编码)
+- 修复 Shares 根目录手动刷新 30 分钟内无效
+- 修复 Shares 大文件下载/预览被 15 秒超时误伤(延长至 120 秒)
+- 修复 Shares 分享链接双重编码导致中文路径 404
+- 修复 Safari 下文件列表日期解析可能产出 NaN
+- 修复设置页服务器地址带空格/缺协议/格式非法导致保存后显示异常(统一归一化与校验)
+- 修复设置页「关于」版本号长期写死的问题(改为构建注入,与 package.json 单一来源同步)
+
 ## 常见问题
+
+**Q: 添加了多台服务器,切换后数据没变或 401?**
+已知限制:多服务器切换目前只更换 API 密钥,数据请求仍走当前容器的同源代理
+(即部署本容器的这台 unRAID)。单服务器使用不受影响;跨机直连在路线图中。
 
 **Q: 有问题去哪讨论 / 反馈?**
 加 Telegram 交流群:<https://t.me/+l1iA02ZkOK1lNmEx>,或在 GitHub 提 issue。

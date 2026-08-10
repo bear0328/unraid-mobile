@@ -92,4 +92,39 @@ describe('parseAutoindexHtml', () => {
     const items = parseAutoindexHtml('<html></html>', 'photos/');
     expect(items).toEqual([]);
   });
+
+  // 【续 103 P0-1】href 是 nginx 编码态,解析后 path 应为原始态(双程一致)
+  it('编码 href(中文/%)→ path 解码为原始态', () => {
+    const html =
+      '<html><body><pre>' +
+      '<a href="%E4%B8%AD%E6%96%87.txt">中文.txt</a>             1K    01-Jun-2026 12:00\n' +
+      '<a href="100%2541.txt">100%41.txt</a>             1K    01-Jun-2026 12:00\n' +
+      '<a href="%E5%AD%90%E7%9B%AE%E5%BD%95/">子目录/</a>             -    01-Jun-2026 12:00\n' +
+      '</pre></body></html>';
+    const items = parseAutoindexHtml(html, 'photos/');
+    expect(items).toHaveLength(3);
+    const file = items.find((i) => i.name === '中文.txt');
+    expect(file?.path).toBe('photos/中文.txt');
+    // %25 → 原始 %(不会再被误解码成 A)
+    const pct = items.find((i) => i.name === '100%41.txt');
+    expect(pct?.path).toBe('photos/100%41.txt');
+    const dir = items.find((i) => i.name === '子目录');
+    expect(dir?.path).toBe('photos/子目录/');
+    expect(dir?.isDir).toBe(true);
+  });
+
+  // 【续 103 P1-6】日期手动解析,不依赖 new Date(非标准串) 的 Safari 表现
+  it('日期 09-Aug-2026 17:30 解析为精确 mtime(本地时区)', () => {
+    const html = nginxAutoindex([{ name: 'a.txt', size: '1K', date: '09-Aug-2026 17:30' }]);
+    const items = parseAutoindexHtml(html, '');
+    expect(items[0].mtime).toBe(new Date(2026, 7, 9, 17, 30).getTime() / 1000);
+    expect(items[0].date).toBe('09-Aug-2026 17:30');
+  });
+
+  it('日期非法月份 → 回退解析失败归 0,不 NaN', () => {
+    const html = nginxAutoindex([{ name: 'a.txt', size: '1K', date: '09-Xxx-2026 17:30' }]);
+    const items = parseAutoindexHtml(html, '');
+    expect(Number.isNaN(items[0].mtime)).toBe(false);
+    expect(items[0].mtime).toBe(0);
+  });
 });

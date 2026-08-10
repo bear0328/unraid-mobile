@@ -33,6 +33,7 @@ import { isTextFile } from './textFileTypes';
 import { useShare } from '../../hooks/useShare';
 import { useApiConfig } from '../../hooks/useUnraidApi';
 import { usePro } from '../../hooks/usePro';
+import { encodeDavPath } from '../../utils/davPath';
 import ActionMenu, { type MenuItem } from '../ActionMenu';
 import Icon from '../ui/Icon';
 
@@ -137,7 +138,9 @@ function FileRow({
         icon: Share2,
         onClick: () => {
           const baseUrl = config.baseUrl!.replace(/\/$/, '');
-          const url = `${baseUrl}/dav/${item.path.split('/').filter(Boolean).map(encodeURIComponent).join('/')}`;
+          // 【续 103 P1-5】item.path 是原始态,经 encodeDavPath 编码一次;
+          // 原实现对 autoindex 预编码路径再 map(encodeURIComponent) → 双重编码链接 404
+          const url = `${baseUrl}/dav/${encodeDavPath(item.path)}`;
           share({ title: item.name, text: `unRAID 文件: ${item.name}`, url });
         },
       });

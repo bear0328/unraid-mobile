@@ -11,6 +11,7 @@ import {
   removeServer,
   setActiveServer,
   subscribeServersChange,
+  normalizeServerUrl,
   type Server,
 } from '../services/unraidApi/config';
 import { useToast } from '../hooks/useToast';
@@ -62,7 +63,13 @@ export default function ServerList() {
       toast.error('名称和服务器地址不能为空');
       return;
     }
-    const cleanUrl = editing.serverUrl.replace(/\/+$/, '');
+    // 【续 104 P0-2】normalizeServerUrl 替代原「只去尾斜杠」:补协议/去空格/new URL 校验,
+    // 非法地址拒绝保存,不落 localStorage(续 92 空格事故根因)
+    const cleanUrl = normalizeServerUrl(editing.serverUrl);
+    if (!cleanUrl) {
+      toast.error('服务器地址格式无效');
+      return;
+    }
     if (editing.id) {
       updateServer(editing.id, {
         name: editing.name.trim(),

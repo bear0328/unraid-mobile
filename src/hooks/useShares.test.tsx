@@ -22,6 +22,7 @@ vi.mock('../services/unraidApi/cache', () => ({
   setCache: () => undefined,
   getCacheKey: (n: string) => n,
   clearAllGraphqlCache: () => undefined,
+  invalidateNamespace: vi.fn(),
 }));
 
 const GRAPHQL_SHARES_RESPONSE = {
@@ -280,12 +281,40 @@ describe('useShares', () => {
     expect(fetchSpy).toHaveBeenCalledTimes(2);
   });
 
+  // 【续 103 P1-3】手动刷新先清 shares namespace cache(30min TTL 内点刷新要真拉数据)
+  it('refresh → 先 invalidateNamespace("shares") 再拉取', async () => {
+    const { invalidateNamespace } = await import('../services/unraidApi/cache');
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(mockJsonResponse(GRAPHQL_SHARES_RESPONSE));
+
+    const { result } = renderHook(() => useShares(), { wrapper });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    vi.mocked(invalidateNamespace).mockClear();
+
+    await act(async () => {
+      await result.current.refresh();
+    });
+    expect(invalidateNamespace).toHaveBeenCalledWith('shares');
+  });
+
   it('paths.toFilesPath/toDavPath 工具', () => {
     const { result } = renderHook(() => useShares(), { wrapper });
     expect(result.current.paths.toFilesPath('photos/')).toMatch(/\/files\/user\/photos\/$/);
     expect(result.current.paths.toFilesPath('')).toMatch(/\/files\/user\/$/);
     expect(result.current.paths.toDavPath('photos/')).toMatch(/\/dav\/photos\/$/);
     expect(result.current.paths.toDavPath('')).toMatch(/\/dav\/$/);
+  });
+
+  // 【续 103 P0-1】DAV URL 出口编码:中文/#/% 不再截断或抛 ByteString
+  it('paths.toDavPath 对特殊字符路径编码(原始态进,编码态出)', () => {
+    const { result } = renderHook(() => useShares(), { wrapper });
+    expect(result.current.paths.toDavPath('photos/中文 #.txt')).toContain(
+      '/dav/photos/%E4%B8%AD%E6%96%87%20%23.txt'
+    );
+    expect(result.current.paths.toDavPath('dir/100%.txt')).toContain('/dav/dir/100%25.txt');
+    // 目录尾斜杠保留
+    expect(result.current.paths.toDavPath('photos/子目录/')).toMatch(
+      /\/dav\/photos\/%E5%AD%90%E7%9B%AE%E5%BD%95\/$/
+    );
   });
 
   // 【续 88 2026-08-08】fetchDir 竞态防护:快速 A→B 导航,A 晚到不得覆盖 B 的列表

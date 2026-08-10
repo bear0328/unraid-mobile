@@ -11,6 +11,7 @@ export {
   loadConfigFromFile,
   subscribeApiConfigChange,
   clearApiConfig,
+  normalizeServerUrl,
 } from './unraidApi/config';
 
 export { clearAllGraphqlCache } from './unraidApi/cache';

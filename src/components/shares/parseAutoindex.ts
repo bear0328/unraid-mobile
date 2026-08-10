@@ -10,6 +10,11 @@ const SIZE_UNITS: Record<string, number> = {
   T: 1024 ** 4,
 };
 
+const MONTHS: Record<string, number> = {
+  Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
+  Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11,
+};
+
 function parseSize(sizeText: string): number | undefined {
   const match = sizeText.match(/^([\d.]+)\s*(\w)?$/);
   if (!match) return undefined;
@@ -19,7 +24,20 @@ function parseSize(sizeText: string): number | undefined {
 }
 
 function parseDate(dateText: string): number {
-  return new Date(dateText).getTime() / 1000;
+  // 【续 103 2026-08-10】nginx autoindex 日期(如 09-Aug-2026 17:30)手动解析:
+  // new Date(非标准串) 在 Safari 可能 Invalid Date → mtime NaN → 「修改日期」排序失效。
+  // 先按 nginx 固定格式正则拆解,失败再回退 Date 解析,再失败归 0。
+  const m = dateText.match(/^(\d{2})-([A-Za-z]{3})-(\d{4})\s+(\d{2}):(\d{2})$/);
+  if (m) {
+    const month = MONTHS[m[2]];
+    if (month !== undefined) {
+      return (
+        new Date(Number(m[3]), month, Number(m[1]), Number(m[4]), Number(m[5])).getTime() / 1000
+      );
+    }
+  }
+  const t = new Date(dateText).getTime();
+  return Number.isNaN(t) ? 0 : t / 1000;
 }
 
 function normalizePath(href: string, basePath: string): string {
@@ -36,6 +54,23 @@ function normalizePath(href: string, basePath: string): string {
     else if (seg && seg !== '.') parts.push(seg);
   }
   return parts.join('/');
+}
+
+// 【续 103 2026-08-10】href 是 nginx 编码态(%E4%B8%AD / %25 等),
+// app 内部路径统一「原始态」:这里逐段解码;拼 DAV URL 时由 encodeDavPath 再编码,
+// 双程一致(文件名含 # ? % 不再被 URL 截断;畸形 % 段保留原样)
+function decodePathSegments(p: string): string {
+  return p
+    .split('/')
+    .map((seg) => {
+      if (!seg) return seg;
+      try {
+        return decodeURIComponent(seg);
+      } catch {
+        return seg;
+      }
+    })
+    .join('/');
 }
 
 /**
@@ -85,7 +120,8 @@ export function parseAutoindexHtml(html: string, basePath: string): FileItem[] {
     const mtime = dateMatch ? parseDate(dateMatch[1]) : 0;
 
     // 计算完整路径（相对 /user/ 的路径，不含前导 /）
-    let fullPath = normalizePath(href, basePath);
+    // 【续 103】href 是 nginx 编码态,解码回原始态存储;拼 DAV URL 时由 encodeDavPath 再编码
+    let fullPath = decodePathSegments(normalizePath(href, basePath));
     if (isDir && !fullPath.endsWith('/')) fullPath += '/';
 
     files.push({

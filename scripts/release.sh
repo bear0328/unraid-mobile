@@ -115,9 +115,13 @@ NEW_SHA=$(shasum -a 256 compose-api/api.php | cut -d' ' -f1)
 log "旧版本 ${OLD_TAG} → ${TAG};api.php sha256=${NEW_SHA:0:8}…"
 run "sed -i '' 's|/v[0-9]*\\.[0-9]*\\.[0-9]*/compose-api/api.php|/${TAG}/compose-api/api.php|; s|^EXPECTED_API_SHA256=.*|EXPECTED_API_SHA256=\"${NEW_SHA}\"|' ${INSTALL_SH}"
 run "sed -i '' 's/${OLD_VER//\./\\.}/${VERSION}/g' README.md README_CN.md"
+# 【续 104 P1-2】同步 package.json version(Settings「关于」经 vite define 读它,单一来源);
+# 只动顶层 "version" 行,不碰 dependencies 里的版本号
+run "sed -i '' 's|^  \"version\": \"[0-9.]*\"|  \"version\": \"${VERSION}\"|' package.json"
 if [ "${DRY_RUN}" = false ]; then
   grep -q "EXPECTED_API_SHA256=\"${NEW_SHA}\"" "${INSTALL_SH}" || die "sha256 写入未生效"
   grep -q "/${TAG}/compose-api/install-compose-api.sh" README.md || die "README 版本号写入未生效"
+  grep -q "^  \"version\": \"${VERSION}\"" package.json || die "package.json 版本号写入未生效"
 fi
 
 # ---------- 4. git ----------

@@ -30,7 +30,7 @@ import {
 } from 'lucide-react';
 import Icon from '../components/ui/Icon';
 import { getPollInterval, setPollInterval } from '../utils/pollInterval';
-import { saveApiConfig, loadConfigFromFile } from '../services';
+import { saveApiConfig, loadConfigFromFile, normalizeServerUrl } from '../services';
 import { useApiConfig } from '../hooks/useUnraidApi';
 import { checkHealth, type EndpointName } from '../services/unraidApi/healthCheck';
 
@@ -152,8 +152,16 @@ export default function Settings() {
       alert('请填写完整的服务器地址和 API 密钥');
       return;
     }
+    // 【续 104 P0-2】保存前归一化 + 校验(防续 92 "http:// 192.168.6.140" 空格事故复发);
+    // 非法地址直接拒绝,不写 localStorage、不 PUT settings.json
+    const normalizedUrl = normalizeServerUrl(serverUrl);
+    if (!normalizedUrl) {
+      toast.error('服务器地址格式无效');
+      return;
+    }
+    setServerUrl(normalizedUrl);
     // 1. 先存到 localStorage（续 49:apiKey 也存 LS,杀进程不丢）
-    saveApiConfig({ serverUrl, apiKey });
+    saveApiConfig({ serverUrl: normalizedUrl, apiKey });
 
     // 2. 写回宿主机 settings.json（跨设备共享 serverUrl）
     //    nginx /config/  location 已加 dav_methods PUT
@@ -165,7 +173,7 @@ export default function Settings() {
       const resp = await fetch('/config/settings.json', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', ...getDavAuthHeader() },
-        body: JSON.stringify({ serverUrl }),
+        body: JSON.stringify({ serverUrl: normalizedUrl }),
       });
       if (!resp.ok) {
         // 【续 50.2】nginx 鉴权失败改返 403(防浏览器原生弹窗),401/403 同判
@@ -564,7 +572,8 @@ export default function Settings() {
       <div className="bg-white dark:bg-[#273244] rounded-xl p-4 shadow-md dark:shadow-lg dark:border dark:border-gray-700/60">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">关于</h3>
         <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
-          <p>unRAID Mobile v0.1.0</p>
+          {/* 【续 104 P1-2】版本号由 vite define 注入(package.json 单一来源),不再硬编码 */}
+          <p>unRAID Mobile v{__APP_VERSION__}</p>
           <p>为移动端优化的 unRAID 管理界面</p>
         </div>
       </div>

@@ -2,6 +2,9 @@ import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import fs from 'node:fs'
 import path from 'node:path'
+// 【续 104 P1-2】版本号单一来源:package.json(发版时 release.sh 同步),
+// 经 define 注入 __APP_VERSION__,Settings「关于」区显示,替代原硬编码 v0.1.0
+import { version } from './package.json'
 
 // Vite 5 默认 modulePreload 只在运行时预加载（__vitePreload helper 调用）
 // 这导致首次访问有 1 个 RTT waterfall：index.js 解析后才下载 Dashboard chunk
@@ -51,6 +54,10 @@ const swVersionPlugin: Plugin = {
 
 export default defineConfig({
   plugins: [react(), dashboardPreloadPlugin, swVersionPlugin],
+  define: {
+    // 【续 104 P1-2】构建期注入版本号(vitest 也走本 define,测试可见真实版本)
+    __APP_VERSION__: JSON.stringify(version),
+  },
   server: {
     host: true,
     port: 5173

@@ -43,7 +43,8 @@ export default function TextFileEditor({
     setError(null);
     // 【续 50】raw fetch → davFetch:/dav/ 有 auth_basic,raw fetch 不带手动 Authorization,
     // 之前只靠浏览器缓存的 Basic 凭证(fetch 401 不弹原生登录框,多数情况拿不到)→ 401。
-    davFetch(davUrl)
+    // 【续 103 P1-4】读取放宽到 120s(慢链路大文本)
+    davFetch(davUrl, {}, 120_000)
       .then(async (r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const len = Number(r.headers.get('content-length') || '0');

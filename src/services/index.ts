@@ -8,6 +8,7 @@ export {
   subscribeApiConfigChange,
   clearApiConfig,
   clearAllGraphqlCache,
+  normalizeServerUrl,
 } from './unraidApi';
 export type {
   UnraidSystemInfo,
