@@ -99,14 +99,11 @@ git fetch origin master --quiet
 ssh -i "${SSH_KEY}" -o BatchMode=yes -o ConnectTimeout=10 -p "${SSH_PORT}" "${SSH_USER}@${SSH_HOST}" 'echo SSH_OK' >/dev/null || die "ssh 不通宿主"
 if git tag -l "${TAG}" | grep -q .; then die "tag ${TAG} 已存在"; fi
 
-# ---------- 2. 测试 + 构建 ----------
-log "=== 2/8 vitest + lint + build ==="
-run "npx vitest run" || die "测试失败,中止发布"
-run "npm run lint"  || die "lint 失败,中止发布"
-run "npm run build" || die "build 失败,中止发布"
-
-# ---------- 3. 版本引用 ----------
-log "=== 3/8 版本引用 → ${TAG} ==="
+# ---------- 2. 版本引用 ----------
+# 【续 105】本步骤必须在 vitest/lint/build 之前:续 104 起 package.json version 经
+# vite define 注入 bundle,若先 build 再改版本号,本地 dist(1.2.0)与镜像内 dist(1.2.1)
+# 内容不同 → bundle hash 不一致 → 第 8 步冒烟 prod(跑镜像 dist)对本地 dist 必炸
+log "=== 2/8 版本引用 → ${TAG} ==="
 INSTALL_SH="compose-api/install-compose-api.sh"
 OLD_TAG=$(sed -n 's|.*unraid-mobile/\(v[0-9.]*\)/compose-api/api\.php.*|\1|p' "${INSTALL_SH}" | head -1)
 [ -n "${OLD_TAG}" ] || die "从 ${INSTALL_SH} 提取旧 tag 失败"
@@ -123,6 +120,12 @@ if [ "${DRY_RUN}" = false ]; then
   grep -q "/${TAG}/compose-api/install-compose-api.sh" README.md || die "README 版本号写入未生效"
   grep -q "^  \"version\": \"${VERSION}\"" package.json || die "package.json 版本号写入未生效"
 fi
+
+# ---------- 3. 测试 + 构建 ----------
+log "=== 3/8 vitest + lint + build ==="
+run "npx vitest run" || die "测试失败,中止发布"
+run "npm run lint"  || die "lint 失败,中止发布"
+run "npm run build" || die "build 失败,中止发布"
 
 # ---------- 4. git ----------
 log "=== 4/8 git commit + tag + push ==="
