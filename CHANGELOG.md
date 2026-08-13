@@ -2,6 +2,19 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.2.2] - 2026-08-14
+
+### Changed
+
+- Dashboard card sorting: the move up/down buttons are folded into a popup menu on the drag handle. Only the handle is visible by default (100px → 36px), so it no longer overlaps card titles; keyboard arrows and 32px touch targets are preserved
+- Dashboard drag preview: while dragging a card, the cursor-following image is now a full-size translucent clone of the card (rounded corners + shadow) instead of the browser's default translucent "white box" snapshot of the tiny handle
+
+### Fixed
+
+- Sort controls no longer leave a translucent background stuck after tapping on iOS (sticky `:hover`); hover backgrounds were removed in favor of active-state feedback + keyboard focus ring
+- Alert popup "Open in WebUI" opened a blank page in iOS PWA (JS `window.open` is unreliable in PWAs, and deep links require a webGui session) — all WebUI entries now point to `{serverUrl}/login` via a real `<a target="_blank">` link
+- README: screenshot placeholders replaced with actual app screenshots
+
 ## [1.2.1] - 2026-08-10
 
 ### Fixed

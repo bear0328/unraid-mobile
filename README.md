@@ -11,8 +11,13 @@ detects the missing schema fields and degrades gracefully).
 
 ## Screenshots
 
-> App screenshots will be added to `docs/screenshots/` in a future release. In the meantime,
-> real-world UI shots shared by users can be found in the Telegram group or GitHub Discussions.
+| Dashboard | Containers / VMs | Compose stacks |
+|---|---|---|
+| ![Dashboard](docs/screenshots/01-dashboard.png) | ![Containers/VMs](docs/screenshots/02-containers.png) | ![Compose stacks](docs/screenshots/03-compose.png) |
+
+| Share files | Logs | Settings / License |
+|---|---|---|
+| ![Share files](docs/screenshots/04-shares.png) | ![Logs](docs/screenshots/05-logs.png) | ![Settings/License](docs/screenshots/06-settings-license.png) |
 
 ## Features (Free / Pro)
 
@@ -56,7 +61,7 @@ Open `http://<unraid-IP>:3999`, go to "Settings" and fill in:
 > The API key lives only in your own browser's localStorage and is **never** written to any file on
 > the server.
 
-Image tags: `latest` (newest stable) / `1.2.1` (pinned version). linux/amd64 only (unRAID platform).
+Image tags: `latest` (newest stable) / `1.2.2` (pinned version). linux/amd64 only (unRAID platform).
 
 ### Alternative: unRAID Docker UI template
 
@@ -143,9 +148,9 @@ Prerequisite: the **compose.manager** plugin installed from Community Applicatio
 # Run as root on the unRAID host
 mkdir -p /tmp/um-install && cd /tmp/um-install
 curl -fsSL -o install-compose-api.sh \
-  https://raw.githubusercontent.com/bear0328/unraid-mobile/v1.2.1/compose-api/install-compose-api.sh
+  https://raw.githubusercontent.com/bear0328/unraid-mobile/v1.2.2/compose-api/install-compose-api.sh
 curl -fsSL -o api.php \
-  https://raw.githubusercontent.com/bear0328/unraid-mobile/v1.2.1/compose-api/api.php
+  https://raw.githubusercontent.com/bear0328/unraid-mobile/v1.2.2/compose-api/api.php
 bash install-compose-api.sh
 ```
 
@@ -190,6 +195,13 @@ docker build -t unraid-mobile .
 ## Changelog
 
 Full history in [CHANGELOG.md](CHANGELOG.md).
+
+### v1.2.2 (2026-08-14)
+
+- Improve Dashboard card sorting: move up/down actions into a popup menu on the drag handle — only the handle shows by default, no longer covering card titles; eliminates the translucent box left by iOS sticky hover
+- Improve Dashboard drag preview: the cursor-following preview is now a full-size translucent card clone (rounded corners + shadow) instead of the browser's default "white box"
+- Fix the alert popup's "Open in WebUI" opening a blank page in iOS PWA: it now points to the unRAID login page via a real link (no more JS window.open)
+- Docs: add app screenshots to the README
 
 ### v1.2.1 (2026-08-10)
 

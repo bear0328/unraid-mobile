@@ -10,7 +10,13 @@ unRAID 7.3+ / unraid-api ≥ 4.20,老版本会自动降级,仅缺少这两项,�
 
 ## 界面截图
 
-> 应用截图将在后续版本补充到 `docs/screenshots/`。当前可在 Telegram 交流群或 GitHub Discussions 查看用户分享的实机界面。
+| 仪表盘 | 容器 / VM | Compose 栈 |
+|---|---|---|
+| ![仪表盘](docs/screenshots/01-dashboard.png) | ![容器/VM](docs/screenshots/02-containers.png) | ![Compose 栈](docs/screenshots/03-compose.png) |
+
+| 共享文件 | 日志 | 设置 / License |
+|---|---|---|
+| ![共享文件](docs/screenshots/04-shares.png) | ![日志](docs/screenshots/05-logs.png) | ![设置/License](docs/screenshots/06-settings-license.png) |
 
 ## 功能(免费版 / Pro)
 
@@ -51,7 +57,7 @@ docker run -d \
 
 > apiKey 只存在你自己浏览器的 localStorage,**不会**写到服务器任何文件。
 
-镜像 tag:`latest`(最新稳定) / `1.2.1`(固定版本)。仅 linux/amd64(unRAID 平台)。
+镜像 tag:`latest`(最新稳定) / `1.2.2`(固定版本)。仅 linux/amd64(unRAID 平台)。
 
 ### 方式二:unRAID Docker UI 模板
 
@@ -129,9 +135,9 @@ Compose tab 和 CPU 温度(均为 Pro 功能)依赖一个宿主端小组件(`api
 # 在 unRAID 宿主上以 root 执行
 mkdir -p /tmp/um-install && cd /tmp/um-install
 curl -fsSL -o install-compose-api.sh \
-  https://raw.githubusercontent.com/bear0328/unraid-mobile/v1.2.1/compose-api/install-compose-api.sh
+  https://raw.githubusercontent.com/bear0328/unraid-mobile/v1.2.2/compose-api/install-compose-api.sh
 curl -fsSL -o api.php \
-  https://raw.githubusercontent.com/bear0328/unraid-mobile/v1.2.1/compose-api/api.php
+  https://raw.githubusercontent.com/bear0328/unraid-mobile/v1.2.2/compose-api/api.php
 bash install-compose-api.sh
 ```
 
@@ -173,6 +179,13 @@ docker build -t unraid-mobile .
 ## 更新日志
 
 完整历史见 [CHANGELOG_CN.md](CHANGELOG_CN.md)。
+
+### v1.2.2(2026-08-14)
+
+- 优化 Dashboard 卡片排序:上移/下移收进手柄弹出菜单,常态只显示拖动手柄,不再遮挡卡片标题;消除 iOS 点按后残留的半透明白框
+- 优化 Dashboard 拖拽预览:拖动卡片时跟手预览为正常大小的半透明整卡(圆角+阴影),消除浏览器默认「小白框」
+- 修复告警弹层「去 WebUI 查看」在 iOS PWA 打开空白页:统一改为跳 unRAID 登录页,并改用真实链接(不再 JS window.open)
+- 文档:README 补充界面截图
 
 ### v1.2.1(2026-08-10)
 

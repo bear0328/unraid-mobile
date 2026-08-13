@@ -1,4 +1,5 @@
-// 【续 91 E】UnraidAlertBell 测试:ALERT 红 / WARNING 琥珀 / 无告警不渲染 / 点击跳 webGui 通知页
+// 【续 91 E】UnraidAlertBell 测试:ALERT 红 / WARNING 琥珀 / 无告警不渲染
+// 【续 107】弹层内 WebUI 入口统一 <a> 跳 {serverUrl}/login 登录页
 import { describe, it, expect, vi, beforeEach, afterEach, type MockInstance } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import UnraidAlertBell from './UnraidAlertBell';
@@ -89,28 +90,29 @@ describe('UnraidAlertBell', () => {
     expect(openSpy).not.toHaveBeenCalled();
   });
 
-  it('【续 95 P1-3】带 link 的告警 → 渲染为新窗 <a>,href 拼 serverUrl', async () => {
+  it('【续 107】带 link 的告警 → 渲染为新窗 <a>,href 为 unRAID 登录页(不再拼深链)', async () => {
     mockGetServerMeta.mockResolvedValue(
       metaWith([{ ...makeAlert('ALERT', 'a1'), link: '/Tools/Notifications?x=1' }])
     );
     render(<UnraidAlertBell />);
     fireEvent.click(await screen.findByLabelText('unRAID 告警'));
     const link = await screen.findByRole('link', { name: /a1/ });
-    expect(link).toHaveAttribute('href', 'http://nas.local:8001/Tools/Notifications?x=1');
+    // serverUrl 尾斜杠已去,/login 登录页
+    expect(link).toHaveAttribute('href', 'http://nas.local:8001/login');
     expect(link).toHaveAttribute('target', '_blank');
     expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'));
   });
 
-  it('【续 95 P1-3】点「在 webGui 查看全部」→ 新窗打开 {serverUrl}/Tools/Notifications(尾部斜杠已去)', async () => {
+  it('【续 107】底部「去 WebUI 查看」是真实 <a>,指向 {serverUrl}/login 新窗(iOS PWA 不再 window.open)', async () => {
     mockGetServerMeta.mockResolvedValue(metaWith([makeAlert('ALERT')]));
     render(<UnraidAlertBell />);
     fireEvent.click(await screen.findByLabelText('unRAID 告警'));
-    fireEvent.click(await screen.findByText('在 webGui 查看全部'));
-    expect(openSpy).toHaveBeenCalledWith(
-      'http://nas.local:8001/Tools/Notifications',
-      '_blank',
-      'noopener,noreferrer'
-    );
+    const link = await screen.findByRole('link', { name: '去 WebUI 查看' });
+    expect(link).toHaveAttribute('href', 'http://nas.local:8001/login');
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'));
+    // 不再走 JS window.open(PWA 空白页根因)
+    expect(openSpy).not.toHaveBeenCalled();
   });
 
   it('【续 95 P1-3】点头部 × → 弹层消失', async () => {

@@ -3,8 +3,11 @@
 // 提取 ALERT/WARNING,零新增请求);Layout 侧自调 getServerMeta,namespace 'serverMeta'
 // 缓存命中 0 成本(Dashboard 已同节拍失效,这里 60s 兜底重读)。
 // 徽章取最高级染色:含 ALERT 红 / 纯 WARNING 琥珀。
-// 【续 95 P1-3】点击不再直接跳 webGui,改开本地告警列表弹层(级别/标题/正文/时间,
-// 单条 link 新窗打开);底部保留「在 webGui 查看全部」原跳转。
+// 【续 95 P1-3】点击不再直接跳 webGui,改开本地告警列表弹层(级别/标题/正文/时间)。
+// 【续 107】弹层内所有「去 WebUI」入口统一跳 unRAID 登录页 {serverUrl}/login:
+// 深链(如 /Tools/Notifications)需 webGui 会话,未登录打开是空页;且底部按钮原为
+// button+window.open,iOS PWA 不支持多窗口,JS window.open 常开出空白页,
+// 故一律改用真实 <a target="_blank">(PWA 内可正常拉起浏览器视图)。
 // 注:既有铃铛(NavLink→/notifications)是 App 内通知中心(容器事件/关键字告警),
 // 数据源不同,不动它;本按钮与之并列,仅在有未读告警时出现
 import { useCallback, useEffect, useState } from 'react';
@@ -49,13 +52,12 @@ export default function UnraidAlertBell() {
   // 取最高级:任意 ALERT → 红,否则(WARNING)→ 琥珀
   const hasAlert = alerts.some((a) => a.importance === 'ALERT');
 
-  const openNotifications = () => {
-    const url = (getApiConfig()?.serverUrl ?? '').replace(/\/+$/, '');
-    if (url) window.open(`${url}/Tools/Notifications`, '_blank', 'noopener,noreferrer');
-  };
-
-  // 单条 alert 的 link 是相对路径,拼 serverUrl(去尾斜杠)
-  const serverUrl = (getApiConfig()?.serverUrl ?? '').replace(/\/+$/, '');
+  // 【续 107】统一跳 unRAID 登录页:serverUrl 去尾斜杠 + /login;
+  // 无 serverUrl 时返回 null(不渲染可点入口)
+  const loginUrl = (() => {
+    const base = (getApiConfig()?.serverUrl ?? '').replace(/\/+$/, '');
+    return base ? `${base}/login` : null;
+  })();
 
   return (
     <>
@@ -118,9 +120,11 @@ export default function UnraidAlertBell() {
               'relative overflow-hidden block rounded-lg border border-gray-200 dark:border-gray-700 p-2.5';
             return (
               <li key={i}>
-                {a.link ? (
+                {/* 【续 107】带 link 的告警也不再拼深链(需登录态,打开空页),
+                    统一作为跳 unRAID 登录页的入口 */}
+                {a.link && loginUrl ? (
                   <a
-                    href={`${serverUrl}${a.link}`}
+                    href={loginUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className={`${itemClass} hover:bg-gray-50 dark:hover:bg-gray-700/50`}
@@ -139,12 +143,18 @@ export default function UnraidAlertBell() {
           })}
         </ul>
         <ModalFooter>
-          <button
-            onClick={openNotifications}
-            className="text-sm text-primary-600 dark:text-primary-400 hover:underline"
-          >
-            在 webGui 查看全部
-          </button>
+          {/* 【续 107】button+window.open 在 iOS PWA 开出空白页,改真实 <a> 新窗;
+              目标统一为 unRAID 登录页(深链需登录态,原 /Tools/Notifications 直开是空页) */}
+          {loginUrl && (
+            <a
+              href={loginUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-primary-600 dark:text-primary-400 hover:underline"
+            >
+              去 WebUI 查看
+            </a>
+          )}
           {/* 【续 95-1】底部显式关闭按钮(原只有 ×,移动端看不见/点不到);
               样式对齐 SheetModal 取消按钮的灰色 secondary 口径 */}
           <button
