@@ -43,8 +43,8 @@
 - SSH:`ssh -i ~/.ssh/mac_unraid_key -p 222 root@192.168.6.140`
   （必须 `-o IdentitiesOnly=yes` 或等效，否则 agent 多 key 会认证失败）。
 
-## 3. 当前项目状态（2026-08-10，供参考）
+## 3. 当前项目状态（2026-08-14，供参考）
 
-- 当前版本 **v1.2.1**(GitHub commit `e97de1c` + tag;Docker Hub `:1.2.1`/`:latest` 已推送；digest `sha256:458c04aca2db2de79ffa0123d6a23b707d4a91e2ea9a057157e7655dd5e3f6f4`）。
-- dev(3998)/prod(3999) 均运行 bundle `index-RoB7ta90.js`。
+- 当前版本 **v1.2.2**(GitHub commit `9e620da` + tag;Docker Hub `:1.2.2`/`:latest` 已推送；digest `sha256:2bc02970f27d3e3bea3a9d864557071491cace7a78069b2606ca9c80fa6723cf`）。
+- dev(3998)/prod(3999) 均运行 bundle `index-CoyAEmiR.js`。
 - 最新状态以 `DEV_PROGRESS.md` 头部「最后更新」行为准，本段只作快照。
