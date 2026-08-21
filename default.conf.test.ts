@@ -58,4 +58,25 @@ describe('default.conf 安全加固(续 88)', () => {
     // 断指令行(注释里提到该字符串不算)
     expect(filesBlock).not.toMatch(/^\s*index\s+index\.html/m);
   });
+
+  // 【续 106】同源 HTML 执行防提权回归:DAV 用户可 PUT .html/.svg,经 /files 或 /dav/
+  // 同源打开时脚本可读 localStorage 的 apiKey → GraphQL 全权限 + compose-api(root)。
+  // CSP sandbox 让其在 opaque origin 执行;这些 location 有自有 add_header,
+  // server 级 nosniff 不继承,需块内补。
+  const filesBlock = conf.slice(conf.indexOf('location /files'), conf.indexOf('location ^~ /dav/'));
+  const logBlock = conf.slice(conf.indexOf('location ^~ /var/log/'), conf.indexOf('location / {'));
+
+  it('/files 带 CSP sandbox + nosniff(防同源 HTML 偷 localStorage apiKey)', () => {
+    expect(filesBlock).toContain('add_header Content-Security-Policy "sandbox" always;');
+    expect(filesBlock).toContain('add_header X-Content-Type-Options nosniff always;');
+  });
+
+  it('/dav/ 带 CSP sandbox + nosniff(GET 也是同源 HTML 执行面)', () => {
+    expect(davBlock).toContain('add_header Content-Security-Policy "sandbox" always;');
+    expect(davBlock).toContain('add_header X-Content-Type-Options nosniff always;');
+  });
+
+  it('/var/log/ 带 nosniff(日志含用户可控字符串,防 sniff 成 HTML)', () => {
+    expect(logBlock).toContain('add_header X-Content-Type-Options nosniff always;');
+  });
 });

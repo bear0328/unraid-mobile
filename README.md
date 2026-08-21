@@ -61,7 +61,7 @@ Open `http://<unraid-IP>:3999`, go to "Settings" and fill in:
 > The API key lives only in your own browser's localStorage and is **never** written to any file on
 > the server.
 
-Image tags: `latest` (newest stable) / `1.2.2` (pinned version). linux/amd64 only (unRAID platform).
+Image tags: `latest` (newest stable) / `1.2.3` (pinned version). linux/amd64 only (unRAID platform).
 
 ### Alternative: unRAID Docker UI template
 
@@ -148,9 +148,9 @@ Prerequisite: the **compose.manager** plugin installed from Community Applicatio
 # Run as root on the unRAID host
 mkdir -p /tmp/um-install && cd /tmp/um-install
 curl -fsSL -o install-compose-api.sh \
-  https://raw.githubusercontent.com/bear0328/unraid-mobile/v1.2.2/compose-api/install-compose-api.sh
+  https://raw.githubusercontent.com/bear0328/unraid-mobile/v1.2.3/compose-api/install-compose-api.sh
 curl -fsSL -o api.php \
-  https://raw.githubusercontent.com/bear0328/unraid-mobile/v1.2.2/compose-api/api.php
+  https://raw.githubusercontent.com/bear0328/unraid-mobile/v1.2.3/compose-api/api.php
 bash install-compose-api.sh
 ```
 
@@ -195,6 +195,11 @@ docker build -t unraid-mobile .
 ## Changelog
 
 Full history in [CHANGELOG.md](CHANGELOG.md).
+
+### v1.2.3 (2026-08-21)
+
+- Security hardening: `/files` and `/dav/` now send `Content-Security-Policy: sandbox`, so HTML/SVG files uploaded via WebDAV can no longer run scripts in the app's origin to steal the stored API key (privilege-escalation chain closed); image/text/download previews are unaffected
+- Add `X-Content-Type-Options: nosniff` to the `/files`, `/dav/`, and `/var/log/` locations
 
 ### v1.2.2 (2026-08-14)
 

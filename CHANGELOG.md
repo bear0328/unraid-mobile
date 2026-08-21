@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.2.3] - 2026-08-21
+
+### Security
+
+- File access endpoints `/files` and `/dav/` now send `Content-Security-Policy: sandbox`: HTML/SVG files uploaded via WebDAV can no longer execute scripts in the app's origin when opened, so they cannot read the API key stored in `localStorage` (which grants full GraphQL and compose-api access). Image/text/download previews are unaffected
+- Added `X-Content-Type-Options: nosniff` to the `/files`, `/dav/`, and `/var/log/` locations (they define their own `add_header` directives, which previously dropped the server-level `nosniff` inheritance)
+
 ## [1.2.2] - 2026-08-14
 
 ### Changed

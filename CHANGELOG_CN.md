@@ -2,6 +2,13 @@
 
 本文件记录项目的所有重要变更,格式参考 [Keep a Changelog](https://keepachangelog.com/)。
 
+## [1.2.3] - 2026-08-21
+
+### 安全
+
+- 文件访问端点 `/files` 和 `/dav/` 增加 `Content-Security-Policy: sandbox` 响应头:经 WebDAV 上传的 HTML/SVG 文件被打开时不再能以 app 同源身份执行脚本,无法读取 localStorage 中存储的 API key(该 key 持有 GraphQL 与 compose-api 全部权限);图片/文本/下载预览不受影响
+- `/files`、`/dav/`、`/var/log/` 三个 location 补 `X-Content-Type-Options: nosniff`(这些 location 有自有 `add_header`,此前 server 级 nosniff 不被继承)
+
 ## [1.2.2] - 2026-08-14
 
 ### 优化

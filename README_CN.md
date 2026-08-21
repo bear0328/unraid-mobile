@@ -57,7 +57,7 @@ docker run -d \
 
 > apiKey 只存在你自己浏览器的 localStorage,**不会**写到服务器任何文件。
 
-镜像 tag:`latest`(最新稳定) / `1.2.2`(固定版本)。仅 linux/amd64(unRAID 平台)。
+镜像 tag:`latest`(最新稳定) / `1.2.3`(固定版本)。仅 linux/amd64(unRAID 平台)。
 
 ### 方式二:unRAID Docker UI 模板
 
@@ -135,9 +135,9 @@ Compose tab 和 CPU 温度(均为 Pro 功能)依赖一个宿主端小组件(`api
 # 在 unRAID 宿主上以 root 执行
 mkdir -p /tmp/um-install && cd /tmp/um-install
 curl -fsSL -o install-compose-api.sh \
-  https://raw.githubusercontent.com/bear0328/unraid-mobile/v1.2.2/compose-api/install-compose-api.sh
+  https://raw.githubusercontent.com/bear0328/unraid-mobile/v1.2.3/compose-api/install-compose-api.sh
 curl -fsSL -o api.php \
-  https://raw.githubusercontent.com/bear0328/unraid-mobile/v1.2.2/compose-api/api.php
+  https://raw.githubusercontent.com/bear0328/unraid-mobile/v1.2.3/compose-api/api.php
 bash install-compose-api.sh
 ```
 
@@ -179,6 +179,11 @@ docker build -t unraid-mobile .
 ## 更新日志
 
 完整历史见 [CHANGELOG_CN.md](CHANGELOG_CN.md)。
+
+### v1.2.3(2026-08-21)
+
+- 安全加固:`/files` 和 `/dav/` 增加 `Content-Security-Policy: sandbox` 响应头,经 WebDAV 上传的 HTML/SVG 文件被打开时不再能以 app 同源执行脚本窃取存储的 API key(闭合该提权链);图片/文本/下载预览不受影响
+- `/files`、`/dav/`、`/var/log/` 三个 location 补 `X-Content-Type-Options: nosniff` 响应头
 
 ### v1.2.2(2026-08-14)
 
